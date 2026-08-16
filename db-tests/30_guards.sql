@@ -284,3 +284,52 @@ begin
     t.as_value(t.id('renter'), 'select count(*)::text from favorites') = '0',
     'из избранного можно удалить');
 end $$;
+
+-- ── Каталог без входа ─────────────────────────────────────────
+-- Аноним должен увидеть витрину, но не личные данные и не сделки.
+
+do $$
+begin
+  perform t.assert(
+    t.as_anon('select count(*)::text from items where status = ''active''')::int >= 1,
+    'аноним видит активные объявления');
+
+  perform t.assert(
+    t.as_anon('select count(*)::text from categories') = '8',
+    'аноним видит справочник категорий');
+
+  perform t.assert(
+    t.as_anon(format('select full_name from users where id = %L', t.id('owner')))
+      = 'Ержан Владелец',
+    'аноним видит имя владельца — без него карточка бессмысленна');
+end $$;
+
+-- Телефон закрыт грантом на колонки, а не политикой: строка видна, поле нет.
+select t.anon_fails(
+  format('select phone from users where id = %L', t.id('owner')),
+  'permission denied');
+
+-- Сделки, выплаты и уведомления анониму закрыты целиком.
+do $$
+begin
+  perform t.assert(t.as_anon('select count(*)::text from bookings') = '0',
+    'аноним не видит ни одной сделки');
+  perform t.assert(t.as_anon('select count(*)::text from payouts') = '0',
+    'аноним не видит начислений');
+  perform t.assert(t.as_anon('select count(*)::text from notifications') = '0',
+    'аноним не видит уведомлений');
+end $$;
+
+-- Скрытое объявление остаётся скрытым.
+select t.as(t.id('owner'), format(
+  'update items set status = ''hidden'' where id = %L', t.id('item_cheap')));
+
+do $$
+begin
+  perform t.assert(
+    t.as_anon(format('select count(*)::text from items where id = %L', t.id('item_cheap'))) = '0',
+    'снятое с публикации объявление анониму не видно');
+end $$;
+
+select t.as(t.id('owner'), format(
+  'update items set status = ''active'' where id = %L', t.id('item_cheap')));

@@ -103,7 +103,12 @@ export default function Catalog() {
   // «думает» полсекунды, воспринимается как несработавшее нажатие.
   const flipFavorite = useCallback(
     async (itemId: string) => {
-      if (!session) return;
+      // Без входа сердечко ведёт на вход, а не молчит: молчащая кнопка
+      // читается как поломка.
+      if (!session) {
+        router.push('/sign-in');
+        return;
+      }
       const on = !favorites.includes(itemId);
       setFavorites((prev) => (on ? [...prev, itemId] : prev.filter((x) => x !== itemId)));
       try {
@@ -197,11 +202,13 @@ export default function Catalog() {
               <Text style={s.priceLabel}>₸ / сутки</Text>
             </View>
 
-            <Chip
-              label={onlyFavorites ? '♥ Избранное' : '♡ Избранное'}
-              selected={onlyFavorites}
-              onPress={() => setOnlyFavorites((v) => !v)}
-            />
+            {session ? (
+              <Chip
+                label={onlyFavorites ? '♥ Избранное' : '♡ Избранное'}
+                selected={onlyFavorites}
+                onPress={() => setOnlyFavorites((v) => !v)}
+              />
+            ) : null}
           </View>
         </View>
       ) : null}

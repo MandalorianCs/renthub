@@ -274,12 +274,18 @@ export default function ItemScreen() {
           )}
         </View>
         <View style={{ minWidth: 150 }}>
-          <Button
-            title="Забронировать"
-            onPress={book}
-            loading={submitting}
-            disabled={!isVerified || days <= 0 || !start || !end}
-          />
+          {session ? (
+            <Button
+              title="Забронировать"
+              onPress={book}
+              loading={submitting}
+              disabled={!isVerified || days <= 0 || !start || !end}
+            />
+          ) : (
+            // Вход просим в последний момент, а не на входе в приложение:
+            // человек уже посмотрел вещь и знает, за чем идёт.
+            <Button title="Войти и забронировать" onPress={() => router.push('/sign-in')} />
+          )}
         </View>
       </View>
     ) : null}

@@ -88,6 +88,49 @@ begin
 end
 $$;
 
+-- Аноним: без jwt-claims и с ролью anon. Именно так приходит человек,
+-- открывший каталог до регистрации.
+create or replace function t.as_anon(p_sql text) returns text
+language plpgsql
+as $$
+declare
+  v_result text;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  execute 'set local role anon';
+  execute p_sql into v_result;
+  execute 'reset role';
+  return v_result;
+end
+$$;
+
+create or replace function t.anon_fails(p_sql text, p_expect text default null)
+returns text
+language plpgsql
+as $$
+declare
+  v_msg text;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    execute 'set local role anon';
+    execute p_sql;
+    execute 'reset role';
+    raise exception 'T_UNEXPECTED_SUCCESS: аноним смог выполнить — %', p_sql;
+  exception
+    when others then
+      get stacked diagnostics v_msg = message_text;
+      if v_msg like 'T_UNEXPECTED_SUCCESS%' then raise; end if;
+  end;
+  execute 'reset role';
+  if p_expect is not null and position(p_expect in v_msg) = 0 then
+    raise exception 'ПРОВАЛ: ждали «%», получили «%»', p_expect, v_msg;
+  end if;
+  raise notice '  ok  анониму отказано: %', left(v_msg, 80);
+  return v_msg;
+end
+$$;
+
 -- Фиксированные идентификаторы: сценарии должны быть воспроизводимыми,
 -- а не зависеть от того, какой uuid выпал.
 create or replace function t.id(p_kind text) returns uuid

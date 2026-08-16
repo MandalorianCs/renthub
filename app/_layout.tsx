@@ -28,9 +28,20 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
 
-    const onAuthScreen = segments[0] === 'sign-in';
+    // useSegments типизирован кортежем известной длины, а нам нужен
+    // произвольный индекс — маршрут может быть любой глубины.
+    const seg = segments as string[];
+    const onAuthScreen = seg[0] === 'sign-in';
 
-    if (!session && !onAuthScreen) router.replace('/sign-in');
+    // Каталог и карточка объявления открыты без входа: человек должен
+    // увидеть, что перфораторы вообще есть, до того как введёт номер и
+    // будет ждать SMS. Всё остальное — свои сделки, свои вещи, профиль —
+    // без сессии бессмысленно и требует входа.
+    const inCatalog = seg[0] === '(tabs)' && (!seg[1] || seg[1] === 'index');
+    const inItemCard = seg[0] === 'item' && seg[1] === '[id]';
+    const isPublic = inCatalog || inItemCard;
+
+    if (!session && !onAuthScreen && !isPublic) router.replace('/sign-in');
     if (session && onAuthScreen) router.replace('/');
   }, [session, loading, segments, router]);
 
