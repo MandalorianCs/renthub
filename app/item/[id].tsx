@@ -1,6 +1,15 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { Calendar, toISO } from '../../src/components/Calendar';
 import { Badge, Button, Card, Empty, Loader, Row } from '../../src/components/ui';
 import { createBooking, fetchItem, fetchItemCalendar } from '../../src/lib/api';
@@ -9,13 +18,15 @@ import { formatDateRange, formatTenge, ratingLabel } from '../../src/lib/format'
 import { calcPrice, countDays } from '../../src/lib/pricing';
 import { humanizeError } from '../../src/lib/supabase';
 import type { BusyRange, ItemWithOwner } from '../../src/lib/types';
-import { colors, radius, spacing, typeface } from '../../src/theme';
+import { colors, elevation, radius, spacing, typeface } from '../../src/theme';
 
 /** Экран 3: карточка объявления + бронирование. */
 export default function ItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { session, isVerified } = useAuth();
+  const { width } = useWindowDimensions();
+  const galleryWidth = width - 32;
 
   const [item, setItem] = useState<ItemWithOwner | null>(null);
   const [busyDates, setBusyDates] = useState<BusyRange[]>([]);
@@ -25,6 +36,7 @@ export default function ItemScreen() {
   const [end, setEnd] = useState<string | null>(null);
   const [insurance, setInsurance] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -85,13 +97,36 @@ export default function ItemScreen() {
   }
 
   return (
+    <View style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={s.container}>
       {item.condition_photos.length > 0 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.gallery}>
-          {item.condition_photos.map((uri) => (
-            <Image key={uri} source={{ uri }} style={s.photo} />
-          ))}
-        </ScrollView>
+        <View style={s.galleryWrap}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e) =>
+              setPhotoIndex(Math.round(e.nativeEvent.contentOffset.x / galleryWidth))
+            }
+          >
+            {item.condition_photos.map((uri) => (
+              <Image
+                key={uri}
+                source={{ uri }}
+                style={{ width: galleryWidth, height: galleryWidth * 0.68 }}
+                resizeMode="cover"
+              />
+            ))}
+          </ScrollView>
+
+          {item.condition_photos.length > 1 ? (
+            <View style={s.counter}>
+              <Text style={s.counterText}>
+                {photoIndex + 1} / {item.condition_photos.length}
+              </Text>
+            </View>
+          ) : null}
+        </View>
       ) : null}
 
       <View style={{ gap: spacing.sm }}>
@@ -101,13 +136,18 @@ export default function ItemScreen() {
       </View>
 
       <Card>
-        <Row left="Владелец" right={item.owner?.full_name ?? 'Без имени'} />
-        <Row
-          left="Рейтинг"
-          right={ratingLabel(item.owner?.rating ?? null, item.owner?.ratings_count ?? 0)}
-          muted
-        />
-        <Row left="Депозит" right={formatTenge(item.deposit_amount)} />
+        <View style={s.owner}>
+          <View style={s.avatar}>
+            <Text style={s.avatarText}>{initials(item.owner?.full_name)}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.ownerName}>{item.owner?.full_name ?? 'Без имени'}</Text>
+            <Text style={s.ownerMeta}>
+              {ratingLabel(item.owner?.rating ?? null, item.owner?.ratings_count ?? 0)}
+            </Text>
+          </View>
+        </View>
+        <Row left="Депозит (блокируется)" right={formatTenge(item.deposit_amount)} />
       </Card>
 
       {/* Календарь занятости показывается всегда, а не только когда есть
@@ -198,13 +238,6 @@ export default function ItemScreen() {
             <Badge label="Подтвердите телефон, чтобы бронировать" fg={colors.warn} bg={colors.warnSoft} />
           ) : null}
 
-          <Button
-            title="Забронировать"
-            onPress={book}
-            loading={submitting}
-            disabled={!isVerified || days <= 0 || !start || !end}
-          />
-
           <Text style={s.note}>
             Деньги на этом этапе не списываются — MVP эмулирует денежный поток статусами.
           </Text>
@@ -213,7 +246,46 @@ export default function ItemScreen() {
 
       {error ? <Text style={s.error}>{error}</Text> : null}
     </ScrollView>
+
+    {/* Закреплённая панель: цена и действие остаются на экране, пока
+        человек листает описание и календарь. Иначе, докрутив вниз, он
+        теряет из виду, сколько это стоит. */}
+    {!isOwnItem ? (
+      <View style={s.sticky}>
+        <View style={{ flex: 1 }}>
+          {price && days > 0 && start && end ? (
+            <>
+              <Text style={s.stickyTotal}>{formatTenge(price.renterTotal)}</Text>
+              <Text style={s.stickyMeta}>
+                {formatDateRange(start, end)} · {days} дн.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={s.stickyTotal}>{formatTenge(item.daily_price)}</Text>
+              <Text style={s.stickyMeta}>за сутки · выберите даты</Text>
+            </>
+          )}
+        </View>
+        <View style={{ minWidth: 150 }}>
+          <Button
+            title="Забронировать"
+            onPress={book}
+            loading={submitting}
+            disabled={!isVerified || days <= 0 || !start || !end}
+          />
+        </View>
+      </View>
+    ) : null}
+    </View>
   );
+}
+
+/** Инициалы для аватара: два символа читаются лучше, чем один. */
+function initials(name?: string | null): string {
+  if (!name) return '—';
+  const parts = name.trim().split(' ').filter(Boolean);
+  return parts.slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '—';
 }
 
 function todayISO(): string {
@@ -227,8 +299,48 @@ function addDaysISO(iso: string, days: number): string {
 }
 
 const s = StyleSheet.create({
-  container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
-  gallery: { flexGrow: 0 },
+  container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: 120 },
+  galleryWrap: { borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.border },
+  counter: {
+    position: 'absolute',
+    right: spacing.md,
+    bottom: spacing.md,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(26,25,23,0.62)',
+  },
+  counterText: { fontSize: 12, fontFamily: typeface[700], color: '#FFFFFF' },
+  owner: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { fontSize: 15, fontFamily: typeface[800], color: colors.accent },
+  ownerName: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
+  ownerMeta: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted },
+  sticky: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    ...elevation.raised,
+  },
+  stickyTotal: { fontSize: 20, fontFamily: typeface[800], color: colors.text },
+  stickyMeta: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
   photo: { width: 240, height: 180, borderRadius: radius.lg, marginRight: spacing.md, backgroundColor: colors.border },
   title: { fontSize: 24, fontFamily: typeface[800], color: colors.text },
   price: { fontSize: 18, fontFamily: typeface[800], color: colors.accent },
