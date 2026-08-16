@@ -142,7 +142,7 @@ export default function ItemScreen() {
       </View>
 
       <Card>
-        <View style={s.owner}>
+        <Pressable style={s.owner} onPress={() => router.push(`/owner/${item.owner_id}`)}>
           <View style={s.avatar}>
             <Text style={s.avatarText}>{initials(item.owner?.full_name)}</Text>
           </View>
@@ -152,7 +152,8 @@ export default function ItemScreen() {
               {ratingLabel(item.owner?.rating ?? null, item.owner?.ratings_count ?? 0)}
             </Text>
           </View>
-        </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
         <Row left="Депозит (блокируется)" right={formatTenge(item.deposit_amount)} />
       </Card>
 

@@ -4,6 +4,8 @@ import type {
   BookingWithItem,
   BusyRange,
   Category,
+  PublicProfile,
+  ReviewWithAuthor,
   Dispute,
   Item,
   ItemWithOwner,
@@ -124,6 +126,47 @@ export async function createItem(input: {
 export async function setItemStatus(id: string, status: 'active' | 'hidden') {
   const { error } = await supabase.from('items').update({ status }).eq('id', id);
   if (error) throw error;
+}
+
+// ── Публичный профиль владельца ───────────────────────────────
+
+/**
+ * Всё, что нужно, чтобы решиться отдать незнакомцу вещь за 90 000 ₸:
+ * кто он, как его оценили другие и что ещё он сдаёт.
+ *
+ * Телефон сюда не входит и войти не может: анониму он закрыт грантом
+ * на колонки, а авторизованному не нужен до подтверждения брони.
+ */
+export async function fetchPublicProfile(userId: string): Promise<PublicProfile | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, full_name, rating, ratings_count, created_at')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as unknown as PublicProfile) ?? null;
+}
+
+export async function fetchOwnerItems(ownerId: string): Promise<Item[]> {
+  const { data, error } = await supabase
+    .from('items')
+    .select('*')
+    .eq('owner_id', ownerId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchReviewsAbout(userId: string): Promise<ReviewWithAuthor[]> {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('*, author:users!reviews_from_user_id_fkey(id, full_name)')
+    .eq('to_user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(30);
+  if (error) throw error;
+  return (data ?? []) as unknown as ReviewWithAuthor[];
 }
 
 // ── Избранное ─────────────────────────────────────────────────

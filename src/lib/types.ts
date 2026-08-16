@@ -87,6 +87,10 @@ export type BookingWithItem = Booking & {
   item: Pick<Item, 'id' | 'title' | 'condition_photos' | 'category'> | null;
 };
 
+export type ReviewWithAuthor = Review & {
+  author: { id: string; full_name: string | null } | null;
+};
+
 export type Payout = {
   id: string;
   booking_id: string;
@@ -107,6 +111,18 @@ export type Payout = {
 export type BusyRange = {
   start_date: string;
   end_date: string;
+};
+
+/**
+ * Профиль в том объёме, в каком его видит посторонний. Телефона здесь нет
+ * не потому, что забыли: анониму он закрыт грантом на колонки в базе.
+ */
+export type PublicProfile = {
+  id: string;
+  full_name: string | null;
+  rating: number | null;
+  ratings_count: number;
+  created_at: string;
 };
 
 export type Review = {

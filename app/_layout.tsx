@@ -39,7 +39,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     // без сессии бессмысленно и требует входа.
     const inCatalog = seg[0] === '(tabs)' && (!seg[1] || seg[1] === 'index');
     const inItemCard = seg[0] === 'item' && seg[1] === '[id]';
-    const isPublic = inCatalog || inItemCard;
+    const inOwnerCard = seg[0] === 'owner' && seg[1] === '[id]';
+    const isPublic = inCatalog || inItemCard || inOwnerCard;
 
     if (!session && !onAuthScreen && !isPublic) router.replace('/sign-in');
     if (session && onAuthScreen) router.replace('/');
@@ -89,6 +90,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="sign-in" options={{ headerShown: false }} />
             <Stack.Screen name="item/[id]" options={{ title: 'Объявление' }} />
+            <Stack.Screen name="owner/[id]" options={{ title: 'Владелец' }} />
             <Stack.Screen name="item/new" options={{ title: 'Новое объявление' }} />
             <Stack.Screen name="booking/[id]" options={{ title: 'Сделка' }} />
             <Stack.Screen name="notifications" options={{ title: 'Уведомления' }} />

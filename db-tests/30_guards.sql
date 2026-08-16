@@ -333,3 +333,12 @@ end $$;
 
 select t.as(t.id('owner'), format(
   'update items set status = ''active'' where id = %L', t.id('item_cheap')));
+
+-- Отзывы — часть витрины: рейтинг без них цифра без объяснения.
+do $$
+begin
+  perform t.assert(
+    t.as_anon(format('select count(*)::text from reviews where to_user_id = %L',
+      t.id('owner')))::int >= 1,
+    'аноним читает отзывы о владельце');
+end $$;
