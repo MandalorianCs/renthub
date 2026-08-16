@@ -12,6 +12,12 @@ type AuthState = {
   isVerified: boolean;
   sendCode: (phone: string) => Promise<void>;
   verifyCode: (phone: string, code: string) => Promise<void>;
+  /**
+   * Только для тестов без SMS-провайдера: аккаунты заводятся скриптом
+   * scripts/seed-test-users.mjs с готовым паролем. В интерфейсе доступно
+   * лишь под __DEV__ — в production-сборку эта ветка не попадает.
+   */
+  signInWithPassword: (phone: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -67,6 +73,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           phone: normalizePhone(phone),
           token: code,
           type: 'sms',
+        });
+        if (error) throw error;
+      },
+      signInWithPassword: async (phone, password) => {
+        const { error } = await supabase.auth.signInWithPassword({
+          phone: normalizePhone(phone),
+          password,
         });
         if (error) throw error;
       },

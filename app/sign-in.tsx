@@ -4,7 +4,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Field } from '../src/components/ui';
 import { useAuth } from '../src/lib/auth';
 import { humanizeError } from '../src/lib/supabase';
-import { colors, spacing } from '../src/theme';
+import { colors, radius, spacing } from '../src/theme';
+
+/**
+ * Тестовые аккаунты из scripts/seed-test-users.mjs. Номера — из диапазона,
+ * который не выдаётся абонентам, поэтому даже с подключённым провайдером
+ * SMS на них не уйдёт.
+ */
+const TEST_ACCOUNTS = [
+  { label: 'Владелец', phone: '+77000000001' },
+  { label: 'Арендатор', phone: '+77000000002' },
+];
 
 /**
  * Экран 1: вход по телефону.
@@ -87,9 +97,73 @@ export default function SignIn() {
           )}
 
           {error ? <Text style={s.error}>{error}</Text> : null}
+
+          {__DEV__ ? <DevLogin onError={setError} /> : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * Вход по паролю для тестовых аккаунтов — обход SMS, пока не подключён
+ * провайдер. Отрисовывается только под __DEV__: в production-сборке
+ * (expo export, EAS Build) эта ветка недостижима и вырезается бандлером.
+ *
+ * Пунктирная рамка — не украшение: блок должен выглядеть инородно, чтобы
+ * его нельзя было принять за часть продукта и случайно оставить.
+ */
+function DevLogin({ onError }: { onError: (message: string | null) => void }) {
+  const { signInWithPassword } = useAuth();
+  const [phone, setPhone] = useState(TEST_ACCOUNTS[0].phone);
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <View style={s.dev}>
+      <Text style={s.devTitle}>Тестовый вход — только в разработке</Text>
+      <Text style={s.devNote}>
+        Аккаунты созданы скриптом `npm run seed:users`. SMS-провайдер для них не нужен.
+      </Text>
+
+      <View style={s.devRow}>
+        {TEST_ACCOUNTS.map((a) => (
+          <View key={a.phone} style={{ flex: 1 }}>
+            <Button
+              title={a.label}
+              variant={phone === a.phone ? 'secondary' : 'ghost'}
+              onPress={() => setPhone(a.phone)}
+            />
+          </View>
+        ))}
+      </View>
+
+      <Field
+        label="Пароль"
+        placeholder="test-…"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        hint={`Войти как ${phone}`}
+      />
+
+      <Button
+        title="Войти по паролю"
+        loading={busy}
+        disabled={password.length === 0}
+        onPress={async () => {
+          setBusy(true);
+          onError(null);
+          try {
+            await signInWithPassword(phone, password);
+          } catch (e) {
+            onError(humanizeError(e));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+    </View>
   );
 }
 
@@ -101,4 +175,15 @@ const s = StyleSheet.create({
   tagline: { fontSize: 16, color: colors.textMuted, lineHeight: 24 },
   form: { gap: spacing.lg },
   error: { color: colors.danger, fontSize: 14, textAlign: 'center' },
+  dev: {
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+  },
+  devTitle: { fontSize: 13, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5 },
+  devNote: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
+  devRow: { flexDirection: 'row', gap: spacing.sm },
 });
