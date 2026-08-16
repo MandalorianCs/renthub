@@ -7,7 +7,7 @@ import { useAuth } from '../../src/lib/auth';
 import { formatDateRange, formatTenge, ratingLabel } from '../../src/lib/format';
 import { calcPrice, countDays } from '../../src/lib/pricing';
 import { humanizeError } from '../../src/lib/supabase';
-import type { Booking, ItemWithOwner } from '../../src/lib/types';
+import type { BusyRange, ItemWithOwner } from '../../src/lib/types';
 import { colors, radius, spacing } from '../../src/theme';
 
 /** Экран 3: карточка объявления + бронирование. */
@@ -17,7 +17,7 @@ export default function ItemScreen() {
   const { session, isVerified } = useAuth();
 
   const [item, setItem] = useState<ItemWithOwner | null>(null);
-  const [busyDates, setBusyDates] = useState<Booking[]>([]);
+  const [busyDates, setBusyDates] = useState<BusyRange[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [start, setStart] = useState(todayISO());
@@ -109,21 +109,27 @@ export default function ItemScreen() {
         <Row left="Депозит" right={formatTenge(item.deposit_amount)} />
       </Card>
 
-      {/* Календарь занятости — сырые данные, а не сводка от платформы:
-          и арендатор, и владелец видят одно и то же. */}
-      {busyDates.length > 0 ? (
-        <Card>
-          <Text style={s.sectionTitle}>Занятые даты</Text>
-          {busyDates.map((b) => (
+      {/* Календарь занятости показывается всегда, а не только когда есть
+          брони: «свободно» и «неизвестно» обязаны выглядеть по-разному,
+          иначе человек выбирает даты вслепую. */}
+      <Card>
+        <Text style={s.sectionTitle}>Занятость</Text>
+        {busyDates.length > 0 ? (
+          busyDates.map((b) => (
             <Row
-              key={b.id}
+              key={`${b.start_date}-${b.end_date}`}
               left={formatDateRange(b.start_date, b.end_date)}
-              right={b.status === 'active' ? 'в аренде' : 'забронировано'}
+              right="занято"
               muted
             />
-          ))}
-        </Card>
-      ) : null}
+          ))
+        ) : (
+          <View style={s.freeRow}>
+            <View style={s.freeDot} />
+            <Text style={s.freeText}>Свободно на любые даты</Text>
+          </View>
+        )}
+      </Card>
 
       {isOwnItem ? (
         <Card>
@@ -144,7 +150,7 @@ export default function ItemScreen() {
                   setEnd(addDaysISO(todayISO(), n - 1));
                 }}
               >
-                <Text style={[s.presetText, days === n && { color: colors.bg }]}>{n} дн.</Text>
+                <Text style={[s.presetText, days === n && { color: '#FFFFFF' }]}>{n} дн.</Text>
               </Pressable>
             ))}
           </View>
@@ -224,10 +230,13 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  presetActive: { backgroundColor: colors.text, borderColor: colors.text },
+  presetActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   presetText: { fontSize: 13, fontWeight: '600', color: colors.text },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   switchLabel: { fontSize: 15, fontWeight: '600', color: colors.text },
   breakdown: { gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md },
   error: { color: colors.danger, fontSize: 14 },
+  freeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  freeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green },
+  freeText: { fontSize: 14, color: colors.green, fontWeight: '600' },
 });

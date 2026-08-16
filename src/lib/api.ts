@@ -2,6 +2,7 @@ import { PILOT_CITY, supabase } from './supabase';
 import type {
   Booking,
   BookingWithItem,
+  BusyRange,
   Category,
   Dispute,
   Item,
@@ -110,19 +111,18 @@ export async function setItemStatus(id: string, status: 'active' | 'hidden') {
 // ── Календарь занятости ───────────────────────────────────────
 
 /**
- * Владелец видит те же сырые данные, что и платформа — не сводку
- * постфактум. Это и есть ответ на «а вдруг вы сдали мою вещь на 5 дней,
- * а говорите про 30».
+ * Занятые даты объявления.
+ *
+ * Идёт через RPC, а не через `from('bookings')`: политика RLS показывает
+ * бронь только её сторонам, поэтому прямой запрос возвращал потенциальному
+ * арендатору пустой список — то есть календарь был пуст ровно для того,
+ * кому он нужен. Функция отдаёт только границы интервалов, без сторон
+ * сделки и сумм.
  */
-export async function fetchItemCalendar(itemId: string): Promise<Booking[]> {
-  const { data, error } = await supabase
-    .from('bookings')
-    .select('*')
-    .eq('item_id', itemId)
-    .in('status', ['pending', 'confirmed', 'active'])
-    .order('start_date');
+export async function fetchItemCalendar(itemId: string): Promise<BusyRange[]> {
+  const { data, error } = await supabase.rpc('item_busy_dates', { p_item_id: itemId });
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as BusyRange[];
 }
 
 // ── Бронирования ──────────────────────────────────────────────

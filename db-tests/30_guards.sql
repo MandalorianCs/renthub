@@ -178,6 +178,33 @@ begin
     'отменённая бронь освободила даты для другого арендатора');
 end $$;
 
+-- ── Занятые даты видны тому, кто ещё не участник ──────────────
+-- Сама бронь посторонним закрыта (проверено выше), но выбирающий даты
+-- обязан видеть, что занято. Иначе он упрётся в ограничение уже после
+-- нажатия «Забронировать».
+
+do $$
+begin
+  perform t.assert(
+    t.as_value(t.id('stranger'),
+      format('select count(*)::text from item_busy_dates(%L)', t.id('item'))) = '1',
+    'посторонний видит занятый интервал через item_busy_dates');
+
+  -- Проверяем саму сигнатуру: security definer обходит RLS, поэтому
+  -- гарантией приватности здесь служит то, что функция физически не
+  -- может вернуть ничего, кроме двух дат.
+  perform t.assert(
+    (select pg_get_function_result(oid) = 'TABLE(start_date date, end_date date)'
+       from pg_proc where proname = 'item_busy_dates'),
+    'функция отдаёт только даты — ни арендатора, ни сумм');
+
+  perform t.assert(
+    t.as_value(t.id('stranger'),
+      format('select (start_date is not null and end_date is not null)::text
+                from item_busy_dates(%L) limit 1', t.id('item'))) = 'true',
+    'обе границы интервала заполнены');
+end $$;
+
 -- Убираем за собой, чтобы не мешать следующим сценариям.
 select t.as(t.id('stranger'), format($sql$
   update bookings set status = 'cancelled'

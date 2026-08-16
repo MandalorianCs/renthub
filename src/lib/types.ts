@@ -99,6 +99,16 @@ export type Payout = {
   released_at: string | null;
 };
 
+/**
+ * Занятый интервал объявления. Намеренно беднее Booking: RPC item_busy_dates
+ * отдаёт только границы, потому что чужая бронь — не наше дело, а вот занятые
+ * даты обязан видеть каждый, кто выбирает срок.
+ */
+export type BusyRange = {
+  start_date: string;
+  end_date: string;
+};
+
 export type Review = {
   id: string;
   booking_id: string;

@@ -13,7 +13,7 @@
 // содержит кириллицу и пробелы, и docker -v на нём ведёт себя непредсказуемо.
 
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,11 +25,18 @@ const KEEP = process.argv.includes('--keep');
 
 // Порядок ровно как в README: сначала платформенная заглушка, потом миграции,
 // потом сценарии. Если что-то падает — падает на своём шаге, а не «где-то в SQL».
+// Миграции не перечисляются руками: список читается из папки в том же
+// порядке, в каком их применит Supabase — по имени файла. Иначе новая
+// миграция молча выпадала бы из прогона, и стенд подтверждал бы схему,
+// которой на проекте уже нет.
+const migrations = readdirSync(join(ROOT, 'supabase', 'migrations'))
+  .filter((f) => f.endsWith('.sql'))
+  .sort()
+  .map((f) => [`миграция — ${f.replace(/^\d+_/, '').replace(/\.sql$/, '')}`, `supabase/migrations/${f}`]);
+
 const STEPS = [
   ['заглушка платформы Supabase', 'db-tests/00_platform_shim.sql'],
-  ['миграция — схема', 'supabase/migrations/20260816120000_schema.sql'],
-  ['миграция — Trust Score', 'supabase/migrations/20260816120100_trust_score.sql'],
-  ['миграция — RLS и Storage', 'supabase/migrations/20260816120200_rls.sql'],
+  ...migrations,
   ['помощники и регистрация', 'db-tests/10_helpers.sql'],
   ['сценарий 1 — обычная сделка', 'db-tests/20_happy_path.sql'],
   ['сценарий 2 — запреты', 'db-tests/30_guards.sql'],
