@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Link, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -9,20 +10,31 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { Empty, ErrorState, Loader } from '../../src/components/ui';
-import { fetchCatalog, fetchCategories, fetchFavoriteIds, toggleFavorite } from '../../src/lib/api';
 import type { CatalogSort } from '../../src/lib/api';
+import { fetchCatalog, fetchCategories, fetchFavoriteIds, toggleFavorite } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { formatTenge, ratingLabel } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
-import { useRefresh } from '../../src/lib/useRefresh';
 import type { Category, ItemWithOwner } from '../../src/lib/types';
+import { useRefresh } from '../../src/lib/useRefresh';
 import { colors, elevation, radius, spacing } from '../../src/theme';
 
-/** Экран 2: каталог — поиск и фильтр по категории. */
+/**
+ * Экран 2: каталог.
+ *
+ * Витрина, а не список записей: решение принимают по фото и цене, поэтому
+ * они и занимают карточку. Название — вторым слоем, доверие (рейтинг и
+ * число сделок) — третьим, депозит — последним: он важен уже после выбора.
+ *
+ * Управление свёрнуто. Поиск и категории видны всегда, сортировка и цена
+ * прячутся под «Фильтры»: иначе четыре этажа контролов съедают первый
+ * экран целиком, и товара на нём не остаётся.
+ */
+
 const SORTS: { key: CatalogSort; label: string }[] = [
   { key: 'new', label: 'Новые' },
   { key: 'price_asc', label: 'Сначала дешёвые' },
@@ -32,14 +44,21 @@ const SORTS: { key: CatalogSort; label: string }[] = [
 export default function Catalog() {
   const router = useRouter();
   const { session } = useAuth();
+  const { width } = useWindowDimensions();
+
+  // Телефон — две колонки, планшет — три, широкий веб — четыре.
+  const columns = width < 560 ? 2 : width < 940 ? 3 : 4;
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [active, setActive] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [items, setItems] = useState<ItemWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [sort, setSort] = useState<CatalogSort>('new');
   const [maxPrice, setMaxPrice] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [onlyFavorites, setOnlyFavorites] = useState(false);
 
@@ -62,10 +81,23 @@ export default function Catalog() {
     }
   }, [active, search, sort, maxPrice, onlyFavorites, favorites]);
 
+  const { refreshing, onRefresh } = useRefresh(load);
+
+  useEffect(() => {
+    fetchCategories().then(setCategories).catch(() => setCategories([]));
+  }, []);
+
   useEffect(() => {
     if (!session) return;
     fetchFavoriteIds(session.user.id).then(setFavorites).catch(() => setFavorites([]));
   }, [session]);
+
+  useEffect(() => {
+    // Задержка вместо запроса на каждую букву: иначе каталог дёргается
+    // на каждом нажатии клавиши.
+    const t = setTimeout(load, search ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [load, search]);
 
   // Переключаем сразу в состоянии, не дожидаясь ответа: сердечко, которое
   // «думает» полсекунды, воспринимается как несработавшее нажатие.
@@ -83,21 +115,14 @@ export default function Catalog() {
     [session, favorites],
   );
 
-  const { refreshing, onRefresh } = useRefresh(load);
-
-  useEffect(() => {
-    fetchCategories().then(setCategories).catch(() => setCategories([]));
-  }, []);
-
-  useEffect(() => {
-    // Небольшая задержка вместо запроса на каждую букву: иначе каталог
-    // дёргается на каждом нажатии клавиши.
-    const t = setTimeout(load, search ? 300 : 0);
-    return () => clearTimeout(t);
-  }, [load, search]);
+  const activeFilters = useMemo(
+    () => (sort !== 'new' ? 1 : 0) + (maxPrice ? 1 : 0) + (onlyFavorites ? 1 : 0),
+    [sort, maxPrice, onlyFavorites],
+  );
 
   return (
     <View style={s.screen}>
+      {/* ── Поиск ─────────────────────────────────────────── */}
       <View style={s.searchWrap}>
         <View style={s.search}>
           <Ionicons name="search" size={18} color={colors.textMuted} />
@@ -116,11 +141,8 @@ export default function Catalog() {
         </View>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.chips}
-      >
+      {/* ── Категории ─────────────────────────────────────── */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
         <Chip label="Все" selected={active === null} onPress={() => setActive(null)} />
         {categories.map((c) => (
           <Chip
@@ -132,46 +154,80 @@ export default function Catalog() {
         ))}
       </ScrollView>
 
-      <View style={s.filters}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
-          {SORTS.map((o) => (
-            <Chip key={o.key} label={o.label} selected={sort === o.key} onPress={() => setSort(o.key)} />
-          ))}
-          <Chip
-            label={onlyFavorites ? '♥ Избранное' : '♡ Избранное'}
-            selected={onlyFavorites}
-            onPress={() => setOnlyFavorites((v) => !v)}
-          />
-        </ScrollView>
-        <View style={s.priceWrap}>
-          <Text style={s.priceLabel}>до</Text>
-          <TextInput
-            value={maxPrice}
-            onChangeText={setMaxPrice}
-            placeholder="цена"
-            placeholderTextColor={colors.textMuted}
-            keyboardType="number-pad"
-            style={s.priceInput}
-          />
-          <Text style={s.priceLabel}>₸/сут</Text>
-        </View>
+      {/* ── Сколько нашли + вход в фильтры ────────────────── */}
+      <View style={s.bar}>
+        <Text style={s.count}>
+          {loading ? ' ' : items.length > 0 ? `${items.length} ${plural(items.length)}` : ''}
+        </Text>
+        <Pressable style={s.filterBtn} onPress={() => setShowFilters((v) => !v)} hitSlop={6}>
+          <Ionicons name="options-outline" size={16} color={colors.text} />
+          <Text style={s.filterBtnText}>Фильтры</Text>
+          {activeFilters > 0 ? (
+            <View style={s.badge}>
+              <Text style={s.badgeText}>{activeFilters}</Text>
+            </View>
+          ) : null}
+        </Pressable>
       </View>
 
+      {showFilters ? (
+        <View style={s.panel}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+            {SORTS.map((o) => (
+              <Chip
+                key={o.key}
+                label={o.label}
+                selected={sort === o.key}
+                onPress={() => setSort(o.key)}
+              />
+            ))}
+          </ScrollView>
+
+          <View style={s.panelRow}>
+            <View style={s.priceWrap}>
+              <Text style={s.priceLabel}>до</Text>
+              <TextInput
+                value={maxPrice}
+                onChangeText={setMaxPrice}
+                placeholder="цена"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="number-pad"
+                style={s.priceInput}
+              />
+              <Text style={s.priceLabel}>₸ / сутки</Text>
+            </View>
+
+            <Chip
+              label={onlyFavorites ? '♥ Избранное' : '♡ Избранное'}
+              selected={onlyFavorites}
+              onPress={() => setOnlyFavorites((v) => !v)}
+            />
+          </View>
+        </View>
+      ) : null}
+
+      {/* ── Витрина ───────────────────────────────────────── */}
       {loading ? (
         <Loader />
       ) : error ? (
         <ErrorState message={error} onRetry={load} />
       ) : (
         <FlatList
+          // numColumns нельзя менять на лету — список не перестроится.
+          // Смена key заставляет React пересоздать его при повороте
+          // экрана или изменении ширины окна в вебе.
+          key={`cols-${columns}`}
+          numColumns={columns}
           data={items}
           keyExtractor={(i) => i.id}
           contentContainerStyle={s.list}
+          columnWrapperStyle={s.column}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
           }
           ListEmptyComponent={
             <Empty
-              icon="cube-outline"
+              icon={onlyFavorites ? 'heart-outline' : 'cube-outline'}
               title={onlyFavorites ? 'В избранном пусто' : search ? 'Ничего не нашлось' : 'Пока пусто'}
               body={
                 onlyFavorites
@@ -183,44 +239,90 @@ export default function Catalog() {
             />
           }
           renderItem={({ item }) => (
-            <Pressable onPress={() => router.push(`/item/${item.id}`)} style={s.card}>
-              {item.condition_photos[0] ? (
-                <Image source={{ uri: item.condition_photos[0] }} style={s.photo} />
-              ) : (
-                <View style={[s.photo, s.photoEmpty]}>
-                  <Text style={s.photoEmptyText}>нет фото</Text>
-                </View>
-              )}
-              <View style={s.cardBody}>
-                <View style={s.titleRow}>
-                  <Text style={s.title} numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                  <Pressable onPress={() => flipFavorite(item.id)} hitSlop={10}>
-                    <Ionicons
-                      name={favorites.includes(item.id) ? 'heart' : 'heart-outline'}
-                      size={20}
-                      color={favorites.includes(item.id) ? colors.accent : colors.textMuted}
-                    />
-                  </Pressable>
-                </View>
-                <Text style={s.price}>{formatTenge(item.daily_price)} / сутки</Text>
-                <Text style={s.meta}>
-                  Депозит {formatTenge(item.deposit_amount)} · ★{' '}
-                  {ratingLabel(item.owner?.rating ?? null, item.owner?.ratings_count ?? 0)}
-                </Text>
-              </View>
-            </Pressable>
+            <ItemCard
+              item={item}
+              favorite={favorites.includes(item.id)}
+              onPress={() => router.push(`/item/${item.id}`)}
+              onFavorite={() => flipFavorite(item.id)}
+            />
           )}
         />
       )}
 
       <Link href="/item/new" asChild>
         <Pressable style={s.fab}>
-          <Text style={s.fabText}>+ Сдать вещь</Text>
+          <Ionicons name="add" size={20} color="#FFFFFF" />
+          <Text style={s.fabText}>Сдать вещь</Text>
         </Pressable>
       </Link>
     </View>
+  );
+}
+
+/**
+ * Карточка витрины. Порядок сверху вниз повторяет порядок принятия решения:
+ * фото → цена → что это → кому доверяем → сколько блокируется.
+ */
+function ItemCard({
+  item,
+  favorite,
+  onPress,
+  onFavorite,
+}: {
+  item: ItemWithOwner;
+  favorite: boolean;
+  onPress: () => void;
+  onFavorite: () => void;
+}) {
+  const photo = item.condition_photos[0];
+
+  return (
+    <Pressable style={s.card} onPress={onPress}>
+      <View style={s.photoWrap}>
+        {photo ? (
+          <Image source={{ uri: photo }} style={s.photo} resizeMode="cover" />
+        ) : (
+          <View style={[s.photo, s.photoEmpty]}>
+            <Ionicons name="image-outline" size={26} color={colors.textMuted} />
+          </View>
+        )}
+
+        {item.condition_photos.length > 1 ? (
+          <View style={s.photoCount}>
+            <Ionicons name="images-outline" size={11} color="#FFFFFF" />
+            <Text style={s.photoCountText}>{item.condition_photos.length}</Text>
+          </View>
+        ) : null}
+
+        <Pressable style={s.heart} onPress={onFavorite} hitSlop={8}>
+          <Ionicons
+            name={favorite ? 'heart' : 'heart-outline'}
+            size={17}
+            color={favorite ? colors.accent : colors.text}
+          />
+        </Pressable>
+      </View>
+
+      <View style={s.body}>
+        <Text style={s.price}>
+          {formatTenge(item.daily_price)}
+          <Text style={s.perDay}> / сутки</Text>
+        </Text>
+
+        <Text style={s.title} numberOfLines={2}>
+          {item.title}
+        </Text>
+
+        <View style={s.trust}>
+          <Ionicons name="star" size={12} color={colors.warn} />
+          <Text style={s.trustText}>
+            {ratingLabel(item.owner?.rating ?? null, item.owner?.ratings_count ?? 0)}
+          </Text>
+        </View>
+
+        <Text style={s.deposit}>депозит {formatTenge(item.deposit_amount)}</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -243,8 +345,18 @@ function Chip({
   );
 }
 
+/** 1 объявление, 2 объявления, 5 объявлений — иначе счётчик режет глаз. */
+function plural(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'объявление';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'объявления';
+  return 'объявлений';
+}
+
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
+
   searchWrap: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
   search: {
     flexDirection: 'row',
@@ -258,7 +370,8 @@ const s = StyleSheet.create({
     paddingVertical: 12,
   },
   searchInput: { flex: 1, fontSize: 15, color: colors.text, outlineStyle: 'none' } as object,
-  chips: { paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: spacing.md },
+
+  chips: { paddingHorizontal: spacing.lg, gap: spacing.sm },
   chip: {
     paddingHorizontal: spacing.md,
     paddingVertical: 8,
@@ -268,34 +381,50 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   chipText: { fontSize: 13, fontWeight: '600', color: colors.text },
-  list: { padding: spacing.lg, gap: spacing.md, paddingBottom: 96 },
-  card: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    ...elevation.card,
-  },
-  photo: { width: 88, height: 88, borderRadius: radius.md, backgroundColor: colors.border },
-  photoEmpty: { alignItems: 'center', justifyContent: 'center' },
-  photoEmptyText: { fontSize: 11, color: colors.textMuted },
-  cardBody: { flex: 1, gap: spacing.xs, justifyContent: 'center' },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  title: { flex: 1, fontSize: 16, fontWeight: '700', color: colors.text },
-  filters: { paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: spacing.md },
-  filterRow: { gap: spacing.sm },
-  priceWrap: {
+
+  bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    alignSelf: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
+  count: { fontSize: 13, color: colors.textMuted },
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  filterBtnText: { fontSize: 13, fontWeight: '700', color: colors.text },
+  badge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
+
+  panel: { paddingTop: spacing.md, gap: spacing.md },
+  panelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    flexWrap: 'wrap',
+  },
+  priceWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   priceLabel: { fontSize: 13, color: colors.textMuted },
   priceInput: {
-    minWidth: 84,
+    minWidth: 78,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -306,15 +435,66 @@ const s = StyleSheet.create({
     color: colors.text,
     outlineStyle: 'none',
   } as object,
-  price: { fontSize: 15, fontWeight: '800', color: colors.accent },
-  meta: { fontSize: 12, color: colors.textMuted },
+
+  list: { padding: spacing.lg, gap: spacing.md, paddingBottom: 110 },
+  column: { gap: spacing.md },
+
+  card: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    ...elevation.card,
+  },
+  photoWrap: { width: '100%', aspectRatio: 4 / 3, backgroundColor: colors.border },
+  photo: { width: '100%', height: '100%' },
+  photoEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },
+  photoCount: {
+    position: 'absolute',
+    left: spacing.sm,
+    bottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(26,25,23,0.62)',
+  },
+  photoCountText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+  heart: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  body: { padding: spacing.md, gap: 3 },
+  price: { fontSize: 17, fontWeight: '800', color: colors.text, letterSpacing: -0.3 },
+  perDay: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
+  title: { fontSize: 13, color: colors.text, lineHeight: 18 },
+  trust: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  trustText: { fontSize: 12, color: colors.textMuted },
+  deposit: { fontSize: 11, color: colors.textMuted },
+
   fab: {
     position: 'absolute',
     right: spacing.lg,
     bottom: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     backgroundColor: colors.accent,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: 14,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.lg,
+    paddingVertical: 13,
     borderRadius: radius.pill,
     ...elevation.raised,
   },
