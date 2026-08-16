@@ -32,18 +32,36 @@ export async function fetchCategories(): Promise<Category[]> {
 
 // ── Каталог ───────────────────────────────────────────────────
 
+/** Порядок выдачи каталога. Значения совпадают с подписями в интерфейсе. */
+export type CatalogSort = 'new' | 'price_asc' | 'price_desc';
+
 export async function fetchCatalog(params: {
   category?: string | null;
   search?: string;
+  sort?: CatalogSort;
+  maxPrice?: number | null;
+  onlyIds?: string[] | null;
 }): Promise<ItemWithOwner[]> {
   let query = supabase
     .from('items')
     .select('*, owner:users!items_owner_id_fkey(id, full_name, rating, ratings_count)')
     .eq('status', 'active')
     .eq('city', PILOT_CITY)
-    .order('created_at', { ascending: false })
     .limit(60);
 
+  // Сортировка делается базой, а не в памяти клиента: иначе limit(60)
+  // отрежет не самые дешёвые, а самые новые, и «сначала дешёвые» соврёт.
+  const sort = params.sort ?? 'new';
+  if (sort === 'price_asc') query = query.order('daily_price', { ascending: true });
+  else if (sort === 'price_desc') query = query.order('daily_price', { ascending: false });
+  else query = query.order('created_at', { ascending: false });
+
+  if (params.maxPrice && params.maxPrice > 0) query = query.lte('daily_price', params.maxPrice);
+  if (params.onlyIds) {
+    // Пустой список избранного не должен превращаться в «показать всё».
+    if (params.onlyIds.length === 0) return [];
+    query = query.in('id', params.onlyIds);
+  }
   if (params.category) query = query.eq('category', params.category);
   if (params.search?.trim()) {
     // ilike вместо полнотекстового поиска: на пилоте объявлений сотни,
@@ -106,6 +124,37 @@ export async function createItem(input: {
 export async function setItemStatus(id: string, status: 'active' | 'hidden') {
   const { error } = await supabase.from('items').update({ status }).eq('id', id);
   if (error) throw error;
+}
+
+// ── Избранное ─────────────────────────────────────────────────
+
+/**
+ * Аренда — про возвраты: перфоратор нужен раз в полгода, и во второй раз
+ * человек хочет того же владельца, с которым уже всё прошло гладко.
+ * Политика favorites_own закрывает чужие строки целиком, поэтому счётчика
+ * «сколько людей добавили» здесь нет и быть не может.
+ */
+export async function fetchFavoriteIds(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('favorites')
+    .select('item_id')
+    .eq('user_id', userId);
+  if (error) throw error;
+  return (data ?? []).map((r) => r.item_id as string);
+}
+
+export async function toggleFavorite(userId: string, itemId: string, on: boolean) {
+  if (on) {
+    const { error } = await supabase.from('favorites').insert({ user_id: userId, item_id: itemId });
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('favorites')
+      .delete()
+      .eq('user_id', userId)
+      .eq('item_id', itemId);
+    if (error) throw error;
+  }
 }
 
 // ── Календарь занятости ───────────────────────────────────────

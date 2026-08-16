@@ -13,7 +13,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Empty, ErrorState, Loader } from '../../src/components/ui';
-import { fetchCatalog, fetchCategories } from '../../src/lib/api';
+import { fetchCatalog, fetchCategories, fetchFavoriteIds, toggleFavorite } from '../../src/lib/api';
+import type { CatalogSort } from '../../src/lib/api';
+import { useAuth } from '../../src/lib/auth';
 import { formatTenge, ratingLabel } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
 import { useRefresh } from '../../src/lib/useRefresh';
@@ -21,25 +23,65 @@ import type { Category, ItemWithOwner } from '../../src/lib/types';
 import { colors, elevation, radius, spacing } from '../../src/theme';
 
 /** Экран 2: каталог — поиск и фильтр по категории. */
+const SORTS: { key: CatalogSort; label: string }[] = [
+  { key: 'new', label: 'Новые' },
+  { key: 'price_asc', label: 'Сначала дешёвые' },
+  { key: 'price_desc', label: 'Сначала дорогие' },
+];
+
 export default function Catalog() {
   const router = useRouter();
+  const { session } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [active, setActive] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [items, setItems] = useState<ItemWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sort, setSort] = useState<CatalogSort>('new');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [onlyFavorites, setOnlyFavorites] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      setItems(await fetchCatalog({ category: active, search }));
+      setItems(
+        await fetchCatalog({
+          category: active,
+          search,
+          sort,
+          maxPrice: Number(maxPrice) || null,
+          onlyIds: onlyFavorites ? favorites : null,
+        }),
+      );
     } catch (e) {
       setError(humanizeError(e));
     } finally {
       setLoading(false);
     }
-  }, [active, search]);
+  }, [active, search, sort, maxPrice, onlyFavorites, favorites]);
+
+  useEffect(() => {
+    if (!session) return;
+    fetchFavoriteIds(session.user.id).then(setFavorites).catch(() => setFavorites([]));
+  }, [session]);
+
+  // Переключаем сразу в состоянии, не дожидаясь ответа: сердечко, которое
+  // «думает» полсекунды, воспринимается как несработавшее нажатие.
+  const flipFavorite = useCallback(
+    async (itemId: string) => {
+      if (!session) return;
+      const on = !favorites.includes(itemId);
+      setFavorites((prev) => (on ? [...prev, itemId] : prev.filter((x) => x !== itemId)));
+      try {
+        await toggleFavorite(session.user.id, itemId, on);
+      } catch {
+        setFavorites((prev) => (on ? prev.filter((x) => x !== itemId) : [...prev, itemId]));
+      }
+    },
+    [session, favorites],
+  );
 
   const { refreshing, onRefresh } = useRefresh(load);
 
@@ -90,6 +132,31 @@ export default function Catalog() {
         ))}
       </ScrollView>
 
+      <View style={s.filters}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
+          {SORTS.map((o) => (
+            <Chip key={o.key} label={o.label} selected={sort === o.key} onPress={() => setSort(o.key)} />
+          ))}
+          <Chip
+            label={onlyFavorites ? '♥ Избранное' : '♡ Избранное'}
+            selected={onlyFavorites}
+            onPress={() => setOnlyFavorites((v) => !v)}
+          />
+        </ScrollView>
+        <View style={s.priceWrap}>
+          <Text style={s.priceLabel}>до</Text>
+          <TextInput
+            value={maxPrice}
+            onChangeText={setMaxPrice}
+            placeholder="цена"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="number-pad"
+            style={s.priceInput}
+          />
+          <Text style={s.priceLabel}>₸/сут</Text>
+        </View>
+      </View>
+
       {loading ? (
         <Loader />
       ) : error ? (
@@ -105,11 +172,13 @@ export default function Catalog() {
           ListEmptyComponent={
             <Empty
               icon="cube-outline"
-              title={search ? 'Ничего не нашлось' : 'Пока пусто'}
+              title={onlyFavorites ? 'В избранном пусто' : search ? 'Ничего не нашлось' : 'Пока пусто'}
               body={
-                search
-                  ? 'Попробуйте другое слово или уберите фильтр по категории.'
-                  : 'В этой категории ещё нет объявлений. Можно стать первым — выложите свой инструмент.'
+                onlyFavorites
+                  ? 'Нажмите сердечко на объявлении — оно появится здесь.'
+                  : search
+                    ? 'Попробуйте другое слово или уберите фильтр по категории.'
+                    : 'В этой категории ещё нет объявлений. Можно стать первым — выложите свой инструмент.'
               }
             />
           }
@@ -123,9 +192,18 @@ export default function Catalog() {
                 </View>
               )}
               <View style={s.cardBody}>
-                <Text style={s.title} numberOfLines={2}>
-                  {item.title}
-                </Text>
+                <View style={s.titleRow}>
+                  <Text style={s.title} numberOfLines={2}>
+                    {item.title}
+                  </Text>
+                  <Pressable onPress={() => flipFavorite(item.id)} hitSlop={10}>
+                    <Ionicons
+                      name={favorites.includes(item.id) ? 'heart' : 'heart-outline'}
+                      size={20}
+                      color={favorites.includes(item.id) ? colors.accent : colors.textMuted}
+                    />
+                  </Pressable>
+                </View>
                 <Text style={s.price}>{formatTenge(item.daily_price)} / сутки</Text>
                 <Text style={s.meta}>
                   Депозит {formatTenge(item.deposit_amount)} · ★{' '}
@@ -205,7 +283,29 @@ const s = StyleSheet.create({
   photoEmpty: { alignItems: 'center', justifyContent: 'center' },
   photoEmptyText: { fontSize: 11, color: colors.textMuted },
   cardBody: { flex: 1, gap: spacing.xs, justifyContent: 'center' },
-  title: { fontSize: 16, fontWeight: '700', color: colors.text },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  title: { flex: 1, fontSize: 16, fontWeight: '700', color: colors.text },
+  filters: { paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: spacing.md },
+  filterRow: { gap: spacing.sm },
+  priceWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    alignSelf: 'flex-start',
+  },
+  priceLabel: { fontSize: 13, color: colors.textMuted },
+  priceInput: {
+    minWidth: 84,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    fontSize: 14,
+    color: colors.text,
+    outlineStyle: 'none',
+  } as object,
   price: { fontSize: 15, fontWeight: '800', color: colors.accent },
   meta: { fontSize: 12, color: colors.textMuted },
   fab: {

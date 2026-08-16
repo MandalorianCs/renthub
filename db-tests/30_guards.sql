@@ -248,3 +248,39 @@ begin
 end $$;
 
 \echo '--- сценарий 2 пройден ---'
+
+-- ── Избранное: своё видно, чужое нет ──────────────────────────
+
+select t.as(t.id('renter'), format(
+  'insert into favorites (user_id, item_id) values (%L, %L)',
+  t.id('renter'), t.id('item')));
+
+do $$
+begin
+  perform t.assert(
+    t.as_value(t.id('renter'), 'select count(*)::text from favorites') = '1',
+    'арендатор видит своё избранное');
+
+  perform t.assert(
+    t.as_value(t.id('stranger'), 'select count(*)::text from favorites') = '0',
+    'чужое избранное не видно никому');
+end $$;
+
+select t.expect_fail(t.id('stranger'), format(
+  'insert into favorites (user_id, item_id) values (%L, %L)',
+  t.id('renter'), t.id('item')), 'row-level security');
+
+-- Повторное добавление невозможно на уровне базы, а не проверкой в коде.
+select t.expect_fail(t.id('renter'), format(
+  'insert into favorites (user_id, item_id) values (%L, %L)',
+  t.id('renter'), t.id('item')), 'duplicate key');
+
+select t.as(t.id('renter'), format(
+  'delete from favorites where item_id = %L', t.id('item')));
+
+do $$
+begin
+  perform t.assert(
+    t.as_value(t.id('renter'), 'select count(*)::text from favorites') = '0',
+    'из избранного можно удалить');
+end $$;

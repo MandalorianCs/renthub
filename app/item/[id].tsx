@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { Badge, Button, Card, Empty, Field, Loader, Row } from '../../src/components/ui';
+import { Calendar, toISO } from '../../src/components/Calendar';
+import { Badge, Button, Card, Empty, Loader, Row } from '../../src/components/ui';
 import { createBooking, fetchItem, fetchItemCalendar } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { formatDateRange, formatTenge, ratingLabel } from '../../src/lib/format';
@@ -20,8 +21,8 @@ export default function ItemScreen() {
   const [busyDates, setBusyDates] = useState<BusyRange[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [start, setStart] = useState(todayISO());
-  const [end, setEnd] = useState(todayISO());
+  const [start, setStart] = useState<string | null>(null);
+  const [end, setEnd] = useState<string | null>(null);
   const [insurance, setInsurance] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,7 @@ export default function ItemScreen() {
     load();
   }, [load]);
 
-  const days = useMemo(() => countDays(start, end), [start, end]);
+  const days = useMemo(() => (start && end ? countDays(start, end) : 0), [start, end]);
 
   const price = useMemo(
     () =>
@@ -64,7 +65,7 @@ export default function ItemScreen() {
   const isOwnItem = item.owner_id === session?.user.id;
 
   async function book() {
-    if (!item || !session) return;
+    if (!item || !session || !start || !end) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -155,8 +156,22 @@ export default function ItemScreen() {
             ))}
           </View>
 
-          <Field label="Начало (ГГГГ-ММ-ДД)" value={start} onChangeText={setStart} placeholder="2026-08-20" />
-          <Field label="Конец (ГГГГ-ММ-ДД)" value={end} onChangeText={setEnd} placeholder="2026-08-22" />
+          <Calendar
+            busy={busyDates}
+            start={start}
+            end={end}
+            onChange={(from, to) => {
+              setStart(from);
+              // Один выбранный день — это аренда на сутки, а не «интервал не задан».
+              setEnd(to ?? from);
+            }}
+          />
+
+          <Text style={s.selection}>
+            {start && end
+              ? `${formatDateRange(start, end)} · ${days} дн.`
+              : 'Выберите дни в календаре'}
+          </Text>
 
           <View style={s.switchRow}>
             <View style={{ flex: 1 }}>
@@ -177,9 +192,7 @@ export default function ItemScreen() {
               <Row left="К оплате" right={formatTenge(price.renterTotal)} />
               <Row left="Депозит (блокируется)" right={formatTenge(price.deposit)} muted />
             </View>
-          ) : (
-            <Text style={s.error}>Проверьте даты: конец не может быть раньше начала.</Text>
-          )}
+          ) : null}
 
           {!isVerified ? (
             <Badge label="Подтвердите телефон, чтобы бронировать" fg={colors.warn} bg={colors.warnSoft} />
@@ -189,7 +202,7 @@ export default function ItemScreen() {
             title="Забронировать"
             onPress={book}
             loading={submitting}
-            disabled={!isVerified || days <= 0}
+            disabled={!isVerified || days <= 0 || !start || !end}
           />
 
           <Text style={s.note}>
@@ -236,6 +249,7 @@ const s = StyleSheet.create({
   switchLabel: { fontSize: 15, fontWeight: '600', color: colors.text },
   breakdown: { gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md },
   error: { color: colors.danger, fontSize: 14 },
+  selection: { fontSize: 14, fontWeight: '700', color: colors.text, textAlign: 'center' },
   freeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   freeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green },
   freeText: { fontSize: 14, color: colors.green, fontWeight: '600' },
