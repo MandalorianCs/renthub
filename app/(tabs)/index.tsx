@@ -21,7 +21,7 @@ import { formatTenge, ratingLabel } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
 import type { Category, ItemWithOwner } from '../../src/lib/types';
 import { useRefresh } from '../../src/lib/useRefresh';
-import { colors, elevation, radius, spacing } from '../../src/theme';
+import { colors, elevation, radius, spacing, typeface } from '../../src/theme';
 
 /**
  * Экран 2: каталог.
@@ -369,7 +369,7 @@ const s = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
   },
-  searchInput: { flex: 1, fontSize: 15, color: colors.text, outlineStyle: 'none' } as object,
+  searchInput: { flex: 1, fontSize: 15, fontFamily: typeface[400], color: colors.text, outlineStyle: 'none' } as object,
 
   chips: { paddingHorizontal: spacing.lg, gap: spacing.sm },
   chip: {
@@ -380,7 +380,7 @@ const s = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  chipText: { fontSize: 13, fontWeight: '600', color: colors.text },
+  chipText: { fontSize: 13, fontFamily: typeface[600], color: colors.text },
 
   bar: {
     flexDirection: 'row',
@@ -389,7 +389,7 @@ const s = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
   },
-  count: { fontSize: 13, color: colors.textMuted },
+  count: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted },
   filterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -401,7 +401,7 @@ const s = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  filterBtnText: { fontSize: 13, fontWeight: '700', color: colors.text },
+  filterBtnText: { fontSize: 13, fontFamily: typeface[700], color: colors.text },
   badge: {
     minWidth: 18,
     height: 18,
@@ -411,7 +411,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { fontSize: 11, fontWeight: '800', color: '#FFFFFF' },
+  badgeText: { fontSize: 11, fontFamily: typeface[800], color: '#FFFFFF' },
 
   panel: { paddingTop: spacing.md, gap: spacing.md },
   panelRow: {
@@ -422,7 +422,7 @@ const s = StyleSheet.create({
     flexWrap: 'wrap',
   },
   priceWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  priceLabel: { fontSize: 13, color: colors.textMuted },
+  priceLabel: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted },
   priceInput: {
     minWidth: 78,
     backgroundColor: colors.surface,
@@ -463,7 +463,7 @@ const s = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: 'rgba(26,25,23,0.62)',
   },
-  photoCountText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+  photoCountText: { fontSize: 11, fontFamily: typeface[700], color: '#FFFFFF' },
   heart: {
     position: 'absolute',
     top: spacing.sm,
@@ -477,12 +477,12 @@ const s = StyleSheet.create({
   },
 
   body: { padding: spacing.md, gap: 3 },
-  price: { fontSize: 17, fontWeight: '800', color: colors.text, letterSpacing: -0.3 },
-  perDay: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
-  title: { fontSize: 13, color: colors.text, lineHeight: 18 },
+  price: { fontSize: 17, fontFamily: typeface[800], color: colors.text, letterSpacing: -0.3 },
+  perDay: { fontSize: 12, fontFamily: typeface[600], color: colors.textMuted },
+  title: { fontSize: 13, fontFamily: typeface[400], color: colors.text, lineHeight: 18 },
   trust: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  trustText: { fontSize: 12, color: colors.textMuted },
-  deposit: { fontSize: 11, color: colors.textMuted },
+  trustText: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
+  deposit: { fontSize: 11, fontFamily: typeface[400], color: colors.textMuted },
 
   fab: {
     position: 'absolute',
@@ -498,5 +498,5 @@ const s = StyleSheet.create({
     borderRadius: radius.pill,
     ...elevation.raised,
   },
-  fabText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
+  fabText: { color: '#FFFFFF', fontFamily: typeface[800], fontSize: 15 },
 });

@@ -26,7 +26,7 @@ import {
 } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
 import type { BookingWithItem, Dispute, ItemWithOwner, Review } from '../../src/lib/types';
-import { colors, radius, spacing } from '../../src/theme';
+import { colors, radius, spacing, typeface } from '../../src/theme';
 
 /**
  * Экран сделки. Один экран для обеих сторон: что можно сделать,
@@ -336,15 +336,15 @@ function resolutionLabel(status: Dispute['resolution_status']): string {
 
 const s = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
-  title: { fontSize: 22, fontWeight: '800', color: colors.text },
+  title: { fontSize: 22, fontFamily: typeface[800], color: colors.text },
   badges: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  note: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
-  error: { fontSize: 14, color: colors.danger },
+  sectionTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
+  note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
+  error: { fontSize: 14, fontFamily: typeface[400], color: colors.danger },
   evidence: { width: 72, height: 72, borderRadius: radius.sm, marginRight: spacing.sm, backgroundColor: colors.border },
   photos: { flexDirection: 'row', flexWrap: 'wrap' },
   photoAdd: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  photoAddText: { fontSize: 24, color: colors.textMuted },
+  photoAddText: { fontSize: 24, fontFamily: typeface[400], color: colors.textMuted },
   stars: { flexDirection: 'row', gap: spacing.sm },
-  star: { fontSize: 32, color: colors.border },
+  star: { fontSize: 32, fontFamily: typeface[400], color: colors.border },
 });

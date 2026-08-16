@@ -7,7 +7,7 @@ import { useAuth } from '../src/lib/auth';
 import { humanizeError } from '../src/lib/supabase';
 import { useRefresh } from '../src/lib/useRefresh';
 import type { Notification } from '../src/lib/types';
-import { colors, radius, spacing } from '../src/theme';
+import { colors, radius, spacing, typeface } from '../src/theme';
 
 /**
  * Лента событий. Та же таблица notifications позже кормит Telegram-бота:
@@ -89,7 +89,7 @@ const s = StyleSheet.create({
     padding: spacing.lg,
   },
   unread: { borderLeftWidth: 3, borderLeftColor: colors.accent },
-  title: { fontSize: 15, fontWeight: '700', color: colors.text },
-  body: { fontSize: 13, color: colors.textMuted, lineHeight: 19 },
-  date: { fontSize: 11, color: colors.textMuted },
+  title: { fontSize: 15, fontFamily: typeface[700], color: colors.text },
+  body: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 19 },
+  date: { fontSize: 11, fontFamily: typeface[400], color: colors.textMuted },
 });

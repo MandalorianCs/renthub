@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { BusyRange } from '../lib/types';
-import { colors, radius, spacing } from '../theme';
+import { colors, radius, spacing, typeface } from '../theme';
 
 /**
  * Выбор интервала аренды.
@@ -200,13 +200,13 @@ const s = StyleSheet.create({
   wrap: { gap: spacing.md },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   nav: { padding: spacing.xs },
-  month: { fontSize: 15, fontWeight: '800', color: colors.text, textTransform: 'capitalize' },
+  month: { fontSize: 15, fontFamily: typeface[800], color: colors.text, textTransform: 'capitalize' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   weekday: {
     width: `${100 / 7}%`,
     textAlign: 'center',
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: typeface[700],
     color: colors.textMuted,
     paddingBottom: spacing.sm,
   },
@@ -218,13 +218,13 @@ const s = StyleSheet.create({
   },
   inRange: { backgroundColor: colors.accentSoft },
   edge: { backgroundColor: colors.accent, borderRadius: radius.md },
-  day: { fontSize: 14, fontWeight: '600', color: colors.text },
+  day: { fontSize: 14, fontFamily: typeface[600], color: colors.text },
   dayDisabled: { color: colors.border },
   dayBusy: { color: colors.danger, textDecorationLine: 'line-through' },
   dayInRange: { color: colors.accent },
-  dayEdge: { color: '#FFFFFF', fontWeight: '800' },
+  dayEdge: { color: '#FFFFFF', fontFamily: typeface[800] },
   legend: { flexDirection: 'row', gap: spacing.lg },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { fontSize: 12, color: colors.textMuted },
+  legendText: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
 });

@@ -10,7 +10,7 @@ import { formatTenge } from '../../src/lib/format';
 import { COMMISSION_PCT } from '../../src/lib/pricing';
 import { humanizeError } from '../../src/lib/supabase';
 import type { Category } from '../../src/lib/types';
-import { colors, radius, spacing } from '../../src/theme';
+import { colors, radius, spacing, typeface } from '../../src/theme';
 
 /** Экран 4: создание объявления. */
 export default function NewItem() {
@@ -222,9 +222,9 @@ function validateNewItem(input: {
 
 const s = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  note: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
-  error: { fontSize: 14, color: colors.danger },
+  sectionTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
+  note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
+  error: { fontSize: 14, fontFamily: typeface[400], color: colors.danger },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
     paddingHorizontal: spacing.md,
@@ -234,11 +234,11 @@ const s = StyleSheet.create({
     borderColor: colors.border,
   },
   chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  chipText: { fontSize: 13, fontWeight: '600', color: colors.text },
+  chipText: { fontSize: 13, fontFamily: typeface[600], color: colors.text },
   photos: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   photo: { width: 88, height: 88, borderRadius: radius.md, backgroundColor: colors.border },
   photoAdd: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-  photoAddText: { fontSize: 28, color: colors.textMuted },
+  photoAddText: { fontSize: 28, fontFamily: typeface[400], color: colors.textMuted },
   photoRemove: {
     position: 'absolute',
     top: -6,
@@ -258,5 +258,5 @@ const s = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.md,
   },
-  problemText: { flex: 1, fontSize: 13, color: colors.warn, fontWeight: '600' },
+  problemText: { flex: 1, fontSize: 13, color: colors.warn, fontFamily: typeface[600] },
 });

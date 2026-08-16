@@ -14,7 +14,7 @@ import { BOOKING_STATUS, formatDate, formatDateRange, formatTenge } from '../../
 import { humanizeError } from '../../src/lib/supabase';
 import { useRefresh } from '../../src/lib/useRefresh';
 import type { BookingWithItem, Item, Notification, Payout } from '../../src/lib/types';
-import { colors, radius, spacing } from '../../src/theme';
+import { colors, radius, spacing, typeface } from '../../src/theme';
 
 /**
  * Экран 5б: «Мои вещи» — сторона владельца.
@@ -196,15 +196,15 @@ export default function MyItems() {
 
 const s = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
+  sectionTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  link: { fontSize: 14, fontWeight: '700', color: colors.accent },
-  note: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
-  error: { fontSize: 14, color: colors.danger },
+  link: { fontSize: 14, fontFamily: typeface[700], color: colors.accent },
+  note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
+  error: { fontSize: 14, fontFamily: typeface[400], color: colors.danger },
   newsRow: { gap: 2, borderLeftWidth: 3, borderLeftColor: colors.green, paddingLeft: spacing.md },
-  newsTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
-  newsBody: { fontSize: 13, color: colors.textMuted },
-  newsDate: { fontSize: 11, color: colors.textMuted },
+  newsTitle: { fontSize: 14, fontFamily: typeface[700], color: colors.text },
+  newsBody: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted },
+  newsDate: { fontSize: 11, fontFamily: typeface[400], color: colors.textMuted },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -221,6 +221,6 @@ const s = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  actionTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
+  actionTitle: { fontSize: 15, fontFamily: typeface[600], color: colors.text },
   radius: { borderRadius: radius.md },
 });

@@ -9,7 +9,7 @@ import {
   type TextInputProps,
   View,
 } from 'react-native';
-import { colors, elevation, radius, spacing } from '../theme';
+import { colors, elevation, radius, spacing, typeface } from '../theme';
 
 export function Button({
   title,
@@ -86,7 +86,7 @@ export function Row({ left, right, muted }: { left: string; right: string; muted
   return (
     <View style={s.row}>
       <Text style={[s.rowLeft, muted && { color: colors.textMuted }]}>{left}</Text>
-      <Text style={[s.rowRight, muted && { color: colors.textMuted, fontWeight: '400' }]}>{right}</Text>
+      <Text style={[s.rowRight, muted && { color: colors.textMuted, fontFamily: typeface[400] }]}>{right}</Text>
     </View>
   );
 }
@@ -150,14 +150,14 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 48,
   },
-  buttonText: { fontSize: 15, fontWeight: '700' },
+  buttonText: { fontSize: 15, fontFamily: typeface[700] },
   badge: {
     paddingHorizontal: spacing.md,
     paddingVertical: 5,
     borderRadius: radius.pill,
     alignSelf: 'flex-start',
   },
-  badgeText: { fontSize: 12, fontWeight: '700' },
+  badgeText: { fontSize: 12, fontFamily: typeface[700] },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -167,7 +167,7 @@ const s = StyleSheet.create({
     gap: spacing.md,
     ...elevation.card,
   },
-  label: { fontSize: 12, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase' },
+  label: { fontSize: 12, fontFamily: typeface[700], color: colors.textMuted, textTransform: 'uppercase' },
   input: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -178,10 +178,10 @@ const s = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
   },
-  hint: { fontSize: 12, color: colors.textMuted },
+  hint: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },
-  rowLeft: { fontSize: 14, color: colors.text, flexShrink: 1 },
-  rowRight: { fontSize: 14, color: colors.text, fontWeight: '700' },
+  rowLeft: { fontSize: 14, fontFamily: typeface[400], color: colors.text, flexShrink: 1 },
+  rowRight: { fontSize: 14, color: colors.text, fontFamily: typeface[700] },
   empty: { padding: spacing.xxl, alignItems: 'center', gap: spacing.sm },
   emptyIcon: {
     width: 52,
@@ -192,6 +192,6 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.xs,
   },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: colors.text, textAlign: 'center' },
-  emptyBody: { fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text, textAlign: 'center' },
+  emptyBody: { fontSize: 14, fontFamily: typeface[400], color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
 });

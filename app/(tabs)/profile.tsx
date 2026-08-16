@@ -8,7 +8,7 @@ import { BOOKING_STATUS, formatDateRange, ratingLabel } from '../../src/lib/form
 import { humanizeError } from '../../src/lib/supabase';
 import { useRefresh } from '../../src/lib/useRefresh';
 import type { BookingWithItem } from '../../src/lib/types';
-import { colors, spacing } from '../../src/theme';
+import { colors, spacing, typeface } from '../../src/theme';
 
 /** Экран 6: профиль — рейтинг, история сделок, настройки. */
 export default function Profile() {
@@ -139,12 +139,12 @@ export default function Profile() {
 
 const s = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
-  name: { fontSize: 22, fontWeight: '800', color: colors.text },
-  phone: { fontSize: 14, color: colors.textMuted },
-  rating: { fontSize: 15, fontWeight: '600', color: colors.text },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  note: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
-  error: { fontSize: 14, color: colors.danger },
+  name: { fontSize: 22, fontFamily: typeface[800], color: colors.text },
+  phone: { fontSize: 14, fontFamily: typeface[400], color: colors.textMuted },
+  rating: { fontSize: 15, fontFamily: typeface[600], color: colors.text },
+  sectionTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
+  note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
+  error: { fontSize: 14, fontFamily: typeface[400], color: colors.danger },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  switchLabel: { fontSize: 15, fontWeight: '700', color: colors.text },
+  switchLabel: { fontSize: 15, fontFamily: typeface[700], color: colors.text },
 });

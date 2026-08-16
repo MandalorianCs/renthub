@@ -8,7 +8,7 @@ import { BOOKING_STATUS, DEPOSIT_STATUS, formatDateRange, formatTenge } from '..
 import { humanizeError } from '../../src/lib/supabase';
 import { useRefresh } from '../../src/lib/useRefresh';
 import type { BookingWithItem } from '../../src/lib/types';
-import { colors, elevation, radius, spacing } from '../../src/theme';
+import { colors, elevation, radius, spacing, typeface } from '../../src/theme';
 
 /** Экран 5а: мои бронирования (сторона арендатора). */
 export default function MyBookings() {
@@ -92,9 +92,9 @@ const s = StyleSheet.create({
     ...elevation.card,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  title: { flex: 1, fontSize: 16, fontWeight: '700', color: colors.text },
-  meta: { fontSize: 13, color: colors.textMuted },
+  title: { flex: 1, fontSize: 16, fontFamily: typeface[700], color: colors.text },
+  meta: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  amount: { fontSize: 16, fontWeight: '800', color: colors.text },
-  depositNote: { fontSize: 12, fontWeight: '600' },
+  amount: { fontSize: 16, fontFamily: typeface[800], color: colors.text },
+  depositNote: { fontSize: 12, fontFamily: typeface[600] },
 });

@@ -47,10 +47,27 @@ export const elevation = {
 
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
 
+/**
+ * Начертания Manrope — тот же шрифт, что на лендинге, чтобы сайт и
+ * приложение читались как один продукт.
+ *
+ * Важно: со своим шрифтом `fontWeight` работать перестаёт. На Android он
+ * просто игнорируется, на iOS и в вебе рисуется синтетическая жирность —
+ * кривая и разная на разных платформах. Поэтому вес выбирается именем
+ * файла, а не числом: fontFamily: typeface[700] вместо fontWeight: '700'.
+ */
+export const typeface = {
+  400: 'Manrope_400Regular',
+  500: 'Manrope_500Medium',
+  600: 'Manrope_600SemiBold',
+  700: 'Manrope_700Bold',
+  800: 'Manrope_800ExtraBold',
+} as const;
+
 export const font = {
-  h1: { fontSize: 28, fontWeight: '800' },
-  h2: { fontSize: 20, fontWeight: '700' },
-  body: { fontSize: 15, fontWeight: '400' },
-  small: { fontSize: 13, fontWeight: '400' },
-  label: { fontSize: 12, fontWeight: '600' },
+  h1: { fontSize: 28, fontFamily: typeface[800] },
+  h2: { fontSize: 20, fontFamily: typeface[700] },
+  body: { fontSize: 15, fontFamily: typeface[400] },
+  small: { fontSize: 13, fontFamily: typeface[400] },
+  label: { fontSize: 12, fontFamily: typeface[600] },
 } as const;

@@ -1,10 +1,18 @@
+import {
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+  Manrope_800ExtraBold,
+  useFonts,
+} from '@expo-google-fonts/manrope';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../src/lib/auth';
-import { colors } from '../src/theme';
+import { colors, typeface } from '../src/theme';
 
 /**
  * Гейт авторизации. Держим его здесь, а не в каждом экране: если
@@ -37,6 +45,21 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
+  const [fontsReady] = useFonts({
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+  });
+
+  // Пока шрифт не загружен, рисовать нельзя: иначе первый кадр уйдёт
+  // системным шрифтом и текст прыгнет при подмене. Экран остаётся
+  // фоновым цветом бренда, а не белым — подмены фона тоже не видно.
+  if (!fontsReady) {
+    return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
+  }
+
   return (
     <SafeAreaProvider>
       <AuthProvider>
@@ -46,7 +69,7 @@ export default function RootLayout() {
             screenOptions={{
               headerStyle: { backgroundColor: colors.bg },
               headerTintColor: colors.text,
-              headerTitleStyle: { fontWeight: '700' },
+              headerTitleStyle: { fontFamily: typeface[700] },
               headerShadowVisible: false,
               contentStyle: { backgroundColor: colors.bg },
             }}

@@ -9,7 +9,7 @@ import { formatDateRange, formatTenge, ratingLabel } from '../../src/lib/format'
 import { calcPrice, countDays } from '../../src/lib/pricing';
 import { humanizeError } from '../../src/lib/supabase';
 import type { BusyRange, ItemWithOwner } from '../../src/lib/types';
-import { colors, radius, spacing } from '../../src/theme';
+import { colors, radius, spacing, typeface } from '../../src/theme';
 
 /** Экран 3: карточка объявления + бронирование. */
 export default function ItemScreen() {
@@ -230,11 +230,11 @@ const s = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   gallery: { flexGrow: 0 },
   photo: { width: 240, height: 180, borderRadius: radius.lg, marginRight: spacing.md, backgroundColor: colors.border },
-  title: { fontSize: 24, fontWeight: '800', color: colors.text },
-  price: { fontSize: 18, fontWeight: '800', color: colors.accent },
-  description: { fontSize: 15, color: colors.textMuted, lineHeight: 22 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  note: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
+  title: { fontSize: 24, fontFamily: typeface[800], color: colors.text },
+  price: { fontSize: 18, fontFamily: typeface[800], color: colors.accent },
+  description: { fontSize: 15, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 22 },
+  sectionTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
+  note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
   presets: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
   preset: {
     paddingHorizontal: spacing.md,
@@ -244,13 +244,13 @@ const s = StyleSheet.create({
     borderColor: colors.border,
   },
   presetActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  presetText: { fontSize: 13, fontWeight: '600', color: colors.text },
+  presetText: { fontSize: 13, fontFamily: typeface[600], color: colors.text },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  switchLabel: { fontSize: 15, fontWeight: '600', color: colors.text },
+  switchLabel: { fontSize: 15, fontFamily: typeface[600], color: colors.text },
   breakdown: { gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md },
-  error: { color: colors.danger, fontSize: 14 },
-  selection: { fontSize: 14, fontWeight: '700', color: colors.text, textAlign: 'center' },
+  error: { color: colors.danger, fontSize: 14, fontFamily: typeface[400] },
+  selection: { fontSize: 14, fontFamily: typeface[700], color: colors.text, textAlign: 'center' },
   freeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   freeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green },
-  freeText: { fontSize: 14, color: colors.green, fontWeight: '600' },
+  freeText: { fontSize: 14, color: colors.green, fontFamily: typeface[600] },
 });

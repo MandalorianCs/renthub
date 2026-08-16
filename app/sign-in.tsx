@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Field } from '../src/components/ui';
 import { useAuth } from '../src/lib/auth';
 import { humanizeError } from '../src/lib/supabase';
-import { colors, radius, spacing } from '../src/theme';
+import { colors, radius, spacing, typeface } from '../src/theme';
 
 /**
  * Тестовые аккаунты из scripts/seed-test-users.mjs.
@@ -174,10 +174,10 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   container: { flexGrow: 1, justifyContent: 'center', padding: spacing.xl, gap: spacing.xxl },
   header: { gap: spacing.md },
-  logo: { fontSize: 40, fontWeight: '800', color: colors.text, letterSpacing: -1 },
-  tagline: { fontSize: 16, color: colors.textMuted, lineHeight: 24 },
+  logo: { fontSize: 40, fontFamily: typeface[800], color: colors.text, letterSpacing: -1 },
+  tagline: { fontSize: 16, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 24 },
   form: { gap: spacing.lg },
-  error: { color: colors.danger, fontSize: 14, textAlign: 'center' },
+  error: { color: colors.danger, fontSize: 14, fontFamily: typeface[400], textAlign: 'center' },
   dev: {
     gap: spacing.md,
     padding: spacing.lg,
@@ -186,7 +186,7 @@ const s = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: colors.border,
   },
-  devTitle: { fontSize: 13, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.5 },
-  devNote: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
+  devTitle: { fontSize: 13, fontFamily: typeface[700], color: colors.textMuted, letterSpacing: 0.5 },
+  devNote: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
   devRow: { flexDirection: 'row', gap: spacing.sm },
 });
