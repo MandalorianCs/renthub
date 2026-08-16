@@ -641,13 +641,19 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
       </div>
       <div class="tile">
         <div class="person">
-          <div class="ava">НК</div>
+          <div class="ava">ГС</div>
           <div>
-            <div style="font-weight:800">Николай Конжуровский</div>
+            <div style="font-weight:800">Глеб Савельев</div>
             <div class="role">CTO</div>
           </div>
         </div>
-        <p style="margin-top:14px">Отказоустойчивая архитектура и алгоритмы безопасности.</p>
+        <p style="margin-top:14px">
+          Строит систему так, чтобы её нельзя было обойти. Trust Score здесь —
+          не название функции в презентации, а семь ограничений внутри Postgres:
+          их не обойдёт ни приложение, ни будущий Telegram-бот, ни запрос напрямую
+          к базе. Схема разворачивается пушем в репозиторий, и каждая миграция
+          прогоняется на настоящей базе до того, как доедет до пользователей.
+        </p>
       </div>
       <div class="tile">
         <div class="person">
