@@ -11,12 +11,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Empty, Loader } from '../../src/components/ui';
+import { Ionicons } from '@expo/vector-icons';
+import { Empty, ErrorState, Loader } from '../../src/components/ui';
 import { fetchCatalog, fetchCategories } from '../../src/lib/api';
 import { formatTenge, ratingLabel } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
 import type { Category, ItemWithOwner } from '../../src/lib/types';
-import { colors, radius, spacing } from '../../src/theme';
+import { colors, elevation, radius, spacing } from '../../src/theme';
 
 /** Экран 2: каталог — поиск и фильтр по категории. */
 export default function Catalog() {
@@ -26,6 +27,7 @@ export default function Catalog() {
   const [search, setSearch] = useState('');
   const [items, setItems] = useState<ItemWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -38,6 +40,17 @@ export default function Catalog() {
       setLoading(false);
     }
   }, [active, search]);
+
+  // Раньше сюда передавался refreshing={false} — спиннер не появлялся никогда,
+  // и потянув список вниз, пользователь не понимал, случилось ли что-нибудь.
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load]);
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => setCategories([]));
@@ -53,13 +66,21 @@ export default function Catalog() {
   return (
     <View style={s.screen}>
       <View style={s.searchWrap}>
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Перфоратор, бетономешалка, леса…"
-          placeholderTextColor={colors.textMuted}
-          style={s.search}
-        />
+        <View style={s.search}>
+          <Ionicons name="search" size={18} color={colors.textMuted} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Перфоратор, бетономешалка, леса…"
+            placeholderTextColor={colors.textMuted}
+            style={s.searchInput}
+          />
+          {search.length > 0 ? (
+            <Pressable onPress={() => setSearch('')} hitSlop={10}>
+              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       <ScrollView
@@ -80,18 +101,23 @@ export default function Catalog() {
 
       {loading ? (
         <Loader />
+      ) : error ? (
+        <ErrorState message={error} onRetry={load} />
       ) : (
         <FlatList
           data={items}
           keyExtractor={(i) => i.id}
           contentContainerStyle={s.list}
-          refreshControl={<RefreshControl refreshing={false} onRefresh={load} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} />
+          }
           ListEmptyComponent={
             <Empty
-              title={error ?? 'Пока пусто'}
+              icon="cube-outline"
+              title={search ? 'Ничего не нашлось' : 'Пока пусто'}
               body={
-                error
-                  ? undefined
+                search
+                  ? 'Попробуйте другое слово или уберите фильтр по категории.'
                   : 'В этой категории ещё нет объявлений. Можно стать первым — выложите свой инструмент.'
               }
             />
@@ -141,9 +167,9 @@ function Chip({
   return (
     <Pressable
       onPress={onPress}
-      style={[s.chip, selected && { backgroundColor: colors.text, borderColor: colors.text }]}
+      style={[s.chip, selected && { backgroundColor: colors.accent, borderColor: colors.accent }]}
     >
-      <Text style={[s.chipText, selected && { color: colors.bg }]}>{label}</Text>
+      <Text style={[s.chipText, selected && { color: '#FFFFFF' }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -152,15 +178,17 @@ const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   searchWrap: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
   search: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
-    fontSize: 15,
-    color: colors.text,
   },
+  searchInput: { flex: 1, fontSize: 15, color: colors.text, outlineStyle: 'none' } as object,
   chips: { paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: spacing.md },
   chip: {
     paddingHorizontal: spacing.md,
@@ -180,6 +208,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.md,
+    ...elevation.card,
   },
   photo: { width: 88, height: 88, borderRadius: radius.md, backgroundColor: colors.border },
   photoEmpty: { alignItems: 'center', justifyContent: 'center' },
@@ -196,6 +225,7 @@ const s = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical: 14,
     borderRadius: radius.pill,
+    ...elevation.raised,
   },
   fabText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
 });

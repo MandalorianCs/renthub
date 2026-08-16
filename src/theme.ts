@@ -21,6 +21,30 @@ export const colors = {
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
 
+/**
+ * Тень задаётся токеном, а не по месту: карточка объявления и карточка сделки
+ * должны лежать на одной высоте, иначе интерфейс выглядит собранным из кусков.
+ *
+ * shadow* работает на iOS и в вебе (react-native-web переводит их в box-shadow),
+ * elevation — на Android. Нужны оба набора, одного мало.
+ */
+export const elevation = {
+  card: {
+    shadowColor: '#1A1917',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  raised: {
+    shadowColor: '#1A1917',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.14,
+    shadowRadius: 22,
+    elevation: 6,
+  },
+} as const;
+
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
 
 export const font = {

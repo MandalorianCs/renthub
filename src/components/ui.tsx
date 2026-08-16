@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -8,7 +9,7 @@ import {
   type TextInputProps,
   View,
 } from 'react-native';
-import { colors, radius, spacing } from '../theme';
+import { colors, elevation, radius, spacing } from '../theme';
 
 export function Button({
   title,
@@ -90,11 +91,44 @@ export function Row({ left, right, muted }: { left: string; right: string; muted
   );
 }
 
-export function Empty({ title, body }: { title: string; body?: string }) {
+export function Empty({
+  title,
+  body,
+  icon = 'cube-outline',
+}: {
+  title: string;
+  body?: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+}) {
   return (
     <View style={s.empty}>
+      <View style={s.emptyIcon}>
+        <Ionicons name={icon} size={26} color={colors.textMuted} />
+      </View>
       <Text style={s.emptyTitle}>{title}</Text>
       {body ? <Text style={s.emptyBody}>{body}</Text> : null}
+    </View>
+  );
+}
+
+/**
+ * Сбой — это не пустота. Пустой каталог означает «объявлений пока нет»,
+ * а ошибка сети означает «мы не смогли посмотреть». Показывать их одинаково
+ * значит врать пользователю о состоянии системы.
+ */
+export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <View style={s.empty}>
+      <View style={[s.emptyIcon, { backgroundColor: colors.dangerSoft }]}>
+        <Ionicons name="alert-circle-outline" size={26} color={colors.danger} />
+      </View>
+      <Text style={s.emptyTitle}>Не удалось загрузить</Text>
+      <Text style={s.emptyBody}>{message}</Text>
+      {onRetry ? (
+        <View style={{ marginTop: spacing.sm }}>
+          <Button title="Попробовать снова" variant="ghost" onPress={onRetry} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -131,6 +165,7 @@ const s = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.lg,
     gap: spacing.md,
+    ...elevation.card,
   },
   label: { fontSize: 12, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase' },
   input: {
@@ -148,6 +183,15 @@ const s = StyleSheet.create({
   rowLeft: { fontSize: 14, color: colors.text, flexShrink: 1 },
   rowRight: { fontSize: 14, color: colors.text, fontWeight: '700' },
   empty: { padding: spacing.xxl, alignItems: 'center', gap: spacing.sm },
+  emptyIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.pill,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: colors.text, textAlign: 'center' },
   emptyBody: { fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
 });
