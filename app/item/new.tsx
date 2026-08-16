@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Badge, Button, Card, Field } from '../../src/components/ui';
 import { createItem, fetchCategories, uploadPhoto } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
@@ -158,7 +159,7 @@ export default function NewItem() {
         <View style={s.photos}>
           {photos.map((uri) => (
             <View key={uri}>
-              <Image source={{ uri }} style={s.photo} />
+              <Image source={uri} style={s.photo} contentFit="cover" transition={180} />
               <Pressable
                 style={s.photoRemove}
                 hitSlop={8}

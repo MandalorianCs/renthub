@@ -34,7 +34,8 @@
           "photosPermission": "RentHUB нужен доступ к фото, чтобы вы могли добавить снимки инструмента в объявление."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-image"
     ]
   }
 }

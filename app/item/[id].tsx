@@ -1,7 +1,7 @@
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -112,9 +112,10 @@ export default function ItemScreen() {
             {item.condition_photos.map((uri) => (
               <Image
                 key={uri}
-                source={{ uri }}
+                source={uri}
                 style={{ width: galleryWidth, height: galleryWidth * 0.68 }}
-                resizeMode="cover"
+                contentFit="cover"
+                transition={220}
               />
             ))}
           </ScrollView>

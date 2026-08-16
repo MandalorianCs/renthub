@@ -1,7 +1,8 @@
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Badge, Button, Card, Empty, Field, Loader, Row } from '../../src/components/ui';
 import {
   cancelBooking,
@@ -152,7 +153,7 @@ export default function BookingScreen() {
               {d.evidence_photos.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {d.evidence_photos.map((uri) => (
-                    <Image key={uri} source={{ uri }} style={s.evidence} />
+                    <Image key={uri} source={uri} style={s.evidence} contentFit="cover" transition={180} />
                   ))}
                 </ScrollView>
               ) : null}
@@ -247,7 +248,7 @@ function DamageClaim({
           <Text style={s.note}>Фото «до» — с ними будут сверяться ваши новые снимки:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {beforePhotos.map((uri) => (
-              <Image key={uri} source={{ uri }} style={s.evidence} />
+              <Image key={uri} source={uri} style={s.evidence} contentFit="cover" transition={180} />
             ))}
           </ScrollView>
         </>
@@ -264,7 +265,7 @@ function DamageClaim({
 
       <View style={s.photos}>
         {photos.map((uri) => (
-          <Image key={uri} source={{ uri }} style={s.evidence} />
+          <Image key={uri} source={uri} style={s.evidence} contentFit="cover" transition={180} />
         ))}
         <Pressable
           style={[s.evidence, s.photoAdd]}

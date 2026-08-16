@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { Link, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
-  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -280,7 +280,15 @@ function ItemCard({
     <Pressable style={s.card} onPress={onPress}>
       <View style={s.photoWrap}>
         {photo ? (
-          <Image source={{ uri: photo }} style={s.photo} resizeMode="cover" />
+          <Image
+            source={photo}
+            style={s.photo}
+            contentFit="cover"
+            transition={220}
+            // Без этого при прокрутке сетки на месте нового фото на миг
+            // остаётся предыдущее: FlatList переиспользует вью.
+            recyclingKey={item.id}
+          />
         ) : (
           <View style={[s.photo, s.photoEmpty]}>
             <Ionicons name="image-outline" size={26} color={colors.textMuted} />
