@@ -1,13 +1,14 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { Badge, Empty, Loader } from '../../src/components/ui';
+import { Badge, Empty, ErrorState, Loader } from '../../src/components/ui';
 import { fetchMyBookings } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, DEPOSIT_STATUS, formatDateRange, formatTenge } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
+import { useRefresh } from '../../src/lib/useRefresh';
 import type { BookingWithItem } from '../../src/lib/types';
-import { colors, radius, spacing } from '../../src/theme';
+import { colors, elevation, radius, spacing } from '../../src/theme';
 
 /** Экран 5а: мои бронирования (сторона арендатора). */
 export default function MyBookings() {
@@ -36,18 +37,24 @@ export default function MyBookings() {
     }, [load]),
   );
 
+  const { refreshing, onRefresh } = useRefresh(load);
+
   if (loading) return <Loader />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <FlatList
       data={bookings}
       keyExtractor={(b) => b.id}
       contentContainerStyle={s.list}
-      refreshControl={<RefreshControl refreshing={false} onRefresh={load} />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+      }
       ListEmptyComponent={
         <Empty
-          title={error ?? 'Пока нет аренд'}
-          body={error ? undefined : 'Найдите инструмент в каталоге и забронируйте — сделка появится здесь.'}
+          icon="calendar-outline"
+          title="Пока нет аренд"
+          body="Найдите инструмент в каталоге и забронируйте — сделка появится здесь."
         />
       }
       renderItem={({ item }) => {
@@ -82,6 +89,7 @@ const s = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.lg,
     gap: spacing.sm,
+    ...elevation.card,
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   title: { flex: 1, fontSize: 16, fontWeight: '700', color: colors.text },

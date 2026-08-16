@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, formatDate, formatDateRange, formatTenge } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
+import { useRefresh } from '../../src/lib/useRefresh';
 import type { BookingWithItem, Item, Notification, Payout } from '../../src/lib/types';
 import { colors, radius, spacing } from '../../src/theme';
 
@@ -87,12 +88,16 @@ export default function MyItems() {
   // и принять вернувшуюся вещь. Всё остальное система делает сама.
   const needsAction = bookings.filter((b) => b.status === 'pending' || b.status === 'active');
 
+  const { refreshing, onRefresh } = useRefresh(load);
+
   if (loading) return <Loader />;
 
   return (
     <ScrollView
       contentContainerStyle={s.container}
-      refreshControl={<RefreshControl refreshing={false} onRefresh={load} />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+      }
     >
       {news.length > 0 ? (
         <Card style={{ backgroundColor: colors.greenSoft, borderColor: colors.greenSoft }}>

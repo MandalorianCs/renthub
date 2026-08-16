@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -97,7 +98,7 @@ export default function NewItem() {
               onPress={() => setCategory(c.slug)}
               style={[s.chip, category === c.slug && s.chipActive]}
             >
-              <Text style={[s.chipText, category === c.slug && { color: colors.bg }]}>
+              <Text style={[s.chipText, category === c.slug && { color: '#FFFFFF' }]}>
                 {c.title_ru}
               </Text>
             </Pressable>
@@ -156,9 +157,16 @@ export default function NewItem() {
 
         <View style={s.photos}>
           {photos.map((uri) => (
-            <Pressable key={uri} onLongPress={() => setPhotos((p) => p.filter((x) => x !== uri))}>
+            <View key={uri}>
               <Image source={{ uri }} style={s.photo} />
-            </Pressable>
+              <Pressable
+                style={s.photoRemove}
+                hitSlop={8}
+                onPress={() => setPhotos((p) => p.filter((x) => x !== uri))}
+              >
+                <Ionicons name="close" size={14} color="#FFFFFF" />
+              </Pressable>
+            </View>
           ))}
           {photos.length < 6 ? (
             <Pressable style={[s.photo, s.photoAdd]} onPress={pickPhoto} disabled={uploading}>
@@ -168,7 +176,12 @@ export default function NewItem() {
         </View>
       </Card>
 
-      {problem ? <Text style={s.note}>{problem}</Text> : null}
+      {problem ? (
+        <View style={s.problem}>
+          <Ionicons name="information-circle-outline" size={18} color={colors.warn} />
+          <Text style={s.problemText}>{problem}</Text>
+        </View>
+      ) : null}
       {error ? <Text style={s.error}>{error}</Text> : null}
 
       <Button
@@ -220,10 +233,30 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  chipActive: { backgroundColor: colors.text, borderColor: colors.text },
+  chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   chipText: { fontSize: 13, fontWeight: '600', color: colors.text },
   photos: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   photo: { width: 88, height: 88, borderRadius: radius.md, backgroundColor: colors.border },
   photoAdd: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   photoAddText: { fontSize: 28, color: colors.textMuted },
+  photoRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.text,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  problem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.warnSoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  problemText: { flex: 1, fontSize: 13, color: colors.warn, fontWeight: '600' },
 });

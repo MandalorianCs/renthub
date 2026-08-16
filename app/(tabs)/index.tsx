@@ -16,6 +16,7 @@ import { Empty, ErrorState, Loader } from '../../src/components/ui';
 import { fetchCatalog, fetchCategories } from '../../src/lib/api';
 import { formatTenge, ratingLabel } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
+import { useRefresh } from '../../src/lib/useRefresh';
 import type { Category, ItemWithOwner } from '../../src/lib/types';
 import { colors, elevation, radius, spacing } from '../../src/theme';
 
@@ -27,7 +28,6 @@ export default function Catalog() {
   const [search, setSearch] = useState('');
   const [items, setItems] = useState<ItemWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -41,16 +41,7 @@ export default function Catalog() {
     }
   }, [active, search]);
 
-  // Раньше сюда передавался refreshing={false} — спиннер не появлялся никогда,
-  // и потянув список вниз, пользователь не понимал, случилось ли что-нибудь.
-  const refresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await load();
-    } finally {
-      setRefreshing(false);
-    }
-  }, [load]);
+  const { refreshing, onRefresh } = useRefresh(load);
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => setCategories([]));
@@ -109,7 +100,7 @@ export default function Catalog() {
           keyExtractor={(i) => i.id}
           contentContainerStyle={s.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
           }
           ListEmptyComponent={
             <Empty

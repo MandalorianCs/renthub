@@ -1,9 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { Empty, Loader } from '../src/components/ui';
+import { Empty, ErrorState, Loader } from '../src/components/ui';
 import { fetchNotifications, markNotificationsRead } from '../src/lib/api';
 import { useAuth } from '../src/lib/auth';
+import { humanizeError } from '../src/lib/supabase';
+import { useRefresh } from '../src/lib/useRefresh';
 import type { Notification } from '../src/lib/types';
 import { colors, radius, spacing } from '../src/theme';
 
@@ -17,11 +19,20 @@ export default function Notifications() {
   const router = useRouter();
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // setLoading(false) стоял после await без finally: любая ошибка сети
+  // оставляла экран с крутилкой навсегда, потому что до него не доходило.
   const load = useCallback(async () => {
     if (!session) return;
-    setItems(await fetchNotifications(session.user.id));
-    setLoading(false);
+    try {
+      setItems(await fetchNotifications(session.user.id));
+      setError(null);
+    } catch (e) {
+      setError(humanizeError(e));
+    } finally {
+      setLoading(false);
+    }
   }, [session]);
 
   useEffect(() => {
@@ -36,15 +47,22 @@ export default function Notifications() {
     };
   }, [session]);
 
+  const { refreshing, onRefresh } = useRefresh(load);
+
   if (loading) return <Loader />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <FlatList
       data={items}
       keyExtractor={(n) => n.id}
       contentContainerStyle={s.list}
-      refreshControl={<RefreshControl refreshing={false} onRefresh={load} />}
-      ListEmptyComponent={<Empty title="Пока тихо" body="Здесь появятся события по вашим сделкам." />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+      }
+      ListEmptyComponent={
+        <Empty icon="notifications-outline" title="Пока тихо" body="Здесь появятся события по вашим сделкам." />
+      }
       renderItem={({ item }) => (
         <Pressable
           style={[s.row, !item.read_at && s.unread]}

@@ -6,6 +6,7 @@ import { fetchMyBookings, fetchNotifications, updateProfile } from '../../src/li
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, formatDateRange, ratingLabel } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
+import { useRefresh } from '../../src/lib/useRefresh';
 import type { BookingWithItem } from '../../src/lib/types';
 import { colors, spacing } from '../../src/theme';
 
@@ -41,12 +42,16 @@ export default function Profile() {
     }, [load, profile?.full_name]),
   );
 
+  const { refreshing, onRefresh } = useRefresh(load);
+
   if (!profile) return <Loader />;
 
   return (
     <ScrollView
       contentContainerStyle={s.container}
-      refreshControl={<RefreshControl refreshing={false} onRefresh={load} />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+      }
     >
       <Card>
         <Text style={s.name}>{profile.full_name || 'Без имени'}</Text>
@@ -91,8 +96,14 @@ export default function Profile() {
             value={profile.passive_mode}
             trackColor={{ true: colors.accent, false: colors.border }}
             onValueChange={async (value) => {
-              await updateProfile(profile.id, { passive_mode: value });
-              await refreshProfile();
+              // Без обработки ошибка здесь превращалась в необработанное
+              // отклонение промиса: переключатель отскакивал назад молча.
+              try {
+                await updateProfile(profile.id, { passive_mode: value });
+                await refreshProfile();
+              } catch (e) {
+                setError(humanizeError(e));
+              }
             }}
           />
         </View>
