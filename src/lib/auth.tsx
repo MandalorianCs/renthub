@@ -16,8 +16,13 @@ type AuthState = {
    * Только для тестов без SMS-провайдера: аккаунты заводятся скриптом
    * scripts/seed-test-users.mjs с готовым паролем. В интерфейсе доступно
    * лишь под __DEV__ — в production-сборку эта ветка не попадает.
+   *
+   * Вход именно по email: провайдер Email включён в Supabase по умолчанию,
+   * а Phone отвечает «Phone logins are disabled», пока не настроен
+   * SMS-провайдер. Верификации это не касается — она берётся из
+   * phone_confirmed_at и у этих аккаунтов уже проставлена.
    */
-  signInWithPassword: (phone: string, password: string) => Promise<void>;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -76,11 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         if (error) throw error;
       },
-      signInWithPassword: async (phone, password) => {
-        const { error } = await supabase.auth.signInWithPassword({
-          phone: normalizePhone(phone),
-          password,
-        });
+      signInWithPassword: async (email, password) => {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       },
       signOut: async () => {

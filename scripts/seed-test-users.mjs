@@ -30,9 +30,14 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Номера из диапазона, который не выдаётся абонентам: даже если позже
 // подключите SMS-провайдера, эти аккаунты никому не позвонят.
 
+// У каждого аккаунта два реквизита, и это не избыточность:
+//   • телефон с phone_confirm — из него триггер берёт verified_at,
+//     то есть правило 1 пропускает пользователя честно;
+//   • email с паролем — им входят в приложение, потому что провайдер
+//     Email включён в Supabase по умолчанию, а Phone требует SMS-провайдера.
 const USERS = [
-  { role: 'Владелец',  phone: '+77000000001', fullName: 'Тест Владелец' },
-  { role: 'Арендатор', phone: '+77000000002', fullName: 'Тест Арендатор' },
+  { role: 'Владелец',  phone: '+77000000001', email: 'owner@renthub.test',  fullName: 'Тест Владелец' },
+  { role: 'Арендатор', phone: '+77000000002', email: 'renter@renthub.test', fullName: 'Тест Арендатор' },
 ];
 
 // ── Ключи ─────────────────────────────────────────────────────
@@ -94,6 +99,8 @@ for (const u of USERS) {
 
   if (existing) {
     const { error } = await admin.auth.admin.updateUserById(existing.id, {
+      email: u.email,
+      email_confirm: true,
       password,
       phone_confirm: true,
     });
@@ -101,15 +108,17 @@ for (const u of USERS) {
       console.error(`✗ ${u.role}: ${error.message}`);
       process.exit(1);
     }
-    console.log(`↻ ${u.role} ${u.phone} — уже был, пароль обновлён`);
+    console.log(`↻ ${u.role} ${u.phone} — уже был, email и пароль обновлены`);
     created.push({ ...u, id: existing.id });
     continue;
   }
 
   const { data, error } = await admin.auth.admin.createUser({
     phone: u.phone,
+    email: u.email,
     password,
     phone_confirm: true,
+    email_confirm: true,
     user_metadata: { full_name: u.fullName },
   });
 
@@ -163,10 +172,14 @@ if (!allGood) {
 console.log(`
 ✓ Оба аккаунта готовы и верифицированы. Правило 1 их пропустит.
 
-  Телефоны: ${USERS.map((u) => u.phone).join('  и  ')}
-  Пароль (общий, только для тестов): ${password}
+  ${USERS.map((u) => `${u.role.padEnd(10)} ${u.email}   (телефон ${u.phone})`).join('\n  ')}
 
-Пароль нигде не сохранён — если потеряете, просто запустите скрипт снова,
-он выдаст новый. Войти этими аккаунтами через экран приложения пока нельзя:
-там только код из SMS. Вход по паролю — следующий шаг.
+  Пароль, общий для обоих: ${password}
+
+Входить в приложение — по email и паролю, блоком «Тестовый вход» на экране
+входа. Телефон нужен не для входа, а для верификации: из phone_confirmed_at
+триггер берёт verified_at.
+
+Пароль нигде не сохранён — если потеряете, запустите скрипт снова, он выдаст
+новый и обновит его обоим аккаунтам.
 `);

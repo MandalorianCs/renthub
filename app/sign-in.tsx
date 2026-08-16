@@ -7,13 +7,16 @@ import { humanizeError } from '../src/lib/supabase';
 import { colors, radius, spacing } from '../src/theme';
 
 /**
- * Тестовые аккаунты из scripts/seed-test-users.mjs. Номера — из диапазона,
- * который не выдаётся абонентам, поэтому даже с подключённым провайдером
- * SMS на них не уйдёт.
+ * Тестовые аккаунты из scripts/seed-test-users.mjs.
+ *
+ * Вход по email, а не по телефону: провайдер Email включён по умолчанию,
+ * а Phone отвечает «Phone logins are disabled» без SMS-провайдера.
+ * На верификацию это не влияет — она у этих аккаунтов уже проставлена
+ * из phone_confirmed_at.
  */
 const TEST_ACCOUNTS = [
-  { label: 'Владелец', phone: '+77000000001' },
-  { label: 'Арендатор', phone: '+77000000002' },
+  { label: 'Владелец', email: 'owner@renthub.test' },
+  { label: 'Арендатор', email: 'renter@renthub.test' },
 ];
 
 /**
@@ -115,7 +118,7 @@ export default function SignIn() {
  */
 function DevLogin({ onError }: { onError: (message: string | null) => void }) {
   const { signInWithPassword } = useAuth();
-  const [phone, setPhone] = useState(TEST_ACCOUNTS[0].phone);
+  const [email, setEmail] = useState(TEST_ACCOUNTS[0].email);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -128,11 +131,11 @@ function DevLogin({ onError }: { onError: (message: string | null) => void }) {
 
       <View style={s.devRow}>
         {TEST_ACCOUNTS.map((a) => (
-          <View key={a.phone} style={{ flex: 1 }}>
+          <View key={a.email} style={{ flex: 1 }}>
             <Button
               title={a.label}
-              variant={phone === a.phone ? 'secondary' : 'ghost'}
-              onPress={() => setPhone(a.phone)}
+              variant={email === a.email ? 'secondary' : 'ghost'}
+              onPress={() => setEmail(a.email)}
             />
           </View>
         ))}
@@ -144,7 +147,7 @@ function DevLogin({ onError }: { onError: (message: string | null) => void }) {
         value={password}
         onChangeText={setPassword}
         secureTextEntry
-        hint={`Войти как ${phone}`}
+        hint={`Войти как ${email}`}
       />
 
       <Button
@@ -155,7 +158,7 @@ function DevLogin({ onError }: { onError: (message: string | null) => void }) {
           setBusy(true);
           onError(null);
           try {
-            await signInWithPassword(phone, password);
+            await signInWithPassword(email, password);
           } catch (e) {
             onError(humanizeError(e));
           } finally {
