@@ -1,0 +1,233 @@
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Badge, Button, Card, Empty, Field, Loader, Row } from '../../src/components/ui';
+import { createBooking, fetchItem, fetchItemCalendar } from '../../src/lib/api';
+import { useAuth } from '../../src/lib/auth';
+import { formatDateRange, formatTenge, ratingLabel } from '../../src/lib/format';
+import { calcPrice, countDays } from '../../src/lib/pricing';
+import { humanizeError } from '../../src/lib/supabase';
+import type { Booking, ItemWithOwner } from '../../src/lib/types';
+import { colors, radius, spacing } from '../../src/theme';
+
+/** Экран 3: карточка объявления + бронирование. */
+export default function ItemScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { session, isVerified } = useAuth();
+
+  const [item, setItem] = useState<ItemWithOwner | null>(null);
+  const [busyDates, setBusyDates] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [start, setStart] = useState(todayISO());
+  const [end, setEnd] = useState(todayISO());
+  const [insurance, setInsurance] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!id) return;
+    try {
+      const [found, calendar] = await Promise.all([fetchItem(id), fetchItemCalendar(id)]);
+      setItem(found);
+      setBusyDates(calendar);
+    } catch (e) {
+      setError(humanizeError(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const days = useMemo(() => countDays(start, end), [start, end]);
+
+  const price = useMemo(
+    () =>
+      item
+        ? calcPrice({
+            dailyPrice: item.daily_price,
+            deposit: item.deposit_amount,
+            days,
+            insurance,
+          })
+        : null,
+    [item, days, insurance],
+  );
+
+  if (loading) return <Loader />;
+  if (!item) return <Empty title="Объявление не найдено" />;
+
+  const isOwnItem = item.owner_id === session?.user.id;
+
+  async function book() {
+    if (!item || !session) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const booking = await createBooking({
+        itemId: item.id,
+        renterId: session.user.id,
+        startDate: start,
+        endDate: end,
+        insurance,
+      });
+      router.replace(`/booking/${booking.id}`);
+    } catch (e) {
+      setError(humanizeError(e));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <ScrollView contentContainerStyle={s.container}>
+      {item.condition_photos.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.gallery}>
+          {item.condition_photos.map((uri) => (
+            <Image key={uri} source={{ uri }} style={s.photo} />
+          ))}
+        </ScrollView>
+      ) : null}
+
+      <View style={{ gap: spacing.sm }}>
+        <Text style={s.title}>{item.title}</Text>
+        <Text style={s.price}>{formatTenge(item.daily_price)} / сутки</Text>
+        {item.description ? <Text style={s.description}>{item.description}</Text> : null}
+      </View>
+
+      <Card>
+        <Row left="Владелец" right={item.owner?.full_name ?? 'Без имени'} />
+        <Row
+          left="Рейтинг"
+          right={ratingLabel(item.owner?.rating ?? null, item.owner?.ratings_count ?? 0)}
+          muted
+        />
+        <Row left="Депозит" right={formatTenge(item.deposit_amount)} />
+      </Card>
+
+      {/* Календарь занятости — сырые данные, а не сводка от платформы:
+          и арендатор, и владелец видят одно и то же. */}
+      {busyDates.length > 0 ? (
+        <Card>
+          <Text style={s.sectionTitle}>Занятые даты</Text>
+          {busyDates.map((b) => (
+            <Row
+              key={b.id}
+              left={formatDateRange(b.start_date, b.end_date)}
+              right={b.status === 'active' ? 'в аренде' : 'забронировано'}
+              muted
+            />
+          ))}
+        </Card>
+      ) : null}
+
+      {isOwnItem ? (
+        <Card>
+          <Text style={s.sectionTitle}>Это ваше объявление</Text>
+          <Text style={s.note}>Свою вещь забронировать нельзя.</Text>
+        </Card>
+      ) : (
+        <Card>
+          <Text style={s.sectionTitle}>Забронировать</Text>
+
+          <View style={s.presets}>
+            {[1, 3, 7, 14, 30].map((n) => (
+              <Pressable
+                key={n}
+                style={[s.preset, days === n && s.presetActive]}
+                onPress={() => {
+                  setStart(todayISO());
+                  setEnd(addDaysISO(todayISO(), n - 1));
+                }}
+              >
+                <Text style={[s.presetText, days === n && { color: colors.bg }]}>{n} дн.</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Field label="Начало (ГГГГ-ММ-ДД)" value={start} onChangeText={setStart} placeholder="2026-08-20" />
+          <Field label="Конец (ГГГГ-ММ-ДД)" value={end} onChangeText={setEnd} placeholder="2026-08-22" />
+
+          <View style={s.switchRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.switchLabel}>Страховая защита</Text>
+              <Text style={s.note}>+150 ₸ к сделке — покрытие мелких повреждений</Text>
+            </View>
+            <Switch
+              value={insurance}
+              onValueChange={setInsurance}
+              trackColor={{ true: colors.accent, false: colors.border }}
+            />
+          </View>
+
+          {price && days > 0 ? (
+            <View style={s.breakdown}>
+              <Row left={`Аренда ${formatTenge(item.daily_price)} × ${days} дн.`} right={formatTenge(price.rentTotal)} />
+              {insurance ? <Row left="Страховой сбор" right={formatTenge(price.insuranceFee)} muted /> : null}
+              <Row left="К оплате" right={formatTenge(price.renterTotal)} />
+              <Row left="Депозит (блокируется)" right={formatTenge(price.deposit)} muted />
+            </View>
+          ) : (
+            <Text style={s.error}>Проверьте даты: конец не может быть раньше начала.</Text>
+          )}
+
+          {!isVerified ? (
+            <Badge label="Подтвердите телефон, чтобы бронировать" fg={colors.warn} bg={colors.warnSoft} />
+          ) : null}
+
+          <Button
+            title="Забронировать"
+            onPress={book}
+            loading={submitting}
+            disabled={!isVerified || days <= 0}
+          />
+
+          <Text style={s.note}>
+            Деньги на этом этапе не списываются — MVP эмулирует денежный поток статусами.
+          </Text>
+        </Card>
+      )}
+
+      {error ? <Text style={s.error}>{error}</Text> : null}
+    </ScrollView>
+  );
+}
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysISO(iso: string, days: number): string {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+const s = StyleSheet.create({
+  container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
+  gallery: { flexGrow: 0 },
+  photo: { width: 240, height: 180, borderRadius: radius.lg, marginRight: spacing.md, backgroundColor: colors.border },
+  title: { fontSize: 24, fontWeight: '800', color: colors.text },
+  price: { fontSize: 18, fontWeight: '800', color: colors.accent },
+  description: { fontSize: 15, color: colors.textMuted, lineHeight: 22 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
+  note: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
+  presets: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
+  preset: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  presetActive: { backgroundColor: colors.text, borderColor: colors.text },
+  presetText: { fontSize: 13, fontWeight: '600', color: colors.text },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  switchLabel: { fontSize: 15, fontWeight: '600', color: colors.text },
+  breakdown: { gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md },
+  error: { color: colors.danger, fontSize: 14 },
+});

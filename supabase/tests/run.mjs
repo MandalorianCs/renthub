@@ -1,0 +1,147 @@
+#!/usr/bin/env node
+// Прогон миграций и сценариев на настоящем Postgres в Docker.
+//
+// Зачем: «tsc проходит и expo собирается» ничего не говорит о том, применятся
+// ли миграции и не развалится ли петля сделки. Здесь база поднимается с нуля,
+// на неё накатываются 0001–0003 ровно в том же порядке, что в SQL Editor,
+// и по ним проезжает полный сценарий от имени двух живых пользователей.
+//
+//   node supabase/tests/run.mjs           обычный прогон, контейнер удаляется
+//   node supabase/tests/run.mjs --keep    оставить базу для ручных запросов
+//
+// Файлы не монтируются томом, а подаются в psql через stdin: путь к проекту
+// содержит кириллицу и пробелы, и docker -v на нём ведёт себя непредсказуемо.
+
+import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(HERE, '..', '..');
+const CONTAINER = 'renthub-test-db';
+const IMAGE = 'postgres:16-alpine';
+const KEEP = process.argv.includes('--keep');
+
+// Порядок ровно как в README: сначала платформенная заглушка, потом миграции,
+// потом сценарии. Если что-то падает — падает на своём шаге, а не «где-то в SQL».
+const STEPS = [
+  ['заглушка платформы Supabase', 'supabase/tests/00_platform_shim.sql'],
+  ['миграция 0001 — схема', 'supabase/migrations/0001_schema.sql'],
+  ['миграция 0002 — Trust Score', 'supabase/migrations/0002_trust_score.sql'],
+  ['миграция 0003 — RLS и Storage', 'supabase/migrations/0003_rls.sql'],
+  ['помощники и регистрация', 'supabase/tests/10_helpers.sql'],
+  ['сценарий 1 — обычная сделка', 'supabase/tests/20_happy_path.sql'],
+  ['сценарий 2 — запреты', 'supabase/tests/30_guards.sql'],
+  ['сценарий 3 — просрочка', 'supabase/tests/40_overdue.sql'],
+  ['сценарий 4 — споры', 'supabase/tests/50_disputes.sql'],
+];
+
+const docker = (args, opts = {}) =>
+  spawnSync('docker', args, { encoding: 'utf8', ...opts });
+
+function die(message, detail) {
+  console.error(`\n✗ ${message}`);
+  if (detail) console.error(detail.trim());
+  process.exit(1);
+}
+
+// ── Поднимаем чистую базу ─────────────────────────────────────
+// Именно чистую: тесты опираются на то, что таблицы пустые, а прошлый
+// прогон мог оставить сделки в промежуточных статусах.
+
+if (docker(['version']).status !== 0) {
+  die('Docker не отвечает. Запустите Docker Desktop и повторите.');
+}
+
+console.log(`Поднимаю ${IMAGE} в контейнере ${CONTAINER}…`);
+docker(['rm', '-f', CONTAINER]);
+
+const up = docker([
+  'run', '-d', '--name', CONTAINER,
+  '-e', 'POSTGRES_PASSWORD=postgres',
+  // Supabase держит базу в UTC. Часовой пояс влияет на grace_period_ends_at,
+  // поэтому расхождение с продакшном здесь недопустимо.
+  '-e', 'TZ=UTC',
+  '-e', 'PGTZ=UTC',
+  IMAGE,
+]);
+if (up.status !== 0) die('не удалось запустить контейнер', up.stderr);
+
+// Синхронная пауза: скрипт линейный, разводить вокруг него async ради
+// ожидания стартующей базы — лишний шум.
+const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+let ready = false;
+for (let i = 0; i < 60; i++) {
+  if (docker(['exec', CONTAINER, 'pg_isready', '-U', 'postgres', '-q']).status === 0) {
+    ready = true;
+    break;
+  }
+  sleep(1000);
+}
+if (!ready) {
+  const logs = docker(['logs', '--tail', '40', CONTAINER]);
+  die('Postgres не поднялся за 60 попыток', logs.stdout + logs.stderr);
+}
+
+// ── Прогон ────────────────────────────────────────────────────
+
+function psql(sqlPath) {
+  return docker(
+    [
+      'exec', '-i',
+      '-e', 'PGPASSWORD=postgres',
+      '-e', 'PGCLIENTENCODING=UTF8',
+      CONTAINER,
+      'psql', '-U', 'postgres', '-d', 'postgres',
+      '-v', 'ON_ERROR_STOP=1',
+      '--quiet', '--no-psqlrc',
+      // Результаты запросов смысла не несут: всё проверяемое приходит через
+      // raise notice в stderr. Без этого вывод тонет в таблицах psql.
+      '-o', '/dev/null',
+    ],
+    { input: readFileSync(join(ROOT, sqlPath)) },
+  );
+}
+
+const started = Date.now();
+let failed = null;
+
+for (const [label, file] of STEPS) {
+  process.stdout.write(`\n▸ ${label}\n`);
+  const res = psql(file);
+
+  // raise notice уходит в stderr — это наши «ok», а не ошибки.
+  const noise = (res.stderr || '')
+    .split('\n')
+    .filter((line) => line.trim() && !line.startsWith('SET') && !line.includes('NOTICE:  extension'))
+    .map((line) => line.replace(/^ПРЕДУПРЕЖДЕНИЕ:|^NOTICE:\s*/, '  '))
+    .join('\n');
+
+  if (res.stdout?.trim()) console.log(res.stdout.trim());
+  if (noise) console.log(noise);
+
+  if (res.status !== 0) {
+    failed = { label, file };
+    break;
+  }
+}
+
+const seconds = ((Date.now() - started) / 1000).toFixed(1);
+
+if (KEEP) {
+  console.log(
+    `\nКонтейнер ${CONTAINER} оставлен. Подключиться:\n` +
+      `  docker exec -it ${CONTAINER} psql -U postgres`,
+  );
+} else {
+  docker(['rm', '-f', CONTAINER]);
+}
+
+if (failed) {
+  console.error(`\n✗ ПРОВАЛ на шаге «${failed.label}» (${failed.file}), ${seconds} с`);
+  process.exit(1);
+}
+
+console.log(`\n✓ Миграции применились, все сценарии прошли. ${seconds} с`);
