@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -11,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { Calendar, toISO } from '../../src/components/Calendar';
+import { PhotoViewer } from '../../src/components/PhotoViewer';
 import { Badge, Button, Card, Empty, Loader, Row } from '../../src/components/ui';
 import { createBooking, fetchItem, fetchItemCalendar } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
@@ -37,6 +39,7 @@ export default function ItemScreen() {
   const [insurance, setInsurance] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [viewerAt, setViewerAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -109,24 +112,26 @@ export default function ItemScreen() {
               setPhotoIndex(Math.round(e.nativeEvent.contentOffset.x / galleryWidth))
             }
           >
-            {item.condition_photos.map((uri) => (
-              <Image
-                key={uri}
-                source={uri}
-                style={{ width: galleryWidth, height: galleryWidth * 0.68 }}
-                contentFit="cover"
-                transition={220}
-              />
+            {item.condition_photos.map((uri, i) => (
+              <Pressable key={uri} onPress={() => setViewerAt(i)}>
+                <Image
+                  source={uri}
+                  style={{ width: galleryWidth, height: galleryWidth * 0.68 }}
+                  contentFit="cover"
+                  transition={220}
+                />
+              </Pressable>
             ))}
           </ScrollView>
 
-          {item.condition_photos.length > 1 ? (
-            <View style={s.counter}>
-              <Text style={s.counterText}>
-                {photoIndex + 1} / {item.condition_photos.length}
-              </Text>
-            </View>
-          ) : null}
+          <View style={s.counter}>
+            <Ionicons name="expand-outline" size={12} color="#FFFFFF" />
+            <Text style={s.counterText}>
+              {item.condition_photos.length > 1
+                ? `${photoIndex + 1} / ${item.condition_photos.length}`
+                : 'открыть'}
+            </Text>
+          </View>
         </View>
       ) : null}
 
@@ -278,6 +283,13 @@ export default function ItemScreen() {
         </View>
       </View>
     ) : null}
+      {viewerAt !== null ? (
+        <PhotoViewer
+          photos={item.condition_photos}
+          startIndex={viewerAt}
+          onClose={() => setViewerAt(null)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -303,6 +315,9 @@ const s = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: 120 },
   galleryWrap: { borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.border },
   counter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     position: 'absolute',
     right: spacing.md,
     bottom: spacing.md,
