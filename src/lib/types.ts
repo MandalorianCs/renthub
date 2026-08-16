@@ -1,4 +1,4 @@
-/** Типы повторяют схему из supabase/migrations/0001_schema.sql. */
+/** Типы повторяют схему из supabase/migrations/20260816120000_schema.sql. */
 
 export type ItemStatus = 'active' | 'hidden';
 

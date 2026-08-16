@@ -31,7 +31,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test:db": "node supabase/tests/run.mjs"
+    "test:db": "node db-tests/run.mjs"
   },
   "private": true
 }

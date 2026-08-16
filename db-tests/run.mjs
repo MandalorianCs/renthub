@@ -6,8 +6,8 @@
 // на неё накатываются 0001–0003 ровно в том же порядке, что в SQL Editor,
 // и по ним проезжает полный сценарий от имени двух живых пользователей.
 //
-//   node supabase/tests/run.mjs           обычный прогон, контейнер удаляется
-//   node supabase/tests/run.mjs --keep    оставить базу для ручных запросов
+//   node db-tests/run.mjs           обычный прогон, контейнер удаляется
+//   node db-tests/run.mjs --keep    оставить базу для ручных запросов
 //
 // Файлы не монтируются томом, а подаются в psql через stdin: путь к проекту
 // содержит кириллицу и пробелы, и docker -v на нём ведёт себя непредсказуемо.
@@ -18,7 +18,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, '..', '..');
+const ROOT = join(HERE, '..');
 const CONTAINER = 'renthub-test-db';
 const IMAGE = 'postgres:16-alpine';
 const KEEP = process.argv.includes('--keep');
@@ -26,15 +26,15 @@ const KEEP = process.argv.includes('--keep');
 // Порядок ровно как в README: сначала платформенная заглушка, потом миграции,
 // потом сценарии. Если что-то падает — падает на своём шаге, а не «где-то в SQL».
 const STEPS = [
-  ['заглушка платформы Supabase', 'supabase/tests/00_platform_shim.sql'],
-  ['миграция 0001 — схема', 'supabase/migrations/0001_schema.sql'],
-  ['миграция 0002 — Trust Score', 'supabase/migrations/0002_trust_score.sql'],
-  ['миграция 0003 — RLS и Storage', 'supabase/migrations/0003_rls.sql'],
-  ['помощники и регистрация', 'supabase/tests/10_helpers.sql'],
-  ['сценарий 1 — обычная сделка', 'supabase/tests/20_happy_path.sql'],
-  ['сценарий 2 — запреты', 'supabase/tests/30_guards.sql'],
-  ['сценарий 3 — просрочка', 'supabase/tests/40_overdue.sql'],
-  ['сценарий 4 — споры', 'supabase/tests/50_disputes.sql'],
+  ['заглушка платформы Supabase', 'db-tests/00_platform_shim.sql'],
+  ['миграция — схема', 'supabase/migrations/20260816120000_schema.sql'],
+  ['миграция — Trust Score', 'supabase/migrations/20260816120100_trust_score.sql'],
+  ['миграция — RLS и Storage', 'supabase/migrations/20260816120200_rls.sql'],
+  ['помощники и регистрация', 'db-tests/10_helpers.sql'],
+  ['сценарий 1 — обычная сделка', 'db-tests/20_happy_path.sql'],
+  ['сценарий 2 — запреты', 'db-tests/30_guards.sql'],
+  ['сценарий 3 — просрочка', 'db-tests/40_overdue.sql'],
+  ['сценарий 4 — споры', 'db-tests/50_disputes.sql'],
 ];
 
 const docker = (args, opts = {}) =>

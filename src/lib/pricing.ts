@@ -56,4 +56,4 @@ export function calcPrice(params: {
 
 // Периодические выплаты для длинной аренды (транши раз в 7 дней)
 // отложены — начисление одно, при закрытии сделки. См. schedule_payouts
-// в supabase/migrations/0002_trust_score.sql.
+// в supabase/migrations/20260816120100_trust_score.sql.
