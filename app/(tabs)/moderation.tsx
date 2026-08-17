@@ -2,14 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { ListSkeleton } from '../src/components/Skeleton';
-import { Button, Card, Empty, ErrorState, Field, Row } from '../src/components/ui';
-import { fetchDisputesForReview, resolveDispute } from '../src/lib/api';
-import { formatDate, formatDateRange, formatTenge } from '../src/lib/format';
-import { humanizeError } from '../src/lib/supabase';
-import type { DisputeForReview } from '../src/lib/types';
-import { useRefresh } from '../src/lib/useRefresh';
-import { colors, radius, spacing, typeface } from '../src/theme';
+import { ListSkeleton } from '../../src/components/Skeleton';
+import { Button, Card, Empty, ErrorState, Field, Row } from '../../src/components/ui';
+import { fetchDisputesForReview, fetchModerationStats, resolveDispute } from '../../src/lib/api';
+import { formatDate, formatDateRange, formatTenge } from '../../src/lib/format';
+import { humanizeError } from '../../src/lib/supabase';
+import type { DisputeForReview } from '../../src/lib/types';
+import { useRefresh } from '../../src/lib/useRefresh';
+import { colors, radius, spacing, typeface } from '../../src/theme';
 
 /**
  * Разбор споров. Виден только модератору.
@@ -25,12 +25,20 @@ import { colors, radius, spacing, typeface } from '../src/theme';
  */
 export default function Moderation() {
   const [disputes, setDisputes] = useState<DisputeForReview[]>([]);
+  const [stats, setStats] = useState<{
+    users: number;
+    items: number;
+    bookings: number;
+    openDisputes: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      setDisputes(await fetchDisputesForReview());
+      const [d, s] = await Promise.all([fetchDisputesForReview(), fetchModerationStats()]);
+      setDisputes(d);
+      setStats(s);
       setError(null);
     } catch (e) {
       setError(humanizeError(e));
@@ -55,6 +63,26 @@ export default function Moderation() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
       }
     >
+      {/* Сводка первой: модератор должен видеть картину целиком, а не
+          только то, что сломалось. Пустой список споров без контекста
+          не отличается от неработающего экрана. */}
+      {stats ? (
+        <View style={s.stats}>
+          <Stat value={stats.users} label="человек" />
+          <Stat value={stats.items} label="объявлений" />
+          <Stat value={stats.bookings} label="сделок" />
+          <Stat
+            value={stats.openDisputes}
+            label="на разборе"
+            accent={stats.openDisputes > 0}
+          />
+        </View>
+      ) : null}
+
+      <Text style={s.section}>
+        {disputes.length > 0 ? 'Ждут решения' : 'Разбор споров'}
+      </Text>
+
       {disputes.length === 0 ? (
         <Empty
           icon="shield-checkmark-outline"
@@ -65,6 +93,15 @@ export default function Moderation() {
         disputes.map((d) => <DisputeCard key={d.id} dispute={d} onResolved={load} />)
       )}
     </ScrollView>
+  );
+}
+
+function Stat({ value, label, accent }: { value: number; label: string; accent?: boolean }) {
+  return (
+    <View style={s.stat}>
+      <Text style={[s.statValue, accent && { color: colors.danger }]}>{value}</Text>
+      <Text style={s.statLabel}>{label}</Text>
+    </View>
   );
 }
 
@@ -201,6 +238,20 @@ function PhotoStrip({ photos }: { photos: string[] }) {
 
 const s = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
+  stats: { flexDirection: 'row', gap: spacing.sm },
+  stat: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    gap: 2,
+  },
+  statValue: { fontSize: 22, fontFamily: typeface[800], color: colors.text },
+  statLabel: { fontSize: 11, fontFamily: typeface[500], color: colors.textMuted },
+  section: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
   head: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
   title: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
   meta: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, marginTop: 2 },

@@ -1,8 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useAuth } from '../../src/lib/auth';
 import { colors, typeface } from '../../src/theme';
 
 export default function TabsLayout() {
+  const { profile } = useAuth();
+
   return (
     <Tabs
       screenOptions={{
@@ -11,6 +14,7 @@ export default function TabsLayout() {
         headerTitleStyle: { fontFamily: typeface[800], fontSize: 20 },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: { fontFamily: typeface[600], fontSize: 11 },
         tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
         sceneStyle: { backgroundColor: colors.bg },
       }}
@@ -36,6 +40,26 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="construct" color={color} size={size} />,
         }}
       />
+
+      {/*
+        Вкладка модератора.
+        href: null убирает её из меню, не убирая экран из маршрутов — по
+        прямой ссылке он откроется у кого угодно. Так и должно быть:
+        спрятанная кнопка это подсказка, а не защита. Настоящая защита в
+        базе — список споров придёт пустым без права на чтение, а решение
+        отклонит assert_moderator().
+      */}
+      <Tabs.Screen
+        name="moderation"
+        options={{
+          title: 'Модерация',
+          href: profile?.is_moderator ? undefined : null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="shield-checkmark" color={color} size={size} />
+          ),
+        }}
+      />
+
       <Tabs.Screen
         name="profile"
         options={{
