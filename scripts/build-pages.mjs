@@ -45,9 +45,15 @@ cpSync(join(ROOT, 'landing', 'index.html'), join(DOCS, 'index.html'));
 writeFileSync(join(DOCS, '.nojekyll'), '');
 
 // Приложение — SPA с маршрутизацией на клиенте. Прямой заход на
-// /renthub/app/item/<id> Pages не найдёт как файл и отдаст свою 404.
-// Подкладываем тот же index.html: он загрузится и разберёт адрес сам.
-cpSync(join(DOCS, 'app', 'index.html'), join(DOCS, 'app', '404.html'));
+// /renthub/app/item/<id> Pages не найдёт как файл и отдаст свою 404 —
+// а без этого нельзя отправить ссылку на конкретное объявление, то есть
+// отваливается основа маркетплейса.
+//
+// Файл обязан лежать в КОРНЕ публикации: GitHub Pages ищет 404.html
+// только там, вложенные игнорирует. Внутри — index приложения: ассеты
+// в нём прописаны абсолютными путями, поэтому он работает с любой глубины,
+// а expo-router разберёт адрес из location сам.
+cpSync(join(DOCS, 'app', 'index.html'), join(DOCS, '404.html'));
 
 console.log(`
 ✓ Готово. Опубликовать:
