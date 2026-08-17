@@ -137,6 +137,22 @@ export default function Profile() {
         </Pressable>
       </Card>
 
+      {/* Вход в модерацию виден только тому, у кого есть право. Это
+          подсказка, а не защита: сам экран пуст без права, а решение
+          спора отклонит база. */}
+      {profile.is_moderator ? (
+        <Card style={{ borderColor: colors.danger }}>
+          <Pressable style={s.linkRow} onPress={() => router.push('/moderation')}>
+            <Ionicons name="shield-checkmark-outline" size={20} color={colors.danger} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.linkTitle}>Разбор споров</Text>
+              <Text style={s.note}>Претензии выше 15 000 ₸ — те, что база не решает сама</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+        </Card>
+      ) : null}
+
       <Card>
         <Text style={s.sectionTitle}>История сделок</Text>
         {history.length === 0 ? (

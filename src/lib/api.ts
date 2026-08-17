@@ -7,6 +7,7 @@ import type {
   PublicProfile,
   ReviewWithAuthor,
   Dispute,
+  DisputeForReview,
   Item,
   ItemWithOwner,
   Notification,
@@ -363,6 +364,34 @@ export async function fetchDisputes(bookingId: string): Promise<Dispute[]> {
     .order('created_at');
   if (error) throw error;
   return data ?? [];
+}
+
+// ── Модерация споров ──────────────────────────────────────────
+
+/**
+ * Споры, ждущие человека. Видны только модератору — политики
+ * disputes_read_moderator и bookings_read_moderator, добавленные вместе
+ * с ролью. Обычный пользователь получит здесь пустой список, а не отказ:
+ * RLS фильтрует строки, а не запрещает запрос.
+ */
+export async function fetchDisputesForReview(): Promise<DisputeForReview[]> {
+  const { data, error } = await supabase
+    .from('disputes')
+    .select(
+      '*, booking:bookings(id, start_date, end_date, deposit_snapshot, renter_id, owner_id, item:items(id, title, condition_photos))',
+    )
+    .eq('resolution_status', 'manual_review')
+    .order('created_at');
+  if (error) throw error;
+  return (data ?? []) as unknown as DisputeForReview[];
+}
+
+export function resolveDispute(input: { disputeId: string; amount: number; note?: string }) {
+  return rpc<Dispute>('resolve_dispute_manually', {
+    p_dispute_id: input.disputeId,
+    p_payout_amount: input.amount,
+    p_note: input.note ?? null,
+  });
 }
 
 // ── Выплаты, отзывы, уведомления ──────────────────────────────

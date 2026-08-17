@@ -28,6 +28,8 @@ export type User = {
   ratings_count: number;
   role_hint: string;
   passive_mode: boolean;
+  /** Право разбирать споры выше порога. Выдаётся только сервисным ключом. */
+  is_moderator: boolean;
   created_at: string;
 };
 
@@ -89,6 +91,23 @@ export type BookingWithItem = Booking & {
 
 export type ReviewWithAuthor = Review & {
   author: { id: string; full_name: string | null } | null;
+};
+
+/**
+ * Спор со всем, что нужно для решения: суммой депозита, фото «до» из
+ * объявления и фото «после» из самой претензии. Без обеих пачек снимков
+ * решение принимается вслепую по одной стороне.
+ */
+export type DisputeForReview = Dispute & {
+  booking: {
+    id: string;
+    start_date: string;
+    end_date: string;
+    deposit_snapshot: number;
+    renter_id: string;
+    owner_id: string;
+    item: { id: string; title: string; condition_photos: string[] } | null;
+  } | null;
 };
 
 export type Payout = {
