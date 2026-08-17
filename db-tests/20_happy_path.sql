@@ -26,7 +26,7 @@ begin
     'верифицированный владелец создал объявление');
 
   perform t.assert(
-    (select city = 'almaty' and status = 'active' from items where id = t.id('item')),
+    (select city = 'kokshetau' and status = 'active' from items where id = t.id('item')),
     'город и статус проставились по умолчанию');
 end $$;
 
@@ -36,7 +36,7 @@ do $$
 begin
   perform t.assert(
     t.as_value(t.id('renter'),
-      'select count(*)::text from items where status = ''active'' and city = ''almaty''') = '1',
+      'select count(*)::text from items where status = ''active'' and city = ''kokshetau''') = '1',
     'арендатор видит чужое активное объявление в каталоге');
 end $$;
 

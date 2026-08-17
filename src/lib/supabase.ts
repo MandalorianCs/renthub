@@ -26,7 +26,7 @@ export const supabase = createClient(url, anonKey, {
   },
 });
 
-export const PILOT_CITY = process.env.EXPO_PUBLIC_PILOT_CITY ?? 'almaty';
+export const PILOT_CITY = process.env.EXPO_PUBLIC_PILOT_CITY ?? 'kokshetau';
 
 /**
  * Ошибки бизнес-правил приходят из Postgres как `RENTHUB_CODE: текст`.
