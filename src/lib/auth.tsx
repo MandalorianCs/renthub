@@ -13,16 +13,17 @@ type AuthState = {
   sendCode: (phone: string) => Promise<void>;
   verifyCode: (phone: string, code: string) => Promise<void>;
   /**
-   * Только для тестов без SMS-провайдера: аккаунты заводятся скриптом
-   * scripts/seed-test-users.mjs с готовым паролем. В интерфейсе доступно
-   * лишь под __DEV__ — в production-сборку эта ветка не попадает.
+   * Вход по приглашению: человек вводит свой телефон и выданный пароль.
    *
-   * Вход именно по email: провайдер Email включён в Supabase по умолчанию,
-   * а Phone отвечает «Phone logins are disabled», пока не настроен
-   * SMS-провайдер. Верификации это не касается — она берётся из
-   * phone_confirmed_at и у этих аккаунтов уже проставлена.
+   * Внутри это вход по email — провайдер Email включён в Supabase по
+   * умолчанию, а Phone отвечает «Phone logins are disabled», пока не
+   * настроен SMS-провайдер, который для Казахстана стоит $250 в месяц
+   * только за регистрацию имени отправителя.
+   *
+   * Адрес собирается из номера по фиксированному правилу, поэтому человек
+   * его не видит и не вводит. Правило обязано совпадать со scripts/invite.mjs.
    */
-  signInWithPassword: (email: string, password: string) => Promise<void>;
+  signInWithInvite: (phone: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -81,8 +82,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         if (error) throw error;
       },
-      signInWithPassword: async (email, password) => {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+      signInWithInvite: async (phone, password) => {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: inviteEmail(normalizePhone(phone)),
+          password,
+        });
         if (error) throw error;
       },
       signOut: async () => {
@@ -101,6 +105,18 @@ export function useAuth(): AuthState {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth вызван вне AuthProvider');
   return ctx;
+}
+
+/**
+ * Телефон → внутренний адрес учётной записи.
+ *
+ * Правило продублировано в scripts/invite.mjs и обязано совпадать: скрипт
+ * заводит аккаунт с этим адресом, клиент собирает его же из введённого
+ * номера. Разойдутся — человек с верным паролем не сможет войти, и причину
+ * будут искать в пароле.
+ */
+export function inviteEmail(phone: string): string {
+  return `${phone.replace(/\D/g, '')}@renthub.test`;
 }
 
 /** Казахстанские номера: 8 705… и +7 705… — это один и тот же номер. */

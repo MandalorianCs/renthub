@@ -36,7 +36,8 @@
     "typecheck": "tsc --noEmit",
     "test:db": "node db-tests/run.mjs",
     "seed:users": "node scripts/seed-test-users.mjs",
-    "build:pages": "node scripts/build-pages.mjs"
+    "build:pages": "node scripts/build-pages.mjs",
+    "invite": "node scripts/invite.mjs"
   },
   "private": true
 }
