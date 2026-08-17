@@ -254,3 +254,82 @@ begin
 end $$;
 
 \echo '--- сценарий 4 пройден ---'
+
+-- ── Кто может разрешать споры ─────────────────────────────────
+--
+-- До миграции с модераторами resolve_dispute_manually не проверяла
+-- вызывающего вообще: функция security definer, PostgREST открывает её
+-- всем авторизованным. Арендатор мог закрыть спор против себя с выплатой
+-- ноль. Проверки ниже фиксируют, что этого больше нельзя.
+
+\echo ''
+\echo '--- право разрешать споры ---'
+
+-- Готовим спор выше порога: он остаётся на ручном разборе.
+select t.as(t.id('renter'), format($sql$
+  insert into bookings (id, item_id, renter_id, owner_id, start_date, end_date,
+                        days, daily_price_snapshot, deposit_snapshot,
+                        rent_total, platform_fee, insurance_fee,
+                        renter_total, owner_payout_total)
+  values (%L, %L, %L, %L, current_date + 40, current_date + 41, 1, 0, 0, 0, 0, 0, 0, 0)
+$sql$, t.id('booking6'), t.id('item'), t.id('renter'), t.id('renter')));
+
+select t.as(t.id('owner'),  format('select booking_confirm(%L)', t.id('booking6')));
+select t.as(t.id('renter'), format('select booking_mark_picked_up(%L)', t.id('booking6')));
+select t.as(t.id('owner'),  format('select booking_mark_returned(%L)', t.id('booking6')));
+select t.as(t.id('owner'), format($sql$
+  select open_damage_dispute(%L, 18000, array['https://example.test/x.jpg'], 'Разбор')
+$sql$, t.id('booking6')));
+
+-- Арендатор — сторона спора, но не модератор.
+do $$
+declare
+  v_dispute uuid;
+begin
+  select id into v_dispute from disputes where booking_id = t.id('booking6') and type = 'damage';
+
+  perform t.expect_fail(t.id('renter'),
+    format('select resolve_dispute_manually(%L, 0, ''Сам себе списал'')', v_dispute),
+    'RENTHUB_FORBIDDEN');
+
+  perform t.expect_fail(t.id('owner'),
+    format('select resolve_dispute_manually(%L, 20000, ''Сам себе начислил'')', v_dispute),
+    'RENTHUB_FORBIDDEN');
+
+  perform t.expect_fail(t.id('stranger'),
+    format('select resolve_dispute_manually(%L, 5000, ''Мимо проходил'')', v_dispute),
+    'RENTHUB_FORBIDDEN');
+end $$;
+
+-- Роль нельзя выдать себе самому, хотя свою строку менять разрешено.
+select t.expect_fail(t.id('renter'),
+  format('update users set is_moderator = true where id = %L', t.id('renter')),
+  'RENTHUB_FORBIDDEN');
+
+-- Назначаем модератора так, как это делает скрипт: без jwt-сессии.
+update users set is_moderator = true where id = t.id('stranger');
+
+do $$
+declare
+  v_dispute uuid;
+begin
+  select id into v_dispute from disputes where booking_id = t.id('booking6') and type = 'damage';
+
+  perform t.assert(
+    t.as_value(t.id('stranger'), 'select count(*)::text from disputes')::int >= 1,
+    'модератор видит споры, которых не касается');
+
+  perform t.as(t.id('stranger'),
+    format('select resolve_dispute_manually(%L, 12000, ''Экспертиза'')', v_dispute));
+
+  perform t.assert(
+    (select resolution_status = 'resolved' and payout_amount = 12000
+       from disputes where id = v_dispute),
+    'модератор разрешил спор');
+
+  perform t.assert(
+    (select status = 'completed' from bookings where id = t.id('booking6')),
+    'сделка закрылась после решения модератора');
+end $$;
+
+update users set is_moderator = false where id = t.id('stranger');

@@ -37,7 +37,8 @@
     "test:db": "node db-tests/run.mjs",
     "seed:users": "node scripts/seed-test-users.mjs",
     "build:pages": "node scripts/build-pages.mjs",
-    "invite": "node scripts/invite.mjs"
+    "invite": "node scripts/invite.mjs",
+    "moderator": "node scripts/moderator.mjs"
   },
   "private": true
 }
