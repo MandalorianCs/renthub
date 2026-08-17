@@ -36,6 +36,9 @@
       ],
       "expo-font",
       "expo-image"
-    ]
+    ],
+    "experiments": {
+      "baseUrl": "/renthub/app"
+    }
   }
 }

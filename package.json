@@ -35,7 +35,8 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test:db": "node db-tests/run.mjs",
-    "seed:users": "node scripts/seed-test-users.mjs"
+    "seed:users": "node scripts/seed-test-users.mjs",
+    "build:pages": "node scripts/build-pages.mjs"
   },
   "private": true
 }
