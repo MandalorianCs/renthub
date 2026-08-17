@@ -81,12 +81,19 @@ const admin = createClient(url, secret, {
 });
 
 // Ищем по профилю, а не по auth.users: модератором можно быть только тем,
-// у кого профиль уже создан триггером, то есть кто хоть раз заходил.
-const { data: found, error: findError } = await admin
+// у кого профиль уже создан триггером.
+//
+// Ищем сразу в двух форматах. GoTrue хранит телефон без плюса, и триггер
+// handle_new_auth_user переносит его в профиль как есть — то есть в базе
+// лежит 77758663588, а не +77758663588. Поиск по одному формату молча
+// не находил существующего пользователя.
+const digitsOnly = phone.replace(/\D/g, '');
+const { data: rows, error: findError } = await admin
   .from('users')
   .select('id, full_name, phone, is_moderator')
-  .eq('phone', phone)
-  .maybeSingle();
+  .in('phone', [phone, digitsOnly]);
+
+const found = rows?.[0] ?? null;
 
 if (findError) {
   console.error(`✗ ${findError.message}`);

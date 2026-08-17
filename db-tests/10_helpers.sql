@@ -163,11 +163,14 @@ grant execute on all functions in schema t to anon, authenticated, service_role;
 -- phone_confirmed_at проставляется отдельным UPDATE после ввода кода.
 -- Именно этот второй шаг ловит триггер on_auth_user_phone_confirmed.
 
+-- Номера без плюса — так их хранит GoTrue. Раньше здесь стоял формат
+-- E.164, и стенд подтверждал то, чего в жизни не бывает: расхождение
+-- форматов между auth.users и профилем он поймать не мог.
 insert into auth.users (id, phone, raw_user_meta_data) values
-  (t.id('owner'),      '+77010000001', '{"full_name": "Ержан Владелец"}'),
-  (t.id('renter'),     '+77010000002', '{"full_name": "Асель Арендатор"}'),
-  (t.id('stranger'),   '+77010000003', '{"full_name": "Посторонний"}'),
-  (t.id('unverified'), '+77010000004', '{"full_name": "Без подтверждения"}');
+  (t.id('owner'),      '77010000001', '{"full_name": "Ержан Владелец"}'),
+  (t.id('renter'),     '77010000002', '{"full_name": "Асель Арендатор"}'),
+  (t.id('stranger'),   '77010000003', '{"full_name": "Посторонний"}'),
+  (t.id('unverified'), '77010000004', '{"full_name": "Без подтверждения"}');
 
 do $$
 begin
@@ -200,4 +203,11 @@ begin
   perform t.assert(
     (select passive_mode from public.users where id = t.id('owner')),
     'пассивный режим владельца включён по умолчанию');
+
+  -- GoTrue отдаёт номер без плюса, а всё остальное работает с E.164.
+  -- Если триггер не приведёт формат, поиск по номеру не найдёт человека,
+  -- который в базе есть.
+  perform t.assert(
+    (select phone = '+77010000001' from public.users where id = t.id('owner')),
+    'телефон в профиле приведён к E.164, хотя GoTrue отдал его без плюса');
 end $$;
