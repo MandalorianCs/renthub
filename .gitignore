@@ -51,3 +51,8 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Фото для демонстрационных объявлений — весят много, репозиторию не нужны.
+# Инструкция в demo-photos/README.md остаётся.
+demo-photos/*
+!demo-photos/README.md

@@ -38,7 +38,9 @@
     "seed:users": "node scripts/seed-test-users.mjs",
     "build:pages": "node scripts/build-pages.mjs",
     "invite": "node scripts/invite.mjs",
-    "moderator": "node scripts/moderator.mjs"
+    "moderator": "node scripts/moderator.mjs",
+    "demo:fill": "node scripts/demo-listings.mjs",
+    "demo:clear": "node scripts/demo-listings.mjs clear"
   },
   "private": true
 }
