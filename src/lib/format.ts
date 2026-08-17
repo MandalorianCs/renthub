@@ -47,3 +47,17 @@ function pluralReviews(n: number): string {
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'отзыва';
   return 'отзывов';
 }
+
+/**
+ * Дата и время в местном поясе — для сроков, где важен именно час.
+ * Дедлайны приходят из базы в UTC, а показывать их надо так, как человек
+ * видит на своих часах.
+ */
+export function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}

@@ -86,6 +86,22 @@ begin
   perform t.assert(b.grace_period_ends_at is not null,
     'дедлайн возврата проставлен');
 
+  -- Дедлайн обязан считаться по местному времени, а не по времени сервера.
+  -- Ожидаем полночь по Кокшетау в конце последних суток плюс 12 часов
+  -- запаса из app_settings. Стенд работает в UTC, как и Supabase, поэтому
+  -- расхождение поясов здесь проявится так же, как на проде.
+  perform t.assert(
+    b.grace_period_ends_at
+      = ((b.end_date + 1)::timestamp at time zone 'Asia/Almaty') + interval '12 hours',
+    'дедлайн посчитан в поясе пилота, а не сервера');
+
+  -- И контрольная проверка на саму ошибку: наивное приведение к timestamptz
+  -- на UTC-сервере дало бы результат на пять часов позже.
+  perform t.assert(
+    b.grace_period_ends_at
+      <> ((b.end_date + 1)::timestamptz + interval '12 hours'),
+    'наивное приведение к timestamptz дало бы другой момент — ошибка воспроизводится');
+
   perform t.assert(
     (select count(*) from notifications
       where user_id = t.id('owner') and booking_id = b.id

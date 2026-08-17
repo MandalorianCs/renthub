@@ -26,6 +26,7 @@ import {
   BOOKING_STATUS,
   DEPOSIT_STATUS,
   formatDateRange,
+  formatDateTime,
   formatTenge,
 } from '../../src/lib/format';
 import { nextMove } from '../../src/lib/nextMove';
@@ -103,6 +104,29 @@ export default function BookingScreen() {
   const alreadyReviewed = reviews.some((r) => r.from_user_id === me);
   const move = nextMove(booking, isOwner);
 
+  // Какой срок сейчас важен. Их всего два, и одновременно не бывает:
+  // до возврата — grace period, после — окно на претензию по порче.
+  const deadline =
+    booking.status === 'active' && booking.grace_period_ends_at
+      ? {
+          at: booking.grace_period_ends_at,
+          color: colors.warn,
+          title: 'Вернуть до',
+          body:
+            'Если вещь не вернуть к этому времени, система сама откроет спор ' +
+            'о невозврате и удержит депозит. Время местное.',
+        }
+      : booking.status === 'returned' && booking.damage_claim_ends_at
+        ? {
+            at: booking.damage_claim_ends_at,
+            color: colors.green,
+            title: isOwner ? 'Заявить о порче можно до' : 'Депозит вернётся до',
+            body: isOwner
+              ? 'После этого времени сделка закроется сама, и претензию подать будет нельзя.'
+              : 'Если владелец не заявит о повреждениях, сделка закроется сама и депозит вернётся.',
+          }
+        : null;
+
   return (
     <ScrollView contentContainerStyle={s.container}>
       <View style={{ gap: spacing.sm }}>
@@ -148,13 +172,19 @@ export default function BookingScreen() {
         ) : null}
       </Card>
 
-      {booking.grace_period_ends_at && booking.status === 'active' ? (
+      {/* Срок показывается обеим сторонам и в обоих статусах, где он есть.
+          Раньше окно претензии было видно только из кода: арендатор не знал,
+          когда вернётся депозит, а владелец — сколько у него осталось. */}
+      {deadline ? (
         <Card>
-          <Text style={s.sectionTitle}>Срок возврата</Text>
-          <Text style={s.note}>
-            Если вещь не вернуть до {new Date(booking.grace_period_ends_at).toLocaleString('ru-RU')},
-            система автоматически откроет спор о невозврате и удержит депозит.
-          </Text>
+          <View style={s.deadlineRow}>
+            <Ionicons name="time-outline" size={20} color={deadline.color} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[s.deadlineTitle, { color: deadline.color }]}>{deadline.title}</Text>
+              <Text style={s.deadlineWhen}>{formatDateTime(deadline.at)}</Text>
+            </View>
+          </View>
+          <Text style={s.note}>{deadline.body}</Text>
         </Card>
       ) : null}
 
@@ -375,6 +405,9 @@ const s = StyleSheet.create({
   moveWaiting: { backgroundColor: colors.surface, borderColor: colors.border },
   moveTitle: { fontSize: 16, fontFamily: typeface[800], color: colors.text },
   moveBody: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 19 },
+  deadlineRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  deadlineTitle: { fontSize: 13, fontFamily: typeface[700] },
+  deadlineWhen: { fontSize: 17, fontFamily: typeface[800], color: colors.text },
   sectionTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
   note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
   error: { fontSize: 14, fontFamily: typeface[400], color: colors.danger },
