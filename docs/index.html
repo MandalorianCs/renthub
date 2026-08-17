@@ -244,6 +244,29 @@ td:first-child { font-weight: 700; }
 .no { color: var(--muted); }
 .mark { background: var(--accent-soft); }
 
+/* ── Вопросы ─────────────────────────────────────────────── */
+
+.faq { margin-top: 44px; display: grid; gap: 2px; }
+.faq details {
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 0 26px;
+}
+.faq details:first-of-type { border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.faq details:last-of-type { border-radius: 0 0 var(--r-lg) var(--r-lg); }
+.faq summary {
+  cursor: pointer; list-style: none;
+  padding: 22px 0; font-weight: 700; font-size: 17px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: '+'; font-size: 22px; font-weight: 400; color: var(--accent);
+  line-height: 1; flex: none;
+}
+.faq details[open] summary::after { content: '−'; }
+.faq details p { padding-bottom: 22px; color: var(--muted); font-size: 15px; max-width: 68ch; }
+.faq details p + p { padding-top: 0; margin-top: -8px; }
+
 /* ── Команда, футер ──────────────────────────────────────── */
 
 .person { display: flex; gap: 14px; align-items: center; }
@@ -274,6 +297,7 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
       <a href="#trust">Trust Score</a>
       <a href="#econ">Экономика</a>
       <a href="#market">Рынок</a>
+      <a href="#faq">Вопросы</a>
     </nav>
     <a class="btn" href="app/">Сдать инструмент</a>
   </div>
@@ -619,6 +643,88 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
           </tr>
         </tbody>
       </table>
+    </div>
+  </div>
+</section>
+
+<!-- ── Вопросы ──────────────────────────────────────────── -->
+<section id="faq">
+  <div class="wrap">
+    <div class="eyebrow">Вопросы</div>
+    <h2>Что спрашивают до первой сделки</h2>
+    <p class="lead" style="margin-top:16px">
+      Ответы короткие, потому что за каждым стоит механика, а не обещание —
+      её можно проверить, открыв приложение.
+    </p>
+
+    <div class="faq">
+      <details open>
+        <summary>А если сломают мою вещь?</summary>
+        <p>
+          При публикации вы прикладываете фото — это состояние на момент выдачи.
+          Если после возврата что-то не так, вы подаёте претензию с новыми
+          снимками, и обе стороны видят обе пачки фотографий.
+        </p>
+        <p>
+          Ущерб до 15 000 ₸ закрывается автоматически в тот же час: удерживается
+          меньшее из заявленной суммы и депозита. Больше — смотрит человек.
+          Платформа не может выплатить больше, чем заблокировала.
+        </p>
+      </details>
+
+      <details>
+        <summary>А если не вернут вообще?</summary>
+        <p>
+          После окончания аренды даётся 12 часов. Дальше система сама открывает
+          спор о невозврате и удерживает депозит — вам не нужно ничего замечать
+          и никуда писать.
+        </p>
+      </details>
+
+      <details>
+        <summary>Сколько я заработаю?</summary>
+        <p>
+          Цену за сутки назначаете вы. Платформа берёт 20% с суммы аренды.
+          Перфоратор за 3 500 ₸ в сутки, сданный на трое суток, приносит
+          <strong>8 400 ₸</strong> — комиссия 2 100 ₸.
+        </p>
+        <p>
+          Депозит в доход не входит и возвращается арендатору целиком.
+          Платформа не зарабатывает на удержаниях.
+        </p>
+      </details>
+
+      <details>
+        <summary>Мне придётся следить за сделками?</summary>
+        <p>
+          Нет. Система напоминает о возврате обеим сторонам, открывает спор при
+          просрочке и закрывает сделку сама, если вы не заявили о повреждениях
+          за 48 часов. Вас дёргают дважды: подтвердить бронь и принять вещь.
+        </p>
+      </details>
+
+      <details>
+        <summary>Кто эти люди, которым я отдаю инструмент?</summary>
+        <p>
+          Без подтверждённого телефона нельзя ни сдать, ни арендовать. У каждого
+          участника есть рейтинг и отзывы, которые можно оставить только после
+          закрытой сделки — заранее или из мести не получится.
+        </p>
+        <p>
+          На пилоте в Кокшетау доступ выдаётся по приглашениям, то есть первые
+          участники — люди, которых мы знаем лично.
+        </p>
+      </details>
+
+      <details>
+        <summary>Когда я получу деньги?</summary>
+        <p>
+          Начисление создаётся при подтверждении брони и отпускается при закрытии
+          сделки. На этапе пилота деньги не двигаются по-настоящему: бронирования,
+          депозиты и выплаты живут в базе как статусы. Смысл этапа — проверить,
+          что петля работает, а не гладкость платежей.
+        </p>
+      </details>
     </div>
   </div>
 </section>
