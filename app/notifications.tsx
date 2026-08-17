@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { Empty, ErrorState, Loader } from '../src/components/ui';
+import { ListSkeleton } from '../src/components/Skeleton';
+import { Empty, ErrorState } from '../src/components/ui';
 import { fetchNotifications, markNotificationsRead } from '../src/lib/api';
 import { useAuth } from '../src/lib/auth';
 import { humanizeError } from '../src/lib/supabase';
@@ -49,7 +50,7 @@ export default function Notifications() {
 
   const { refreshing, onRefresh } = useRefresh(load);
 
-  if (loading) return <Loader />;
+  if (loading) return <ListSkeleton rows={5} />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (

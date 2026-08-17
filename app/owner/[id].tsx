@@ -3,7 +3,8 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Card, Empty, ErrorState, Loader } from '../../src/components/ui';
+import { ListSkeleton } from '../../src/components/Skeleton';
+import { Card, Empty, ErrorState } from '../../src/components/ui';
 import { fetchOwnerItems, fetchPublicProfile, fetchReviewsAbout } from '../../src/lib/api';
 import { formatDate, formatTenge, ratingLabel } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
@@ -57,7 +58,7 @@ export default function OwnerProfile() {
 
   const { refreshing, onRefresh } = useRefresh(load);
 
-  if (loading) return <Loader />;
+  if (loading) return <ListSkeleton rows={3} />;
   if (error) return <ErrorState message={error} onRetry={load} />;
   if (!profile) return <Empty icon="person-outline" title="Профиль не найден" />;
 

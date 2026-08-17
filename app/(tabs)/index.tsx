@@ -13,7 +13,8 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { Empty, ErrorState, Loader } from '../../src/components/ui';
+import { CatalogSkeleton } from '../../src/components/Skeleton';
+import { Empty, ErrorState } from '../../src/components/ui';
 import type { CatalogSort } from '../../src/lib/api';
 import { fetchCatalog, fetchCategories, fetchFavoriteIds, toggleFavorite } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
@@ -215,7 +216,7 @@ export default function Catalog() {
 
       {/* ── Витрина ───────────────────────────────────────── */}
       {loading ? (
-        <Loader />
+        <CatalogSkeleton columns={columns} />
       ) : error ? (
         <ErrorState message={error} onRetry={load} />
       ) : (

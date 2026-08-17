@@ -1,7 +1,8 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { Badge, Empty, ErrorState, Loader } from '../../src/components/ui';
+import { ListSkeleton } from '../../src/components/Skeleton';
+import { Badge, Empty, ErrorState } from '../../src/components/ui';
 import { fetchMyBookings } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, DEPOSIT_STATUS, formatDateRange, formatTenge } from '../../src/lib/format';
@@ -39,7 +40,7 @@ export default function MyBookings() {
 
   const { refreshing, onRefresh } = useRefresh(load);
 
-  if (loading) return <Loader />;
+  if (loading) return <ListSkeleton />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
