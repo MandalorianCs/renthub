@@ -8,10 +8,12 @@ import {
   fetchOwnerBookings,
   fetchPayouts,
   markNotificationsRead,
+  setItemStatus,
 } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, formatDate, formatDateRange, formatTenge } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
 import { useRefresh } from '../../src/lib/useRefresh';
 import type { BookingWithItem, Item, Notification, Payout } from '../../src/lib/types';
 import { colors, radius, spacing, typeface } from '../../src/theme';
@@ -183,6 +185,34 @@ export default function MyItems() {
                 {item.status === 'hidden' ? (
                   <Badge label="Скрыто" fg={colors.textMuted} bg={colors.border} />
                 ) : null}
+
+                {/* Действия владельца прямо в списке: раньше править было
+                    нельзя вообще, а снять с публикации — только через базу. */}
+                <Pressable
+                  hitSlop={8}
+                  style={s.iconBtn}
+                  onPress={() => router.push(`/item/edit/${item.id}`)}
+                >
+                  <Ionicons name="create-outline" size={18} color={colors.textMuted} />
+                </Pressable>
+                <Pressable
+                  hitSlop={8}
+                  style={s.iconBtn}
+                  onPress={async () => {
+                    try {
+                      await setItemStatus(item.id, item.status === 'hidden' ? 'active' : 'hidden');
+                      await load();
+                    } catch (e) {
+                      setError(humanizeError(e));
+                    }
+                  }}
+                >
+                  <Ionicons
+                    name={item.status === 'hidden' ? 'eye-outline' : 'eye-off-outline'}
+                    size={18}
+                    color={colors.textMuted}
+                  />
+                </Pressable>
               </Pressable>
             );
           })
@@ -199,6 +229,7 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   link: { fontSize: 14, fontFamily: typeface[700], color: colors.accent },
+  iconBtn: { padding: spacing.xs },
   note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
   error: { fontSize: 14, fontFamily: typeface[400], color: colors.danger },
   newsRow: { gap: 2, borderLeftWidth: 3, borderLeftColor: colors.green, paddingLeft: spacing.md },

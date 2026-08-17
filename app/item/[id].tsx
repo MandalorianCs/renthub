@@ -183,6 +183,11 @@ export default function ItemScreen() {
         <Card>
           <Text style={s.sectionTitle}>Это ваше объявление</Text>
           <Text style={s.note}>Свою вещь забронировать нельзя.</Text>
+          <Button
+            title="Редактировать"
+            variant="secondary"
+            onPress={() => router.push(`/item/edit/${item.id}`)}
+          />
         </Card>
       ) : (
         <Card>

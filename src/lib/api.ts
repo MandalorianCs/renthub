@@ -123,6 +123,36 @@ export async function createItem(input: {
   return data;
 }
 
+/**
+ * Правка объявления. Цену менять можно — уже созданные брони это не
+ * затронет: там лежит снимок цены на момент бронирования, и триггер
+ * считает по нему, а не по текущей.
+ */
+export async function updateItem(
+  id: string,
+  input: {
+    category: string;
+    title: string;
+    description: string;
+    dailyPrice: number;
+    depositAmount: number;
+    photos: string[];
+  },
+): Promise<void> {
+  const { error } = await supabase
+    .from('items')
+    .update({
+      category: input.category,
+      title: input.title,
+      description: input.description,
+      daily_price: input.dailyPrice,
+      deposit_amount: input.depositAmount,
+      condition_photos: input.photos,
+    })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 export async function setItemStatus(id: string, status: 'active' | 'hidden') {
   const { error } = await supabase.from('items').update({ status }).eq('id', id);
   if (error) throw error;
