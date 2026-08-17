@@ -1,14 +1,16 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { Badge, Button, Card, Field, Loader, Row } from '../../src/components/ui';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Badge, Button, Card, Field, Row } from '../../src/components/ui';
 import { fetchMyBookings, fetchNotifications, updateProfile } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, formatDateRange, ratingLabel } from '../../src/lib/format';
+import { Ionicons } from '@expo/vector-icons';
+import { ListSkeleton } from '../../src/components/Skeleton';
 import { humanizeError } from '../../src/lib/supabase';
 import { useRefresh } from '../../src/lib/useRefresh';
 import type { BookingWithItem } from '../../src/lib/types';
-import { colors, spacing, typeface } from '../../src/theme';
+import { colors, radius, spacing, typeface } from '../../src/theme';
 
 /** Экран 6: профиль — рейтинг, история сделок, настройки. */
 export default function Profile() {
@@ -44,7 +46,7 @@ export default function Profile() {
 
   const { refreshing, onRefresh } = useRefresh(load);
 
-  if (!profile) return <Loader />;
+  if (!profile) return <ListSkeleton rows={3} />;
 
   return (
     <ScrollView
@@ -54,9 +56,20 @@ export default function Profile() {
       }
     >
       <Card>
-        <Text style={s.name}>{profile.full_name || 'Без имени'}</Text>
-        <Text style={s.phone}>{profile.phone}</Text>
-        <Text style={s.rating}>★ {ratingLabel(profile.rating, profile.ratings_count)}</Text>
+        <View style={s.head}>
+          <View style={s.avatar}>
+            <Text style={s.avatarText}>{initials(profile.full_name)}</Text>
+          </View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={s.name}>{profile.full_name || 'Без имени'}</Text>
+            <View style={s.ratingRow}>
+              <Ionicons name="star" size={13} color={colors.warn} />
+              <Text style={s.rating}>{ratingLabel(profile.rating, profile.ratings_count)}</Text>
+            </View>
+            <Text style={s.phone}>{profile.phone}</Text>
+          </View>
+        </View>
+
         {isVerified ? (
           <Badge label="Телефон подтверждён" fg={colors.green} bg={colors.greenSoft} />
         ) : (
@@ -110,8 +123,18 @@ export default function Profile() {
       </Card>
 
       <Card>
-        <Row left="Уведомления" right={unread > 0 ? `${unread} новых` : 'нет новых'} muted />
-        <Button title="Открыть уведомления" variant="secondary" onPress={() => router.push('/notifications')} />
+        <Pressable style={s.linkRow} onPress={() => router.push('/notifications')}>
+          <Ionicons name="notifications-outline" size={20} color={colors.text} />
+          <Text style={s.linkTitle}>Уведомления</Text>
+          {unread > 0 ? (
+            <View style={s.counter}>
+              <Text style={s.counterText}>{unread}</Text>
+            </View>
+          ) : (
+            <Text style={s.note}>нет новых</Text>
+          )}
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
       </Card>
 
       <Card>
@@ -130,7 +153,12 @@ export default function Profile() {
         )}
       </Card>
 
-      {error ? <Text style={s.error}>{error}</Text> : null}
+      {error ? (
+        <View style={s.errorBox}>
+          <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+          <Text style={s.error}>{error}</Text>
+        </View>
+      ) : null}
 
       <Button title="Выйти" variant="ghost" onPress={signOut} />
     </ScrollView>
@@ -139,6 +167,26 @@ export default function Profile() {
 
 const s = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
+  head: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  avatar: {
+    width: 60, height: 60, borderRadius: 30,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarText: { fontSize: 20, fontFamily: typeface[800], color: colors.accent },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  linkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  linkTitle: { flex: 1, fontSize: 15, fontFamily: typeface[700], color: colors.text },
+  counter: {
+    minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,
+    backgroundColor: colors.accent,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  counterText: { fontSize: 12, fontFamily: typeface[800], color: '#FFFFFF' },
+  errorBox: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: colors.dangerSoft, borderRadius: radius.md, padding: spacing.md,
+  },
   name: { fontSize: 22, fontFamily: typeface[800], color: colors.text },
   phone: { fontSize: 14, fontFamily: typeface[400], color: colors.textMuted },
   rating: { fontSize: 15, fontFamily: typeface[600], color: colors.text },
@@ -148,3 +196,10 @@ const s = StyleSheet.create({
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   switchLabel: { fontSize: 15, fontFamily: typeface[700], color: colors.text },
 });
+
+/** Инициалы для аватара — те же правила, что в профиле владельца. */
+function initials(name?: string | null): string {
+  if (!name) return '—';
+  const parts = name.trim().split(' ').filter(Boolean);
+  return parts.slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '—';
+}
