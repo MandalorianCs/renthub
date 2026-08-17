@@ -3,7 +3,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Badge, Button, Card, Empty, Field, Loader, Row } from '../../src/components/ui';
+import { Ionicons } from '@expo/vector-icons';
+import { BookingTimeline } from '../../src/components/BookingTimeline';
+import { ListSkeleton } from '../../src/components/Skeleton';
+import { Badge, Button, Card, Empty, ErrorState, Field, Row } from '../../src/components/ui';
 import {
   cancelBooking,
   completeBooking,
@@ -25,6 +28,7 @@ import {
   formatDateRange,
   formatTenge,
 } from '../../src/lib/format';
+import { nextMove } from '../../src/lib/nextMove';
 import { humanizeError } from '../../src/lib/supabase';
 import type { BookingWithItem, Dispute, ItemWithOwner, Review } from '../../src/lib/types';
 import { colors, radius, spacing, typeface } from '../../src/theme';
@@ -87,8 +91,9 @@ export default function BookingScreen() {
     }
   }
 
-  if (loading) return <Loader />;
-  if (!booking) return <Empty title="Сделка не найдена" />;
+  if (loading) return <ListSkeleton rows={3} />;
+  if (error && !booking) return <ErrorState message={error} onRetry={load} />;
+  if (!booking) return <Empty icon="document-outline" title="Сделка не найдена" />;
 
   const me = session?.user.id;
   const isOwner = booking.owner_id === me;
@@ -96,6 +101,7 @@ export default function BookingScreen() {
   const status = BOOKING_STATUS[booking.status];
   const deposit = DEPOSIT_STATUS[booking.deposit_status];
   const alreadyReviewed = reviews.some((r) => r.from_user_id === me);
+  const move = nextMove(booking, isOwner);
 
   return (
     <ScrollView contentContainerStyle={s.container}>
@@ -104,6 +110,24 @@ export default function BookingScreen() {
         <View style={s.badges}>
           <Badge label={status.label} fg={status.fg} bg={status.bg} />
           <Badge label={deposit.label} fg={deposit.fg} bg={deposit.bg} />
+        </View>
+      </View>
+
+      <Card>
+        <BookingTimeline status={booking.status} />
+      </Card>
+
+      {/* Главный вопрос на этом экране — «чего от меня хотят». Он должен
+          быть написан словами, а не выведен человеком из статуса. */}
+      <View style={[s.move, move.yours ? s.moveYours : s.moveWaiting]}>
+        <Ionicons
+          name={move.icon}
+          size={22}
+          color={move.yours ? colors.accent : colors.textMuted}
+        />
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text style={[s.moveTitle, move.yours && { color: colors.accent }]}>{move.title}</Text>
+          <Text style={s.moveBody}>{move.body}</Text>
         </View>
       </View>
 
@@ -339,6 +363,18 @@ const s = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   title: { fontSize: 22, fontFamily: typeface[800], color: colors.text },
   badges: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
+  move: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'flex-start',
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+  },
+  moveYours: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+  moveWaiting: { backgroundColor: colors.surface, borderColor: colors.border },
+  moveTitle: { fontSize: 16, fontFamily: typeface[800], color: colors.text },
+  moveBody: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 19 },
   sectionTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
   note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
   error: { fontSize: 14, fontFamily: typeface[400], color: colors.danger },
