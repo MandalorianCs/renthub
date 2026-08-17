@@ -14,6 +14,7 @@ import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, formatDate, formatDateRange, formatTenge } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useRefresh } from '../../src/lib/useRefresh';
 import type { BookingWithItem, Item, Notification, Payout } from '../../src/lib/types';
 import { colors, radius, spacing, typeface } from '../../src/theme';
@@ -123,13 +124,23 @@ export default function MyItems() {
         </Card>
       ) : null}
 
+      {/* Владелец приходит сюда ради одного числа. Если оно не находится
+          взглядом за полсекунды, экран не выполняет свою задачу. */}
       <Card>
-        <Text style={s.sectionTitle}>Деньги</Text>
-        <Row left="Начислено" right={formatTenge(earned)} />
+        <View style={s.moneyHero}>
+          <Text style={s.moneyLabel}>Начислено</Text>
+          <Text style={s.moneyValue}>{formatTenge(earned)}</Text>
+          {pending > 0 ? (
+            <Text style={s.moneyPending}>
+              и ещё {formatTenge(pending)} ждут закрытия сделок
+            </Text>
+          ) : null}
+        </View>
+
         {compensation > 0 ? (
-          <Row left="из них компенсации ущерба" right={formatTenge(compensation)} muted />
+          <Row left="Из них компенсации ущерба" right={formatTenge(compensation)} muted />
         ) : null}
-        <Row left="Ожидает закрытия сделок" right={formatTenge(pending)} muted />
+
         <Text style={s.note}>
           В MVP деньги не двигаются по-настоящему — это эмуляция денежного потока статусами.
         </Text>
@@ -173,14 +184,35 @@ export default function MyItems() {
             );
             return (
               <Pressable key={item.id} style={s.itemRow} onPress={() => router.push(`/item/${item.id}`)}>
+                {item.condition_photos[0] ? (
+                  <Image
+                    source={item.condition_photos[0]}
+                    style={[s.thumb, item.status === 'hidden' && { opacity: 0.45 }]}
+                    contentFit="cover"
+                    transition={180}
+                  />
+                ) : (
+                  <View style={[s.thumb, s.thumbEmpty]}>
+                    <Ionicons name="image-outline" size={18} color={colors.textMuted} />
+                  </View>
+                )}
+
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={s.actionTitle}>{item.title}</Text>
-                  <Text style={s.note}>
-                    {formatTenge(item.daily_price)} / сутки
-                    {activeBooking
-                      ? ` · занято до ${formatDate(activeBooking.end_date)}`
-                      : ' · свободно'}
-                  </Text>
+                  <Text style={s.actionTitle} numberOfLines={1}>{item.title}</Text>
+                  <Text style={s.note}>{formatTenge(item.daily_price)} / сутки</Text>
+                  <View style={s.stateRow}>
+                    <View
+                      style={[
+                        s.stateDot,
+                        { backgroundColor: activeBooking ? colors.accent : colors.green },
+                      ]}
+                    />
+                    <Text style={s.stateText}>
+                      {activeBooking
+                        ? `занято до ${formatDate(activeBooking.end_date)}`
+                        : 'свободно'}
+                    </Text>
+                  </View>
                 </View>
                 {item.status === 'hidden' ? (
                   <Badge label="Скрыто" fg={colors.textMuted} bg={colors.border} />
@@ -230,6 +262,15 @@ const s = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   link: { fontSize: 14, fontFamily: typeface[700], color: colors.accent },
   iconBtn: { padding: spacing.xs },
+  moneyHero: { alignItems: 'center', gap: 2, paddingVertical: spacing.sm },
+  moneyLabel: { fontSize: 13, fontFamily: typeface[600], color: colors.textMuted },
+  moneyValue: { fontSize: 34, fontFamily: typeface[800], color: colors.green, letterSpacing: -0.5 },
+  moneyPending: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, textAlign: 'center' },
+  thumb: { width: 52, height: 52, borderRadius: radius.md, backgroundColor: colors.border },
+  thumbEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },
+  stateRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1 },
+  stateDot: { width: 6, height: 6, borderRadius: 3 },
+  stateText: { fontSize: 12, fontFamily: typeface[600], color: colors.textMuted },
   note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
   error: { fontSize: 14, fontFamily: typeface[400], color: colors.danger },
   newsRow: { gap: 2, borderLeftWidth: 3, borderLeftColor: colors.green, paddingLeft: spacing.md },
@@ -248,7 +289,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },

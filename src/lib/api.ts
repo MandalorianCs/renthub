@@ -66,10 +66,18 @@ export async function fetchCatalog(params: {
   }
   if (params.category) query = query.eq('category', params.category);
   if (params.search?.trim()) {
-    // ilike вместо полнотекстового поиска: на пилоте объявлений сотни,
-    // а не миллионы — индекс окупится позже, сложность сейчас лишняя.
-    query = query.ilike('title', `%${params.search.trim()}%`);
+    // Ищем и по названию, и по описанию: «бур на 12» человек напишет
+    // в комплектации, а не в заголовке, и по названию такое не найдётся.
+    //
+    // Запятая и скобки в or() — служебные символы PostgREST, поэтому
+    // их из запроса вырезаем: иначе поиск «дрель, буры» развалит фильтр
+    // на два условия и вернёт мусор.
+    const q = params.search.trim().replace(/[,()]/g, ' ');
+    query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
   }
+
+  // ilike вместо полнотекстового поиска: на пилоте объявлений сотни,
+  // а не миллионы — индекс окупится позже, сложность сейчас лишняя.
 
   const { data, error } = await query;
   if (error) throw error;
