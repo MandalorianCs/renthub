@@ -40,7 +40,8 @@
     "invite": "node scripts/invite.mjs",
     "moderator": "node scripts/moderator.mjs",
     "demo:fill": "node scripts/demo-listings.mjs",
-    "demo:clear": "node scripts/demo-listings.mjs clear"
+    "demo:clear": "node scripts/demo-listings.mjs clear",
+    "apk": "eas build -p android --profile preview"
   },
   "private": true
 }
