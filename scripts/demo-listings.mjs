@@ -19,6 +19,7 @@
 // живого владельца.
 
 import { createClient } from '@supabase/supabase-js';
+import { missingSecretMessage, readEnvFile, readSecret } from './env.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -52,19 +53,9 @@ const TOOLS = [
 
 // ── Ключи ─────────────────────────────────────────────────────
 
-function readEnvFile(key) {
-  try {
-    const line = readFileSync(join(ROOT, '.env'), 'utf8')
-      .split('\n')
-      .find((l) => l.trim().startsWith(`${key}=`));
-    return line ? line.slice(line.indexOf('=') + 1).trim() : null;
-  } catch {
-    return null;
-  }
-}
 
 const url = process.env.SUPABASE_URL ?? readEnvFile('EXPO_PUBLIC_SUPABASE_URL');
-const secret = process.env.SUPABASE_SECRET_KEY;
+const secret = readSecret();
 const city = readEnvFile('EXPO_PUBLIC_PILOT_CITY') ?? 'kokshetau';
 const mode = process.argv[2] === 'clear' ? 'clear' : 'fill';
 
@@ -74,10 +65,7 @@ if (!url || url.includes('xxxxxxxxxxxx')) {
 }
 
 if (!secret) {
-  console.error(
-    '✗ Нужен секретный ключ (Project Settings → API Keys → Secret keys):\n\n' +
-      '    $env:SUPABASE_SECRET_KEY="sb_secret_..."; npm run demo:fill\n',
-  );
+  console.error(missingSecretMessage('npm run demo:fill'));
   process.exit(1);
 }
 

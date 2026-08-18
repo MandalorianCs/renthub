@@ -14,16 +14,14 @@
 // то есть вами. Для закрытой беты это честнее SMS: вы знаете человека
 // лично, а код подтверждает только владение симкой.
 //
-// Ключ передаётся переменной окружения и нигде не сохраняется:
+// Секретный ключ лежит в `.env.secret` — файл в .gitignore и, в отличие
+// от `.env`, не читается сборкой Expo. Разово его перебивает переменная
+// окружения:
 //   $env:SUPABASE_SECRET_KEY="sb_secret_..."; npm run invite -- +7701... "Имя"
 
 import { createClient } from '@supabase/supabase-js';
+import { missingSecretMessage, readEnvFile, readSecret } from './env.mjs';
 import { randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
  * Телефон → внутренний адрес. Человек этого адреса не видит и не вводит:
@@ -42,16 +40,6 @@ function normalizePhone(input) {
   return `+${digits}`;
 }
 
-function readEnvFile(key) {
-  try {
-    const line = readFileSync(join(ROOT, '.env'), 'utf8')
-      .split('\n')
-      .find((l) => l.trim().startsWith(`${key}=`));
-    return line ? line.slice(line.indexOf('=') + 1).trim() : null;
-  } catch {
-    return null;
-  }
-}
 
 const [rawPhone, ...nameParts] = process.argv.slice(2);
 const fullName = nameParts.join(' ').trim();
@@ -72,7 +60,7 @@ if (phone.replace(/\D/g, '').length !== 11) {
 }
 
 const url = process.env.SUPABASE_URL ?? readEnvFile('EXPO_PUBLIC_SUPABASE_URL');
-const secret = process.env.SUPABASE_SECRET_KEY;
+const secret = readSecret();
 
 if (!url || url.includes('xxxxxxxxxxxx')) {
   console.error('✗ Не найден адрес проекта. Заполните EXPO_PUBLIC_SUPABASE_URL в .env');
@@ -80,11 +68,7 @@ if (!url || url.includes('xxxxxxxxxxxx')) {
 }
 
 if (!secret) {
-  console.error(
-    '✗ Нужен секретный ключ (Project Settings → API Keys → Secret keys).\n' +
-      '  Передайте переменной окружения, не сохраняя в файл:\n\n' +
-      '    $env:SUPABASE_SECRET_KEY="sb_secret_..."; npm run invite -- +7701... "Имя"\n',
-  );
+  console.error(missingSecretMessage('npm run invite -- +7701... "Имя"'));
   process.exit(1);
 }
 

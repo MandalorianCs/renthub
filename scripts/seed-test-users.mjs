@@ -7,7 +7,8 @@
 // Значит правило 1 («без верификации нельзя сдавать и арендовать») выполнено
 // честно, а не в обход.
 //
-// Запуск (ключ передаётся переменной окружения и нигде не сохраняется):
+// Ключ берётся из `.env.secret`. Разово его перебивает переменная
+// окружения:
 //
 //   PowerShell:
 //     $env:SUPABASE_SECRET_KEY="sb_secret_..."; npm run seed:users
@@ -19,12 +20,8 @@
 // вшивается в бандл и уезжает в браузер каждому посетителю.
 
 import { createClient } from '@supabase/supabase-js';
+import { missingSecretMessage, readEnvFile, readSecret } from './env.mjs';
 import { randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // ── Что создаём ───────────────────────────────────────────────
 // Номера из диапазона, который не выдаётся абонентам: даже если позже
@@ -42,19 +39,9 @@ const USERS = [
 
 // ── Ключи ─────────────────────────────────────────────────────
 
-function readEnvFile(key) {
-  try {
-    const line = readFileSync(join(ROOT, '.env'), 'utf8')
-      .split('\n')
-      .find((l) => l.trim().startsWith(`${key}=`));
-    return line ? line.slice(line.indexOf('=') + 1).trim() : null;
-  } catch {
-    return null;
-  }
-}
 
 const url = process.env.SUPABASE_URL ?? readEnvFile('EXPO_PUBLIC_SUPABASE_URL');
-const secret = process.env.SUPABASE_SECRET_KEY;
+const secret = readSecret();
 
 if (!url || url.includes('xxxxxxxxxxxx')) {
   console.error('✗ Не найден адрес проекта. Заполните EXPO_PUBLIC_SUPABASE_URL в .env');
@@ -62,11 +49,7 @@ if (!url || url.includes('xxxxxxxxxxxx')) {
 }
 
 if (!secret) {
-  console.error(
-    '✗ Нужен секретный ключ. Возьмите его в Project Settings → API Keys → Secret keys\n' +
-      '  и передайте переменной окружения, не сохраняя в файл:\n\n' +
-      '    $env:SUPABASE_SECRET_KEY="sb_secret_..."; npm run seed:users\n',
-  );
+  console.error(missingSecretMessage('npm run seed:users'));
   process.exit(1);
 }
 

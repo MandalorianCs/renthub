@@ -1,0 +1,71 @@
+// Откуда служебные скрипты берут адрес проекта и секретный ключ.
+//
+// Публичные значения лежат в `.env` — тот же файл читает Expo при сборке.
+// Секретному ключу там не место: `.env` вшивается в бандл и уезжает в
+// браузер вместе с приложением. Поэтому у него отдельный файл
+// `.env.secret`, которого не касаются ни Expo, ни git.
+//
+// Раньше ключ передавался переменной окружения при каждом запуске. Это
+// безопасно ровно до того момента, когда набирать его надоедает: дальше
+// он переезжает в историю команд PowerShell, а `Get-History` — не то
+// место, за которым кто-то следит.
+
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * Значение из файла формата .env.
+ *
+ * BOM отрезается не для красоты: PowerShell пишет файлы в UTF-8 с меткой,
+ * и без этой строки первый ключ читается как «\uFEFFSUPABASE_SECRET_KEY»,
+ * то есть не находится вовсе. Ошибка выглядит как «ключа нет», хотя он
+ * лежит на месте.
+ */
+function readFrom(file, key) {
+  try {
+    const line = readFileSync(join(ROOT, file), 'utf8')
+      .replace(/^\uFEFF/, '')
+      .split('\n')
+      .find((l) => l.trim().startsWith(`${key}=`));
+    if (!line) return null;
+    const value = line
+      .slice(line.indexOf('=') + 1)
+      .trim()
+      .replace(/^["']|["']$/g, '');
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Публичное значение из `.env` — адрес проекта, город пилота. */
+export function readEnvFile(key) {
+  return readFrom('.env', key);
+}
+
+/**
+ * Секретный ключ: сначала переменная окружения, потом файл.
+ *
+ * Порядок именно такой. Разовая команда против другой базы — чужого
+ * проекта, тестового стенда — задаётся переменной, и она обязана
+ * перебивать сохранённый ключ. Наоборот было бы ловушкой: человек
+ * подставляет ключ явно, а скрипт молча берёт другой.
+ */
+export function readSecret() {
+  return process.env.SUPABASE_SECRET_KEY ?? readFrom('.env.secret', 'SUPABASE_SECRET_KEY');
+}
+
+/** Одинаковая подсказка для всех скриптов, пример команды у каждого свой. */
+export function missingSecretMessage(example) {
+  return (
+    '✗ Нужен секретный ключ (Project Settings → API Keys → Secret keys).\n' +
+    '  Положите его один раз в `.env.secret` рядом с `.env`:\n\n' +
+    '    SUPABASE_SECRET_KEY=sb_secret_...\n\n' +
+    '  Файл в .gitignore, в бандл не попадает, набирать ключ больше не нужно.\n' +
+    '  Разово можно и переменной окружения — она перебивает файл:\n\n' +
+    `    $env:SUPABASE_SECRET_KEY="sb_secret_..."; ${example}\n`
+  );
+}

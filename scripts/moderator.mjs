@@ -16,11 +16,7 @@
 // Телефоны модераторов намеренно не хранятся в репозитории — он публичный.
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+import { missingSecretMessage, readEnvFile, readSecret } from './env.mjs';
 
 function normalizePhone(input) {
   const digits = input.replace(/\D/g, '');
@@ -29,16 +25,6 @@ function normalizePhone(input) {
   return `+${digits}`;
 }
 
-function readEnvFile(key) {
-  try {
-    const line = readFileSync(join(ROOT, '.env'), 'utf8')
-      .split('\n')
-      .find((l) => l.trim().startsWith(`${key}=`));
-    return line ? line.slice(line.indexOf('=') + 1).trim() : null;
-  } catch {
-    return null;
-  }
-}
 
 const [rawPhone, flag] = process.argv.slice(2);
 const grant = flag !== 'off';
@@ -55,7 +41,7 @@ if (!rawPhone) {
 
 const phone = normalizePhone(rawPhone);
 const url = process.env.SUPABASE_URL ?? readEnvFile('EXPO_PUBLIC_SUPABASE_URL');
-const secret = process.env.SUPABASE_SECRET_KEY;
+const secret = readSecret();
 
 if (!url || url.includes('xxxxxxxxxxxx')) {
   console.error('✗ Не найден адрес проекта. Заполните EXPO_PUBLIC_SUPABASE_URL в .env');
@@ -63,11 +49,7 @@ if (!url || url.includes('xxxxxxxxxxxx')) {
 }
 
 if (!secret) {
-  console.error(
-    '✗ Нужен секретный ключ (Project Settings → API Keys → Secret keys).\n' +
-      '  Передайте переменной окружения, не сохраняя в файл:\n\n' +
-      '    $env:SUPABASE_SECRET_KEY="sb_secret_..."; npm run moderator -- +7701...\n',
-  );
+  console.error(missingSecretMessage('npm run moderator -- +7701...'));
   process.exit(1);
 }
 

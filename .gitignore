@@ -45,6 +45,11 @@ yarn-error.*
 .env
 .env*.local
 
+# Секретный ключ Supabase лежит отдельно от .env намеренно: .env читает
+# сборка Expo и вшивает EXPO_PUBLIC_-переменные в бандл, а этот файл
+# читают только скрипты из scripts/.
+.env.secret
+
 # typescript
 *.tsbuildinfo
 
