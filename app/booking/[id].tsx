@@ -205,7 +205,12 @@ export default function BookingScreen() {
               ) : null}
               {d.resolution_note ? <Text style={s.note}>{d.resolution_note}</Text> : null}
               {d.evidence_photos.length > 0 ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ flexGrow: 0 }}
+                  contentContainerStyle={{ alignItems: 'center' }}
+                >
                   {d.evidence_photos.map((uri) => (
                     <Image key={uri} source={uri} style={s.evidence} contentFit="cover" transition={180} />
                   ))}
@@ -300,7 +305,12 @@ function DamageClaim({
       {beforePhotos.length > 0 ? (
         <>
           <Text style={s.note}>Фото «до» — с ними будут сверяться ваши новые снимки:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={{ flexGrow: 0 }}
+                  contentContainerStyle={{ alignItems: 'center' }}
+                >
             {beforePhotos.map((uri) => (
               <Image key={uri} source={uri} style={s.evidence} contentFit="cover" transition={180} />
             ))}

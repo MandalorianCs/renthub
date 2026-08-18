@@ -148,7 +148,12 @@ export default function Catalog() {
       </View>
 
       {/* ── Категории ─────────────────────────────────────── */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={s.chipsRow}
+        contentContainerStyle={s.chips}
+      >
         <Chip label="Все" selected={active === null} onPress={() => setActive(null)} />
         {categories.map((c) => (
           <Chip
@@ -178,7 +183,12 @@ export default function Catalog() {
 
       {showFilters ? (
         <View style={s.panel}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
+          <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={s.chipsRow}
+        contentContainerStyle={s.chips}
+      >
             {SORTS.map((o) => (
               <Chip
                 key={o.key}
@@ -387,7 +397,12 @@ const s = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 15, fontFamily: typeface[400], color: colors.text, outlineStyle: 'none' } as object,
 
-  chips: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+  // react-native-web разворачивает горизонтальный ScrollView в flex-элемент
+  // и растягивает его по высоте родителя, а вместе с ним и чипсы — на телефоне
+  // этого не происходит, там он подгоняется под содержимое. Поэтому высоту
+  // фиксируем явно, а alignItems не даёт кнопкам тянуться вертикально.
+  chipsRow: { flexGrow: 0, flexShrink: 0 },
+  chips: { paddingHorizontal: spacing.lg, gap: spacing.sm, alignItems: 'center' },
   chip: {
     paddingHorizontal: spacing.md,
     paddingVertical: 8,

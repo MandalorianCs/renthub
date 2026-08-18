@@ -228,7 +228,12 @@ function PhotoStrip({ photos }: { photos: string[] }) {
     );
   }
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ flexGrow: 0 }}
+      contentContainerStyle={{ gap: 6, alignItems: 'center' }}
+    >
       {photos.map((uri) => (
         <Image key={uri} source={uri} style={s.photo} contentFit="cover" transition={180} />
       ))}
