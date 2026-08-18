@@ -16,6 +16,7 @@
     "expo-linking": "~57.0.6",
     "expo-router": "~57.0.13",
     "expo-status-bar": "~57.0.1",
+    "expo-updates": "~57.0.15",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.2",
@@ -41,7 +42,8 @@
     "moderator": "node scripts/moderator.mjs",
     "demo:fill": "node scripts/demo-listings.mjs",
     "demo:clear": "node scripts/demo-listings.mjs clear",
-    "apk": "eas build -p android --profile preview"
+    "apk": "eas build -p android --profile preview",
+    "update": "eas update --channel preview"
   },
   "private": true
 }

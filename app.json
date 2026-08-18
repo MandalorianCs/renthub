@@ -39,6 +39,9 @@
     ],
     "experiments": {
       "baseUrl": "/renthub/app"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }
