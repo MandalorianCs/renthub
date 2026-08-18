@@ -315,6 +315,26 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
   margin-top: 28px; padding: 18px 20px; border-left: 3px solid var(--border);
   font-size: 14px; color: var(--muted);
 }
+
+/* Схемы. Ужимать их по ширине экрана нельзя: подпись в 12px на экране
+   375px превратится в 4px и станет нечитаемой. Боковая прокрутка честнее
+   нечитаемой картинки. Рамки нет намеренно: плоская рамка сообщает «это
+   отдельная область», а схема — содержание раздела, а не врезка. */
+.diagram { margin: 28px 0 0; }
+.diagram-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.diagram-scroll svg { display: block; width: 100%; min-width: 860px; height: auto; }
+.diagram figcaption {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+@media (max-width: 900px) {
+  .diagram figcaption::after {
+    content: " Схема шире экрана — листается вбок.";
+    color: var(--accent);
+  }
+}
 </style>
 </head>
 <body>
@@ -438,6 +458,73 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
       </div>
     </div>
 
+    <figure class="diagram">
+      <div class="diagram-scroll">
+      <svg viewBox="0 0 1040 760" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="deal-loop-title deal-loop-desc">
+      <title id="deal-loop-title">Петля сделки RentHUB</title>
+      <desc id="deal-loop-desc">Шесть шагов сделки идут по кругу от публикации вещи до взаимных оценок, а бронирование, возврат и отзыв дописывают рейтинг в общий Trust Score в центре — из него берутся допуски для следующей сделки.</desc>
+      <defs>
+        <marker id="loop-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6E675E"/></marker>
+        <marker id="loop-arrow-soft" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#8C857A"/></marker>
+        <marker id="loop-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#C2603C"/></marker>
+      </defs>
+      
+      <rect width="100%" height="100%" fill="#FAF7F2"/>
+      
+      <path d="M 600 113.726 A 240 240 0 0 1 704.969 187.073" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#loop-arrow)"/>
+      <path d="M 743.285 252 A 240 240 0 0 1 743.722 426.882" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#loop-arrow)"/>
+      <path d="M 705.731 492 A 240 240 0 0 1 601.13 565.871" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#loop-arrow)"/>
+      <path d="M 440 566.274 A 240 240 0 0 1 335.031 492.927" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#loop-arrow)"/>
+      <path d="M 296.715 428 A 240 240 0 0 1 296.278 253.118" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#loop-arrow)"/>
+      <path d="M 334.269 188 A 240 240 0 0 1 438.87 114.129" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#loop-arrow)"/>
+      
+      <line x1="672.574" y1="428" x2="615.263" y2="395" stroke="#8C857A" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#loop-arrow-soft)"/>
+      <line x1="367.426" y1="428" x2="424.737" y2="395" stroke="#8C857A" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#loop-arrow-soft)"/>
+      <line x1="367.426" y1="252" x2="424.737" y2="285" stroke="#8C857A" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#loop-arrow-soft)"/>
+      
+      <rect x="440" y="68" width="160" height="64" rx="8" fill="#FAF7F2"/>
+      <rect x="440" y="68" width="160" height="64" rx="8" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="520" y="98" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Выложил</text>
+      <text x="520" y="116" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">фото, цена, депозит</text>
+      <rect x="648" y="188" width="160" height="64" rx="8" fill="#FAF7F2"/>
+      <rect x="648" y="188" width="160" height="64" rx="8" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="728" y="218" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Нашли</text>
+      <text x="728" y="236" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">каталог открыт всем</text>
+      <rect x="648" y="428" width="160" height="64" rx="8" fill="#FAF7F2"/>
+      <rect x="648" y="428" width="160" height="64" rx="8" fill="rgba(194,96,60,0.08)" stroke="#C2603C" stroke-width="1"/>
+      <text x="728" y="458" fill="#C2603C" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Забронировал</text>
+      <text x="728" y="476" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">депозит удержан</text>
+      <rect x="440" y="548" width="160" height="64" rx="8" fill="#FAF7F2"/>
+      <rect x="440" y="548" width="160" height="64" rx="8" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="520" y="578" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Аренда идёт</text>
+      <text x="520" y="596" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">сроки тикают</text>
+      <rect x="232" y="428" width="160" height="64" rx="8" fill="#FAF7F2"/>
+      <rect x="232" y="428" width="160" height="64" rx="8" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="312" y="458" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Вернул</text>
+      <text x="312" y="476" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">владелец принял</text>
+      <rect x="232" y="188" width="160" height="64" rx="8" fill="#FAF7F2"/>
+      <rect x="232" y="188" width="160" height="64" rx="8" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="312" y="218" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Оценили</text>
+      <text x="312" y="236" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">обе стороны</text>
+      
+      <rect x="420" y="288" width="200" height="104" rx="8" fill="#1A1917"/>
+      <rect x="432" y="300" width="72" height="12" rx="2" fill="none" stroke="rgba(250,247,242,0.40)" stroke-width="0.8"/>
+      <text x="468" y="309" fill="rgba(250,247,242,0.80)" font-size="7" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle" letter-spacing="0.18em">POSTGRES</text>
+      <text x="520" y="352" fill="#FAF7F2" font-size="16" font-weight="700" font-family="Manrope, sans-serif" text-anchor="middle">Trust Score</text>
+      <text x="520" y="372" fill="rgba(250,247,242,0.70)" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">рейтинг, история, verified_at</text>
+      
+      <line x1="40" y1="692" x2="1000" y2="692" stroke="rgba(26,25,23,0.12)" stroke-width="0.8"/>
+      <text x="40" y="708" fill="#6E675E" font-size="8" font-weight="600" font-family="Manrope, sans-serif" letter-spacing="0.14em">ЛЕГЕНДА</text>
+      <line x1="140" y1="704" x2="176" y2="704" stroke="#6E675E" stroke-width="1.2"/>
+      <text x="188" y="708" fill="#6E675E" font-size="9" font-weight="500" font-family="Manrope, sans-serif">ход сделки</text>
+      <line x1="320" y1="704" x2="356" y2="704" stroke="#8C857A" stroke-width="1" stroke-dasharray="5,4"/>
+      <text x="368" y="708" fill="#6E675E" font-size="9" font-weight="500" font-family="Manrope, sans-serif">запись в Trust Score</text>
+      <rect x="560" y="698" width="12" height="12" rx="2" fill="rgba(194,96,60,0.08)" stroke="#C2603C" stroke-width="1"/>
+      <text x="584" y="708" fill="#6E675E" font-size="9" font-weight="500" font-family="Manrope, sans-serif">шаг, где появляются деньги</text>
+      </svg>
+      </div>
+      <figcaption>Три шага — то, что делает человек. По кругу идёт то, что делает система: каждая закрытая сделка дописывает рейтинг в общий Trust Score, и он решает, состоится ли следующая.</figcaption>
+    </figure>
     <div class="disclaimer">
       Владельцу не нужно ничего отслеживать. Система сама напоминает о возврате,
       сама открывает спор при просрочке и сама закрывает сделку, когда срок
@@ -626,6 +713,79 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
       </div>
     </div>
 
+    <figure class="diagram">
+      <div class="diagram-scroll">
+      <svg viewBox="0 0 1120 780" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="money-flow-title money-flow-desc">
+      <title id="money-flow-title">Куда уходят деньги сделки</title>
+      <desc id="money-flow-desc">Платёж арендатора делится на аренду и депозит: из аренды платформа удерживает 20 процентов комиссии, остальное уходит владельцу, а депозит либо возвращается целиком, либо частично становится компенсацией ущерба, которая доходит до владельца без комиссии.</desc>
+      <defs>
+        <marker id="money-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6E675E"/></marker>
+        <marker id="money-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#C2603C"/></marker>
+        <marker id="money-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2F5D50"/></marker>
+      </defs>
+      
+      <rect width="100%" height="100%" fill="#FAF7F2"/>
+      
+      <path d="M 480 124 L 480 148 A 8 8 0 0 1 472 156 L 328 156 A 8 8 0 0 0 320 164 L 320 188" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#money-arrow)"/>
+      <path d="M 640 124 L 640 148 A 8 8 0 0 0 648 156 L 792 156 A 8 8 0 0 1 800 164 L 800 188" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#money-arrow)"/>
+      <path d="M 280 252 L 280 296 A 8 8 0 0 1 272 304 L 168 304 A 8 8 0 0 0 160 312 L 160 368" fill="none" stroke="#C2603C" stroke-width="1.2" marker-end="url(#money-arrow-accent)"/>
+      <path d="M 360 252 L 360 512 A 8 8 0 0 0 368 520 L 392 520 A 8 8 0 0 1 400 528 L 400 560" fill="none" stroke="#2F5D50" stroke-width="1.2" marker-end="url(#money-arrow-link)"/>
+      <path d="M 800 252 L 800 344" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#money-arrow)"/>
+      <path d="M 896 400 L 920 400" fill="none" stroke="#2F5D50" stroke-width="1.2" marker-end="url(#money-arrow-link)"/>
+      <path d="M 800 456 L 800 560" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#money-arrow)"/>
+      <path d="M 680 592 L 520 592" fill="none" stroke="#2F5D50" stroke-width="1.2" marker-end="url(#money-arrow-link)"/>
+      
+      <rect x="890" y="374" width="28" height="14" rx="2" fill="#FAF7F2"/>
+      <text x="904" y="384" fill="#6E675E" font-size="8" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle" letter-spacing="0.06em">ДА</text>
+      <rect x="810" y="498" width="34" height="14" rx="2" fill="#FAF7F2"/>
+      <text x="827" y="508" fill="#6E675E" font-size="8" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle" letter-spacing="0.06em">НЕТ</text>
+      <rect x="556" y="566" width="88" height="14" rx="2" fill="#FAF7F2"/>
+      <text x="600" y="576" fill="#6E675E" font-size="8" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle" letter-spacing="0.06em">БЕЗ КОМИССИИ</text>
+      
+      <rect x="412" y="68" width="296" height="56" rx="28" fill="#FAF7F2"/>
+      <rect x="412" y="68" width="296" height="56" rx="28" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="560" y="94" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Арендатор платит</text>
+      <text x="560" y="112" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">аренда + депозит + страховка 150 ₸</text>
+      <rect x="200" y="188" width="240" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="200" y="188" width="240" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="320" y="218" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Аренда</text>
+      <text x="320" y="236" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">3 500 ₸ × 3 суток = 10 500 ₸</text>
+      <rect x="680" y="188" width="240" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="680" y="188" width="240" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="800" y="218" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Депозит</text>
+      <text x="800" y="236" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">20 000 ₸ заморожены</text>
+      <rect x="60" y="368" width="200" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="60" y="368" width="200" height="64" rx="6" fill="rgba(194,96,60,0.08)" stroke="#C2603C" stroke-width="1"/>
+      <text x="160" y="398" fill="#C2603C" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Комиссия платформы</text>
+      <text x="160" y="416" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">2 100 ₸ — это 20%</text>
+      <rect x="920" y="368" width="160" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="920" y="368" width="160" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="1000" y="398" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Депозит вернулся</text>
+      <text x="1000" y="416" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">20 000 ₸</text>
+      <rect x="680" y="560" width="240" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="680" y="560" width="240" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="800" y="590" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Компенсация ущерба</text>
+      <text x="800" y="608" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">меньшее из ущерба и депозита</text>
+      <rect x="280" y="560" width="240" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="280" y="560" width="240" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="400" y="590" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Владельцу</text>
+      <text x="400" y="608" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">8 400 ₸ + компенсация</text>
+      
+      <polygon points="800,344 896,400 800,456 704,400" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="800" y="398" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Вещь цела?</text>
+      <text x="800" y="416" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">фото «до» против «после»</text>
+      
+      <line x1="40" y1="708" x2="1080" y2="708" stroke="rgba(26,25,23,0.12)" stroke-width="0.8"/>
+      <text x="40" y="724" fill="#6E675E" font-size="8" font-weight="600" font-family="Manrope, sans-serif" letter-spacing="0.14em">ЛЕГЕНДА</text>
+      <rect x="140" y="714" width="12" height="12" rx="2" fill="rgba(194,96,60,0.08)" stroke="#C2603C" stroke-width="1"/>
+      <text x="164" y="724" fill="#6E675E" font-size="9" font-weight="500" font-family="Manrope, sans-serif">доход платформы</text>
+      <line x1="320" y1="720" x2="356" y2="720" stroke="#2F5D50" stroke-width="1.2"/>
+      <text x="368" y="724" fill="#6E675E" font-size="9" font-weight="500" font-family="Manrope, sans-serif">деньги владельцу</text>
+      <text x="560" y="724" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif">Пример: перфоратор 3 500 ₸ в сутки, трое суток, депозит 20 000 ₸</text>
+      </svg>
+      </div>
+      <figcaption>Депозит идёт мимо комиссии и возвращается целиком, если вещь цела. Компенсация ущерба доходит до владельца отдельной строкой и тоже без комиссии — иначе платформа зарабатывала бы на поломках.</figcaption>
+    </figure>
     <div class="disclaimer">
       На этапе пилота деньги не двигаются по-настоящему: бронирования, депозиты
       и выплаты живут в базе как статусы. Смысл этапа — проверить, что работает

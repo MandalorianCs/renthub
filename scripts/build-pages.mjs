@@ -38,6 +38,11 @@ mkdirSync(join(DOCS, 'app'), { recursive: true });
 cpSync(join(ROOT, 'dist'), join(DOCS, 'app'), { recursive: true });
 cpSync(join(ROOT, 'landing', 'index.html'), join(DOCS, 'index.html'));
 
+// Страницы схем публикуются отдельными адресами. На питче ссылку открыть
+// быстрее, чем искать картинку в переписке, а сами страницы самодостаточны:
+// весь SVG внутри, внешних файлов нет.
+cpSync(join(ROOT, 'landing', 'diagrams'), join(DOCS, 'diagrams'), { recursive: true });
+
 // GitHub Pages прогоняет сайт через Jekyll, а тот игнорирует папки,
 // начинающиеся с подчёркивания. Expo кладёт бандл в _expo/static/… —
 // без этого файла сайт откроется, а весь JavaScript вернёт 404, и
