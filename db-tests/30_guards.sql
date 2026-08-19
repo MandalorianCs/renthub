@@ -342,3 +342,37 @@ begin
       t.id('owner')))::int >= 1,
     'аноним читает отзывы о владельце');
 end $$;
+
+-- ── Личные колонки закрыты и от вошедших ──────────────────────
+--
+-- Политика users_read разрешает читать строки всем вошедшим, и до миграции
+-- 20260819100000 это означало, что телефон соседа достаётся обычным запросом
+-- к API. Ни один экран его не показывал — но API это не экран.
+--
+-- Проверяется именно право на колонку, а не наличие строки: строка видна,
+-- поле — нет. Тот же механизм, что закрывает телефон от анонима.
+
+select t.expect_fail(t.id('renter'),
+  format('select phone from users where id = %L', t.id('owner')),
+  'permission denied');
+
+select t.expect_fail(t.id('renter'),
+  format('select telegram_id from users where id = %L', t.id('owner')),
+  'permission denied');
+
+-- Своё — можно, но только через функцию: она читает по auth.uid(),
+-- поэтому подставить чужой идентификатор физически некуда.
+do $$
+begin
+  perform t.assert(
+    t.as_value(t.id('renter'), 'select id::text from my_profile()') = t.id('renter')::text,
+    'my_profile() возвращает строку вызывающего');
+
+  perform t.assert(
+    left(t.as_value(t.id('renter'), 'select coalesce(phone, ''нет'') from my_profile()'), 2) = '+7',
+    'свой телефон через my_profile() читается');
+
+  perform t.assert(
+    t.as_value(t.id('renter'), 'select count(*)::text from users') <> '0',
+    'строки users вошедшему по-прежнему видны — закрыты колонки, не строки');
+end $$;

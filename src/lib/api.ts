@@ -478,10 +478,22 @@ export async function markNotificationsRead(userId: string) {
 
 // ── Профиль ───────────────────────────────────────────────────
 
+/**
+ * Свой профиль — через функцию, а не запросом к таблице.
+ *
+ * Телефон и telegram_id закрыты грантом на колонки (миграция
+ * 20260819100000): читать их из приложения можно только так. Функция
+ * возвращает строго строку вызывающего — идентификатор берётся из
+ * auth.uid(), а не из аргумента, поэтому подставить чужой нельзя.
+ *
+ * userId остаётся в сигнатуре: он не нужен запросу, но нужен вызывающим —
+ * там, где профиля ещё нет, вызывать функцию незачем.
+ */
 export async function fetchProfile(userId: string): Promise<User | null> {
-  const { data, error } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
+  if (!userId) return null;
+  const { data, error } = await supabase.rpc('my_profile');
   if (error) throw error;
-  return data;
+  return (data as User | null) ?? null;
 }
 
 export async function updateProfile(userId: string, patch: Partial<Pick<User, 'full_name' | 'passive_mode' | 'role_hint'>>) {
@@ -495,14 +507,48 @@ export async function updateProfile(userId: string, patch: Partial<Pick<User, 'f
  * Путь строится как `<user_id>/<файл>` — ровно это проверяет
  * storage-политика item_photos_write: писать можно только в свою папку.
  */
+/** Тип файла → расширение. Список закрытый: в хранилище незачем принимать всё. */
+const PHOTO_EXT: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+};
+
+/**
+ * Тип и расширение снимка.
+ *
+ * Спрашиваем сам файл, а не его адрес. Причина: на телефоне выбор фото
+ * отдаёт `file:///…/IMG_0042.jpg`, где расширение есть, а в браузере —
+ * `blob:http://localhost:8081/d0a1bcc3-…`, где нет ни точки, ни расширения.
+ * Прежний код брал «всё после последней точки», получал на вебе весь адрес
+ * целиком и собирал из него путь в хранилище: с двоеточием и слешами внутри.
+ * Такой ключ отвергают и Storage, и политика item_photos_write, которая ждёт
+ * ровно две части пути — папку владельца и имя файла. Симптом был тихий:
+ * фото просто не загружались.
+ */
+function photoKind(uri: string, headerType: string | null): { ext: string; contentType: string } {
+  const declared = (headerType ?? '').split(';')[0].trim().toLowerCase();
+  if (PHOTO_EXT[declared]) return { ext: PHOTO_EXT[declared], contentType: declared };
+
+  // Заголовка нет (так бывает с file:// на телефоне) — пробуем адрес, но
+  // принимаем только то, что похоже на расширение, а не любой хвост.
+  const tail = uri.split('?')[0].split('#')[0].split('.').pop() ?? '';
+  const ext = /^[a-z0-9]{2,5}$/i.test(tail) ? tail.toLowerCase() : 'jpg';
+  const known = Object.entries(PHOTO_EXT).find(([, e]) => e === ext);
+  return { ext: known ? known[1] : 'jpg', contentType: known ? known[0] : 'image/jpeg' };
+}
+
 export async function uploadPhoto(userId: string, uri: string): Promise<string> {
   const response = await fetch(uri);
-  const blob = await response.arrayBuffer();
-  const ext = uri.split('.').pop()?.split('?')[0] ?? 'jpg';
+  const bytes = await response.arrayBuffer();
+  const { ext, contentType } = photoKind(uri, response.headers.get('content-type'));
   const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-  const { error } = await supabase.storage.from('item-photos').upload(path, blob, {
-    contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+  const { error } = await supabase.storage.from('item-photos').upload(path, bytes, {
+    contentType,
     upsert: false,
   });
   if (error) throw error;

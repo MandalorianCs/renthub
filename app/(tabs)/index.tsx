@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { CatalogSkeleton } from '../../src/components/Skeleton';
-import { Empty, ErrorState, tap } from '../../src/components/ui';
+import { Empty, ErrorState, ScreenHead, tap } from '../../src/components/ui';
 import type { CatalogSort } from '../../src/lib/api';
 import { fetchCatalog, fetchCategories, fetchFavoriteIds, toggleFavorite } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
@@ -128,14 +128,12 @@ export default function Catalog() {
 
   return (
     <View style={s.screen}>
-      {/* ── Кто мы и где ──────────────────────────────────── */}
-      <View style={s.head}>
-        <Text style={s.headTitle}>Инструмент рядом</Text>
-        <Text style={s.headSub}>Берут на день, а не покупают за 90 000 ₸</Text>
-      </View>
-
-      {/* ── Поиск ─────────────────────────────────────────── */}
-      <View style={s.searchWrap}>
+      {/* ── Кто мы, где и поиск — одним блоком ────────────── */}
+      <ScreenHead
+        title="Инструмент рядом"
+        sub="Берут на день, а не покупают за 90 000 ₸"
+        tone="warm"
+      >
         <View style={s.search}>
           <Ionicons name="search" size={18} color={colors.textMuted} />
           <TextInput
@@ -151,7 +149,7 @@ export default function Catalog() {
             </Pressable>
           ) : null}
         </View>
-      </View>
+      </ScreenHead>
 
       {/* ── Категории ─────────────────────────────────────── */}
       <ScrollView
@@ -251,6 +249,11 @@ export default function Catalog() {
           }
           ListEmptyComponent={
             <Empty
+              action={
+                onlyFavorites || search
+                  ? undefined
+                  : { label: 'Выложить свой инструмент', onPress: () => router.push('/item/new') }
+              }
               icon={onlyFavorites ? 'heart-outline' : 'cube-outline'}
               title={onlyFavorites ? 'В избранном пусто' : search ? 'Ничего не нашлось' : 'Пока пусто'}
               body={
@@ -389,18 +392,15 @@ function plural(n: number): string {
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
 
-  head: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.lg },
-  headTitle: { fontSize: 30, fontFamily: typeface[800], color: colors.text, letterSpacing: -1 },
-  headSub: { fontSize: 14, fontFamily: typeface[500], color: colors.textMuted, marginTop: 3 },
-
   searchWrap: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
   search: {
+    marginTop: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 0,
+    ...elevation.card,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
     paddingVertical: 13,
@@ -411,7 +411,7 @@ const s = StyleSheet.create({
   // и растягивает его по высоте родителя, а вместе с ним и чипсы — на телефоне
   // этого не происходит, там он подгоняется под содержимое. Поэтому высоту
   // фиксируем явно, а alignItems не даёт кнопкам тянуться вертикально.
-  chipsRow: { flexGrow: 0, flexShrink: 0 },
+  chipsRow: { flexGrow: 0, flexShrink: 0, marginTop: spacing.lg },
   chips: { paddingHorizontal: spacing.lg, gap: spacing.sm, alignItems: 'center' },
   chip: {
     paddingHorizontal: 15,
@@ -486,10 +486,17 @@ const s = StyleSheet.create({
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: 'rgba(26,25,23,0.06)',
+    padding: 5,
     overflow: 'hidden',
     ...elevation.card,
   },
-  photoWrap: { width: '100%', aspectRatio: 4 / 3, backgroundColor: colors.border },
+  photoWrap: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    backgroundColor: colors.border,
+    borderRadius: 17,
+    overflow: 'hidden',
+  },
   photo: { width: '100%', height: '100%' },
   photoEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },
   photoCount: {
@@ -518,7 +525,7 @@ const s = StyleSheet.create({
     ...elevation.card,
   },
 
-  body: { padding: 14, gap: 4 },
+  body: { paddingHorizontal: 9, paddingTop: 10, paddingBottom: 6, gap: 4 },
   price: { fontSize: 21, fontFamily: typeface[800], color: colors.text, letterSpacing: -0.7 },
   perDay: { fontSize: 12, fontFamily: typeface[600], color: colors.textMuted },
   title: { fontSize: 14, fontFamily: typeface[500], color: colors.text, lineHeight: 19 },

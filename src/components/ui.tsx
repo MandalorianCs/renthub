@@ -106,22 +106,88 @@ export function Row({ left, right, muted }: { left: string; right: string; muted
   );
 }
 
+/**
+ * Шапка экрана: крупное имя того, куда человек попал.
+ *
+ * Раньше каждый экран начинался сразу содержимым — списком, полем, карточкой.
+ * Формально это честно, фактически человек каждый раз заново соображал, где
+ * он: вкладки внизу подписаны в 11 пунктов, и это единственное, что отвечало
+ * на вопрос.
+ *
+ * Тон — не украшение, а смысл. `warm` (терракота) стоит на витрине, `money`
+ * (зелёный) — там, где речь о деньгах владельца; оба цвета означают в
+ * продукте ровно это. `plain` — везде, где заливка ничего бы не добавила.
+ */
+export function ScreenHead({
+  title,
+  sub,
+  tone = 'plain',
+  bleed,
+  children,
+}: {
+  title: string;
+  sub?: string;
+  tone?: 'plain' | 'warm' | 'money';
+  /**
+   * Гасит боковой отступ родителя, чтобы залитая шапка дошла до краёв экрана.
+   *
+   * Нужен там, где шапка лежит внутри прокручиваемого контейнера с общим
+   * отступом: убрать отступ у контейнера нельзя — к краям прилипнут карточки,
+   * а заливка, не доходящая до края, выглядит незакрашенной полосой, а не
+   * накладкой.
+   */
+  bleed?: boolean;
+  children?: React.ReactNode;
+}) {
+  const tinted = tone !== 'plain';
+  return (
+    <View
+      style={[
+        s.head,
+        bleed && { marginHorizontal: -spacing.lg },
+        tinted && s.headTinted,
+        tone === 'warm' && { backgroundColor: colors.accentSoft },
+        tone === 'money' && { backgroundColor: colors.greenSoft },
+      ]}
+    >
+      <Text style={s.headTitle}>{title}</Text>
+      {sub ? <Text style={s.headSub}>{sub}</Text> : null}
+      {children}
+    </View>
+  );
+}
+
 export function Empty({
   title,
   body,
   icon = 'cube-outline',
+  action,
 }: {
   title: string;
   body?: string;
   icon?: keyof typeof Ionicons.glyphMap;
+  /**
+   * Выход из пустоты.
+   *
+   * Пустой экран — единственное место, где у человека есть внимание и нечем
+   * его занять. Объяснить, почему пусто, — половина дела; вторая половина —
+   * дать то единственное действие, которое эту пустоту закрывает. Без него
+   * экран остаётся тупиком, из которого выходят кнопкой «назад».
+   */
+  action?: { label: string; onPress: () => void };
 }) {
   return (
     <View style={s.empty}>
       <View style={s.emptyIcon}>
-        <Ionicons name={icon} size={26} color={colors.textMuted} />
+        <Ionicons name={icon} size={30} color={colors.accent} />
       </View>
       <Text style={s.emptyTitle}>{title}</Text>
       {body ? <Text style={s.emptyBody}>{body}</Text> : null}
+      {action ? (
+        <View style={{ marginTop: spacing.md, alignSelf: 'stretch', maxWidth: 280 }}>
+          <Button title={action.label} onPress={action.onPress} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -190,16 +256,25 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },
   rowLeft: { fontSize: 14, fontFamily: typeface[400], color: colors.text, flexShrink: 1 },
   rowRight: { fontSize: 14, color: colors.text, fontFamily: typeface[700] },
+  head: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.lg },
+  // Крупное скругление снизу превращает шапку в накладку на содержимое.
+  // Без него залитый блок упирается в края и читается как ещё одна секция.
+  headTinted: { borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+  headTitle: { fontSize: 32, fontFamily: typeface[800], color: colors.text, letterSpacing: -1.1 },
+  headSub: { fontSize: 14, fontFamily: typeface[500], color: colors.textMuted, marginTop: 4 },
+
   empty: { padding: spacing.xxl, alignItems: 'center', gap: spacing.sm },
   emptyIcon: {
-    width: 52,
-    height: 52,
+    width: 76,
+    height: 76,
     borderRadius: radius.pill,
     backgroundColor: colors.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
-  emptyTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text, textAlign: 'center' },
+  // Пустой экран целиком состоит из этого блока, и мелкий заголовок в 16
+  // пунктов посреди белого поля читается как обрывок, а не как сообщение.
+  emptyTitle: { fontSize: 20, fontFamily: typeface[800], color: colors.text, textAlign: 'center', letterSpacing: -0.4 },
   emptyBody: { fontSize: 14, fontFamily: typeface[400], color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
 });

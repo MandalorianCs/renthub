@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 /**
  * Палитра взята из брендинга RentHUB (деки и лендинга): светлая тема,
  * кремовый фон, приглушённая терракота как акцент, тёмно-зелёный —
@@ -43,10 +45,16 @@ export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as cons
  * Тень задаётся токеном, а не по месту: карточка объявления и карточка сделки
  * должны лежать на одной высоте, иначе интерфейс выглядит собранным из кусков.
  *
- * shadow* работает на iOS и в вебе (react-native-web переводит их в box-shadow),
- * elevation — на Android. Нужны оба набора, одного мало.
+ * Платформ теперь три, а не две. `shadow*` — язык iOS, `elevation` — Android,
+ * а react-native-web раньше переводил `shadow*` в `box-shadow` сам, но объявил
+ * это устаревшим и пишет предупреждение в консоль на каждый экран. Поэтому
+ * вебу отдаётся готовый `boxShadow`, остальным — прежние наборы.
+ *
+ * Значения подобраны так, чтобы совпадать визуально: 0 6px 16px при
+ * непрозрачности 6% — это ровно то, что react-native-web собирал из
+ * shadowOffset, shadowRadius и shadowOpacity.
  */
-export const elevation = {
+const native = {
   card: {
     shadowColor: '#1A1917',
     shadowOffset: { width: 0, height: 6 },
@@ -61,7 +69,14 @@ export const elevation = {
     shadowRadius: 22,
     elevation: 6,
   },
-} as const;
+};
+
+const web = {
+  card: { boxShadow: '0 6px 16px rgba(26, 25, 23, 0.06)' },
+  raised: { boxShadow: '0 10px 22px rgba(26, 25, 23, 0.14)' },
+};
+
+export const elevation = Platform.OS === 'web' ? web : native;
 
 // xl — для карточек, которые человек воспринимает как предмет: витрина
 // каталога, карточка объявления. Мелкое скругление на большой плоскости

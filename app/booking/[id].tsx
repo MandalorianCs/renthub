@@ -137,16 +137,13 @@ export default function BookingScreen() {
         </View>
       </View>
 
-      <Card>
-        <BookingTimeline status={booking.status} />
-      </Card>
-
       {/* Главный вопрос на этом экране — «чего от меня хотят». Он должен
-          быть написан словами, а не выведен человеком из статуса. */}
+          быть написан словами, а не выведен человеком из статуса, и стоять
+          выше шкалы: шкала отвечает «где мы», а этот блок — «что делать». */}
       <View style={[s.move, move.yours ? s.moveYours : s.moveWaiting]}>
         <Ionicons
           name={move.icon}
-          size={22}
+          size={26}
           color={move.yours ? colors.accent : colors.textMuted}
         />
         <View style={{ flex: 1, gap: 3 }}>
@@ -154,6 +151,10 @@ export default function BookingScreen() {
           <Text style={s.moveBody}>{move.body}</Text>
         </View>
       </View>
+
+      <Card>
+        <BookingTimeline status={booking.status} />
+      </Card>
 
       <Card>
         <Row left="Период" right={formatDateRange(booking.start_date, booking.end_date)} />
@@ -423,20 +424,23 @@ function resolutionLabel(status: Dispute['resolution_status']): string {
 
 const s = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
-  title: { fontSize: 22, fontFamily: typeface[800], color: colors.text },
+  title: { fontSize: 26, fontFamily: typeface[800], color: colors.text, letterSpacing: -0.8 },
   badges: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
+  // Это главный блок экрана, и раньше он был одного размера с остальными.
+  // Крупнее — не для красоты: человек, открывший сделку с телефона, должен
+  // увидеть ответ «ждут вас» или «ждём другую сторону», не читая экран.
   move: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing.lg,
     alignItems: 'flex-start',
-    padding: spacing.lg,
-    borderRadius: radius.lg,
+    padding: spacing.xl,
+    borderRadius: radius.xl,
     borderWidth: 1,
   },
   moveYours: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
   moveWaiting: { backgroundColor: colors.surface, borderColor: colors.border },
-  moveTitle: { fontSize: 16, fontFamily: typeface[800], color: colors.text },
-  moveBody: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 19 },
+  moveTitle: { fontSize: 19, fontFamily: typeface[800], color: colors.text, letterSpacing: -0.4 },
+  moveBody: { fontSize: 14, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 20 },
   deadlineRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   deadlineTitle: { fontSize: 13, fontFamily: typeface[700] },
   deadlineWhen: { fontSize: 17, fontFamily: typeface[800], color: colors.text },

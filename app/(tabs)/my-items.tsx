@@ -2,7 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SummarySkeleton } from '../../src/components/Skeleton';
-import { Badge, Button, Card, Empty, ErrorState, Row, tap } from '../../src/components/ui';
+import { Badge, Button, Card, Empty, ErrorState, Row, ScreenHead, tap } from '../../src/components/ui';
 import {
   fetchMyItems,
   fetchNotifications,
@@ -112,6 +112,13 @@ export default function MyItems() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
       }
     >
+      <ScreenHead
+        title="Мои вещи"
+        sub="Что произошло, пока вас не было"
+        tone="money"
+        bleed
+      />
+
       {news.length > 0 ? (
         <Card style={{ backgroundColor: colors.greenSoft, borderColor: colors.greenSoft }}>
           <Text style={s.sectionTitle}>Пока вас не было</Text>

@@ -50,6 +50,11 @@ export function humanizeError(error: unknown): string {
     [/items_title_check/, 'Название слишком короткое'],
     [/daily_price_check/, 'Цена должна быть больше нуля'],
     [/Failed to fetch|NetworkError|Load failed/i, 'Нет связи с сервером — проверьте интернет'],
+    // Ошибки хранилища приходят по-английски и звучат как сбой платформы,
+    // хотя означают всего лишь «этот файл не подошёл».
+    [/exceeded the maximum allowed size|Payload too large/i, 'Фото слишком большое — снимите поменьше или сожмите'],
+    [/Invalid key|invalid_key/i, 'Не удалось сохранить фото — попробуйте другой файл'],
+    [/mime type .* is not supported/i, 'Такой формат фото не поддерживается — нужен JPG, PNG или WebP'],
   ];
 
   for (const [pattern, text] of constraints) {

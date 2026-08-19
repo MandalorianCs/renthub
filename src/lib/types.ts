@@ -30,6 +30,12 @@ export type User = {
   passive_mode: boolean;
   /** Право разбирать споры выше порога. Выдаётся только сервисным ключом. */
   is_moderator: boolean;
+  /**
+   * Чат с ботом. Заполняет бот после «Поделиться номером» — раньше этого
+   * момента написать человеку в Telegram нельзя, так устроен сам Telegram.
+   */
+  telegram_id: number | null;
+  telegram_username: string | null;
   created_at: string;
 };
 

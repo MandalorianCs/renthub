@@ -2,7 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { ListSkeleton } from '../../src/components/Skeleton';
-import { Badge, Empty, ErrorState } from '../../src/components/ui';
+import { Badge, Empty, ErrorState, ScreenHead, tap } from '../../src/components/ui';
 import { fetchMyBookings } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, DEPOSIT_STATUS, formatDateRange, formatTenge } from '../../src/lib/format';
@@ -48,6 +48,13 @@ export default function MyBookings() {
       data={bookings}
       keyExtractor={(b) => b.id}
       contentContainerStyle={s.list}
+      ListHeaderComponent={
+        <ScreenHead
+          title="Мои аренды"
+          sub="Что взято, на какой срок и что с депозитом"
+          bleed
+        />
+      }
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
       }
@@ -62,7 +69,10 @@ export default function MyBookings() {
         const status = BOOKING_STATUS[item.status];
         const deposit = DEPOSIT_STATUS[item.deposit_status];
         return (
-          <Pressable style={s.card} onPress={() => router.push(`/booking/${item.id}`)}>
+          <Pressable
+            style={({ pressed }) => [s.card, tap({ pressed })]}
+            onPress={() => router.push(`/booking/${item.id}`)}
+          >
             <View style={s.cardHeader}>
               <Text style={s.title} numberOfLines={1}>
                 {item.item?.title ?? 'Объявление удалено'}
@@ -82,12 +92,14 @@ export default function MyBookings() {
 }
 
 const s = StyleSheet.create({
-  list: { padding: spacing.lg, gap: spacing.md },
+  // Шапка живёт внутри списка, поэтому боковые отступы — на карточках,
+  // а не на контейнере: иначе залитая шапка не дотянулась бы до краёв.
+  list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md },
   card: {
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
+    borderColor: 'rgba(26,25,23,0.06)',
+    borderRadius: radius.xl,
     padding: spacing.lg,
     gap: spacing.sm,
     ...elevation.card,
@@ -96,6 +108,6 @@ const s = StyleSheet.create({
   title: { flex: 1, fontSize: 16, fontFamily: typeface[700], color: colors.text },
   meta: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  amount: { fontSize: 16, fontFamily: typeface[800], color: colors.text },
+  amount: { fontSize: 20, fontFamily: typeface[800], color: colors.text, letterSpacing: -0.6 },
   depositNote: { fontSize: 12, fontFamily: typeface[600] },
 });

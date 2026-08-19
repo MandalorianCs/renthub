@@ -50,6 +50,10 @@ yarn-error.*
 # читают только скрипты из scripts/.
 .env.secret
 
+# Ключи бота: тот же секретный ключ Supabase плюс токен Telegram.
+bot/.env
+bot/__pycache__/
+
 # typescript
 *.tsbuildinfo
 

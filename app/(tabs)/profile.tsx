@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { Badge, Button, Card, ErrorState, Field, Row, tap } from '../../src/components/ui';
+import { Badge, Button, Card, ErrorState, Field, Row, ScreenHead, tap } from '../../src/components/ui';
 import { fetchMyBookings, fetchNotifications, updateProfile } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, formatDateRange, ratingLabel } from '../../src/lib/format';
@@ -62,6 +62,8 @@ export default function Profile() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
       }
     >
+      <ScreenHead title="Профиль" sub="Рейтинг, история сделок и настройки" bleed />
+
       <Card>
         <View style={s.head}>
           <View style={s.avatar}>
