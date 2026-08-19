@@ -25,7 +25,7 @@ export function Button({
   loading?: boolean;
 }) {
   const palette = {
-    primary: { bg: colors.accent, fg: '#FFFFFF' },
+    primary: { bg: colors.accent, fg: colors.onFill },
     secondary: { bg: colors.greenSoft, fg: colors.green },
     danger: { bg: colors.dangerSoft, fg: colors.danger },
     ghost: { bg: 'transparent', fg: colors.textMuted },
@@ -50,6 +50,21 @@ export function Button({
       )}
     </Pressable>
   );
+}
+
+/**
+ * Отклик на нажатие для карточек и строк списка.
+ *
+ * У кнопки он был с самого начала, у карточек — нет, и это заметно именно на
+ * телефоне: палец закрывает то место, куда нажал, и без реакции человек не
+ * знает, сработало ли. На медленной сети между нажатием и переходом проходит
+ * заметное время, и второе нажатие «на всякий случай» открывает экран дважды.
+ *
+ * Масштаб взят мелкий (1%) намеренно: карточка должна отозваться, а не
+ * прыгнуть. Прыжок читается как ошибка вёрстки, а не как отклик.
+ */
+export function tap({ pressed }: { pressed: boolean }) {
+  return { opacity: pressed ? 0.72 : 1, transform: [{ scale: pressed ? 0.99 : 1 }] };
 }
 
 export function Badge({ label, fg, bg }: { label: string; fg: string; bg: string }) {
@@ -133,13 +148,6 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
   );
 }
 
-export function Loader() {
-  return (
-    <View style={s.empty}>
-      <ActivityIndicator color={colors.accent} />
-    </View>
-  );
-}
 
 const s = StyleSheet.create({
   button: {

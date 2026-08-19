@@ -62,7 +62,7 @@ export function PhotoViewer({
         </ScrollView>
 
         <Pressable style={s.close} onPress={onClose} hitSlop={10}>
-          <Ionicons name="close" size={22} color="#FFFFFF" />
+          <Ionicons name="close" size={22} color={colors.onScrim} />
         </Pressable>
 
         {photos.length > 1 ? (
@@ -100,5 +100,5 @@ const s = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: 'rgba(255,255,255,0.16)',
   },
-  counterText: { fontSize: 13, fontFamily: typeface[700], color: '#FFFFFF' },
+  counterText: { fontSize: 13, fontFamily: typeface[700], color: colors.onScrim },
 });

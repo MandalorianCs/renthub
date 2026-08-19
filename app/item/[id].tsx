@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { Calendar, toISO } from '../../src/components/Calendar';
 import { PhotoViewer } from '../../src/components/PhotoViewer';
-import { Badge, Button, Card, Empty, Loader, Row } from '../../src/components/ui';
+import { DetailSkeleton } from '../../src/components/Skeleton';
+import { Badge, Button, Card, Empty, ErrorState, Row, tap } from '../../src/components/ui';
 import { createBooking, fetchItem, fetchItemCalendar } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { formatDateRange, formatTenge, ratingLabel } from '../../src/lib/format';
@@ -74,8 +75,21 @@ export default function ItemScreen() {
     [item, days, insurance],
   );
 
-  if (loading) return <Loader />;
-  if (!item) return <Empty title="Объявление не найдено" />;
+  if (loading) return <DetailSkeleton />;
+
+  // Три разных исхода, и раньше два последних выглядели одинаково. «Не
+  // найдено» на упавшем запросе — прямая ложь: объявление существует, это мы
+  // до него не дошли. Человек в этом случае не повторяет попытку, а уходит,
+  // решив, что вещь сняли с публикации.
+  if (error && !item) return <ErrorState message={error} onRetry={load} />;
+  if (!item) {
+    return (
+      <Empty
+        title="Объявление не найдено"
+        body="Владелец мог снять его с публикации или удалить. Посмотрите, что ещё сдают рядом."
+      />
+    );
+  }
 
   const isOwnItem = item.owner_id === session?.user.id;
 
@@ -125,7 +139,7 @@ export default function ItemScreen() {
           </ScrollView>
 
           <View style={s.counter}>
-            <Ionicons name="expand-outline" size={12} color="#FFFFFF" />
+            <Ionicons name="expand-outline" size={12} color={colors.onScrim} />
             <Text style={s.counterText}>
               {item.condition_photos.length > 1
                 ? `${photoIndex + 1} / ${item.condition_photos.length}`
@@ -142,7 +156,10 @@ export default function ItemScreen() {
       </View>
 
       <Card>
-        <Pressable style={s.owner} onPress={() => router.push(`/owner/${item.owner_id}`)}>
+        <Pressable
+          style={({ pressed }) => [s.owner, tap({ pressed })]}
+          onPress={() => router.push(`/owner/${item.owner_id}`)}
+        >
           <View style={s.avatar}>
             <Text style={s.avatarText}>{initials(item.owner?.full_name)}</Text>
           </View>
@@ -203,7 +220,7 @@ export default function ItemScreen() {
                   setEnd(addDaysISO(todayISO(), n - 1));
                 }}
               >
-                <Text style={[s.presetText, days === n && { color: '#FFFFFF' }]}>{n} дн.</Text>
+                <Text style={[s.presetText, days === n && { color: colors.onFill }]}>{n} дн.</Text>
               </Pressable>
             ))}
           </View>
@@ -325,7 +342,7 @@ function addDaysISO(iso: string, days: number): string {
 
 const s = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: 120 },
-  galleryWrap: { borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.border },
+  galleryWrap: { borderRadius: radius.xl, overflow: 'hidden', backgroundColor: colors.border },
   counter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -338,7 +355,7 @@ const s = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: 'rgba(26,25,23,0.62)',
   },
-  counterText: { fontSize: 12, fontFamily: typeface[700], color: '#FFFFFF' },
+  counterText: { fontSize: 12, fontFamily: typeface[700], color: colors.onScrim },
   owner: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   avatar: {
     width: 44,
@@ -367,11 +384,11 @@ const s = StyleSheet.create({
     borderTopColor: colors.border,
     ...elevation.raised,
   },
-  stickyTotal: { fontSize: 20, fontFamily: typeface[800], color: colors.text },
+  stickyTotal: { fontSize: 26, fontFamily: typeface[800], color: colors.text, letterSpacing: -0.8 },
   stickyMeta: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
   photo: { width: 240, height: 180, borderRadius: radius.lg, marginRight: spacing.md, backgroundColor: colors.border },
-  title: { fontSize: 24, fontFamily: typeface[800], color: colors.text },
-  price: { fontSize: 18, fontFamily: typeface[800], color: colors.accent },
+  title: { fontSize: 21, fontFamily: typeface[700], color: colors.text, letterSpacing: -0.4 },
+  price: { fontSize: 30, fontFamily: typeface[800], color: colors.accent, letterSpacing: -0.9 },
   description: { fontSize: 15, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 22 },
   sectionTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
   note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },

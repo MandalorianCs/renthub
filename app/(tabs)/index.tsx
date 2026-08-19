@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { CatalogSkeleton } from '../../src/components/Skeleton';
-import { Empty, ErrorState } from '../../src/components/ui';
+import { Empty, ErrorState, tap } from '../../src/components/ui';
 import type { CatalogSort } from '../../src/lib/api';
 import { fetchCatalog, fetchCategories, fetchFavoriteIds, toggleFavorite } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
@@ -128,6 +128,12 @@ export default function Catalog() {
 
   return (
     <View style={s.screen}>
+      {/* ── Кто мы и где ──────────────────────────────────── */}
+      <View style={s.head}>
+        <Text style={s.headTitle}>Инструмент рядом</Text>
+        <Text style={s.headSub}>Берут на день, а не покупают за 90 000 ₸</Text>
+      </View>
+
       {/* ── Поиск ─────────────────────────────────────────── */}
       <View style={s.searchWrap}>
         <View style={s.search}>
@@ -269,7 +275,7 @@ export default function Catalog() {
 
       <Link href="/item/new" asChild>
         <Pressable style={s.fab}>
-          <Ionicons name="add" size={20} color="#FFFFFF" />
+          <Ionicons name="add" size={20} color={colors.onFill} />
           <Text style={s.fabText}>Сдать вещь</Text>
         </Pressable>
       </Link>
@@ -295,7 +301,7 @@ function ItemCard({
   const photo = item.condition_photos[0];
 
   return (
-    <Pressable style={s.card} onPress={onPress}>
+    <Pressable style={({ pressed }) => [s.card, tap({ pressed })]} onPress={onPress}>
       <View style={s.photoWrap}>
         {photo ? (
           <Image
@@ -315,7 +321,7 @@ function ItemCard({
 
         {item.condition_photos.length > 1 ? (
           <View style={s.photoCount}>
-            <Ionicons name="images-outline" size={11} color="#FFFFFF" />
+            <Ionicons name="images-outline" size={11} color={colors.onScrim} />
             <Text style={s.photoCountText}>{item.condition_photos.length}</Text>
           </View>
         ) : null}
@@ -366,7 +372,7 @@ function Chip({
       onPress={onPress}
       style={[s.chip, selected && { backgroundColor: colors.accent, borderColor: colors.accent }]}
     >
-      <Text style={[s.chipText, selected && { color: '#FFFFFF' }]}>{label}</Text>
+      <Text style={[s.chipText, selected && { color: colors.onFill }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -383,6 +389,10 @@ function plural(n: number): string {
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
 
+  head: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.lg },
+  headTitle: { fontSize: 30, fontFamily: typeface[800], color: colors.text, letterSpacing: -1 },
+  headSub: { fontSize: 14, fontFamily: typeface[500], color: colors.textMuted, marginTop: 3 },
+
   searchWrap: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
   search: {
     flexDirection: 'row',
@@ -391,9 +401,9 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 13,
   },
   searchInput: { flex: 1, fontSize: 15, fontFamily: typeface[400], color: colors.text, outlineStyle: 'none' } as object,
 
@@ -404,14 +414,14 @@ const s = StyleSheet.create({
   chipsRow: { flexGrow: 0, flexShrink: 0 },
   chips: { paddingHorizontal: spacing.lg, gap: spacing.sm, alignItems: 'center' },
   chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 9,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  chipText: { fontSize: 13, fontFamily: typeface[600], color: colors.text },
+  chipText: { fontSize: 13.5, fontFamily: typeface[600], color: colors.text },
 
   bar: {
     flexDirection: 'row',
@@ -442,7 +452,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { fontSize: 11, fontFamily: typeface[800], color: '#FFFFFF' },
+  badgeText: { fontSize: 11, fontFamily: typeface[800], color: colors.onFill },
 
   panel: { paddingTop: spacing.md, gap: spacing.md },
   panelRow: {
@@ -473,9 +483,9 @@ const s = StyleSheet.create({
   card: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(26,25,23,0.06)',
     overflow: 'hidden',
     ...elevation.card,
   },
@@ -494,7 +504,7 @@ const s = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: 'rgba(26,25,23,0.62)',
   },
-  photoCountText: { fontSize: 11, fontFamily: typeface[700], color: '#FFFFFF' },
+  photoCountText: { fontSize: 11, fontFamily: typeface[700], color: colors.onScrim },
   heart: {
     position: 'absolute',
     top: spacing.sm,
@@ -502,15 +512,16 @@ const s = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: 'rgba(255,255,255,0.94)',
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation.card,
   },
 
-  body: { padding: spacing.md, gap: 3 },
-  price: { fontSize: 17, fontFamily: typeface[800], color: colors.text, letterSpacing: -0.3 },
+  body: { padding: 14, gap: 4 },
+  price: { fontSize: 21, fontFamily: typeface[800], color: colors.text, letterSpacing: -0.7 },
   perDay: { fontSize: 12, fontFamily: typeface[600], color: colors.textMuted },
-  title: { fontSize: 13, fontFamily: typeface[400], color: colors.text, lineHeight: 18 },
+  title: { fontSize: 14, fontFamily: typeface[500], color: colors.text, lineHeight: 19 },
   trust: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   trustText: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
   deposit: { fontSize: 11, fontFamily: typeface[400], color: colors.textMuted },
@@ -529,5 +540,5 @@ const s = StyleSheet.create({
     borderRadius: radius.pill,
     ...elevation.raised,
   },
-  fabText: { color: '#FFFFFF', fontFamily: typeface[800], fontSize: 15 },
+  fabText: { color: colors.onFill, fontFamily: typeface[800], fontSize: 15 },
 });

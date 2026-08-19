@@ -234,7 +234,7 @@ const s = StyleSheet.create({
   tab: { flex: 1, paddingVertical: 10, borderRadius: radius.sm, alignItems: 'center' },
   tabActive: { backgroundColor: colors.accent },
   tabText: { fontSize: 14, fontFamily: typeface[700], color: colors.textMuted },
-  tabTextActive: { color: '#FFFFFF' },
+  tabTextActive: { color: colors.onFill },
 
   form: { gap: spacing.lg },
   note: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },

@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { Badge, Button, Card, Field, Row } from '../../src/components/ui';
+import { Badge, Button, Card, ErrorState, Field, Row, tap } from '../../src/components/ui';
 import { fetchMyBookings, fetchNotifications, updateProfile } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, formatDateRange, ratingLabel } from '../../src/lib/format';
@@ -14,7 +14,7 @@ import { colors, radius, spacing, typeface } from '../../src/theme';
 
 /** Экран 6: профиль — рейтинг, история сделок, настройки. */
 export default function Profile() {
-  const { session, profile, isVerified, signOut, refreshProfile } = useAuth();
+  const { session, profile, profileError, isVerified, signOut, refreshProfile } = useAuth();
   const router = useRouter();
 
   const [history, setHistory] = useState<BookingWithItem[]>([]);
@@ -46,7 +46,14 @@ export default function Profile() {
 
   const { refreshing, onRefresh } = useRefresh(load);
 
-  if (!profile) return <ListSkeleton rows={3} />;
+  // Профиля нет по двум причинам, и выглядеть они обязаны по-разному.
+  // Сбой — отказ с кнопкой повтора. Отсутствие строки сразу после регистрации
+  // (триггер on_auth_user_created ещё не отработал) — заглушка: данные
+  // действительно едут, и через секунду появятся сами.
+  if (!profile) {
+    if (profileError) return <ErrorState message={profileError} onRetry={refreshProfile} />;
+    return <ListSkeleton rows={3} />;
+  }
 
   return (
     <ScrollView
@@ -123,7 +130,10 @@ export default function Profile() {
       </Card>
 
       <Card>
-        <Pressable style={s.linkRow} onPress={() => router.push('/notifications')}>
+        <Pressable
+          style={({ pressed }) => [s.linkRow, tap({ pressed })]}
+          onPress={() => router.push('/notifications')}
+        >
           <Ionicons name="notifications-outline" size={20} color={colors.text} />
           <Text style={s.linkTitle}>Уведомления</Text>
           {unread > 0 ? (
@@ -182,7 +192,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.accent,
     alignItems: 'center', justifyContent: 'center',
   },
-  counterText: { fontSize: 12, fontFamily: typeface[800], color: '#FFFFFF' },
+  counterText: { fontSize: 12, fontFamily: typeface[800], color: colors.onFill },
   errorBox: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
     backgroundColor: colors.dangerSoft, borderRadius: radius.md, padding: spacing.md,

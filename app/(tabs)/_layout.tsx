@@ -14,8 +14,16 @@ export default function TabsLayout() {
         headerTitleStyle: { fontFamily: typeface[800], fontSize: 20 },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: { fontFamily: typeface[600], fontSize: 11 },
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
+        tabBarLabelStyle: { fontFamily: typeface[600], fontSize: 11, marginTop: 2 },
+        // Высота с запасом: стандартные 49 пунктов на Android прижимают
+        // подпись к иконке, и вкладки читаются как одна серая полоса.
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          height: 62,
+          paddingTop: 6,
+          paddingBottom: 8,
+        },
         sceneStyle: { backgroundColor: colors.bg },
       }}
     >

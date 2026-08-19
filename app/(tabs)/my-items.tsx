@@ -1,7 +1,8 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Badge, Button, Card, Empty, Loader, Row } from '../../src/components/ui';
+import { SummarySkeleton } from '../../src/components/Skeleton';
+import { Badge, Button, Card, Empty, ErrorState, Row, tap } from '../../src/components/ui';
 import {
   fetchMyItems,
   fetchNotifications,
@@ -93,7 +94,16 @@ export default function MyItems() {
 
   const { refreshing, onRefresh } = useRefresh(load);
 
-  if (loading) return <Loader />;
+  if (loading) return <SummarySkeleton />;
+
+  // Сбой при первой загрузке нельзя показывать пустым экраном: «пока ничего
+  // не сдаёте» и «мы не смогли посмотреть» — разные сообщения, и владелец,
+  // увидевший первое вместо второго, решит, что платформа потеряла его вещи.
+  // Когда данные уже на экране, упавшее обновление показывается строкой внизу:
+  // подменять показанное ошибкой хуже, чем оставить чуть устаревшее.
+  if (error && items.length === 0 && payouts.length === 0) {
+    return <ErrorState message={error} onRetry={load} />;
+  }
 
   return (
     <ScrollView
@@ -152,7 +162,11 @@ export default function MyItems() {
           {needsAction.map((b) => {
             const status = BOOKING_STATUS[b.status];
             return (
-              <Pressable key={b.id} style={s.actionRow} onPress={() => router.push(`/booking/${b.id}`)}>
+              <Pressable
+                key={b.id}
+                style={({ pressed }) => [s.actionRow, tap({ pressed })]}
+                onPress={() => router.push(`/booking/${b.id}`)}
+              >
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={s.actionTitle}>{b.item?.title ?? '—'}</Text>
                   <Text style={s.note}>{formatDateRange(b.start_date, b.end_date)}</Text>
@@ -183,7 +197,11 @@ export default function MyItems() {
               (b) => b.item_id === item.id && ['pending', 'confirmed', 'active'].includes(b.status),
             );
             return (
-              <Pressable key={item.id} style={s.itemRow} onPress={() => router.push(`/item/${item.id}`)}>
+              <Pressable
+                key={item.id}
+                style={({ pressed }) => [s.itemRow, tap({ pressed })]}
+                onPress={() => router.push(`/item/${item.id}`)}
+              >
                 {item.condition_photos[0] ? (
                   <Image
                     source={item.condition_photos[0]}
@@ -263,8 +281,14 @@ const s = StyleSheet.create({
   link: { fontSize: 14, fontFamily: typeface[700], color: colors.accent },
   iconBtn: { padding: spacing.xs },
   moneyHero: { alignItems: 'center', gap: 2, paddingVertical: spacing.sm },
-  moneyLabel: { fontSize: 13, fontFamily: typeface[600], color: colors.textMuted },
-  moneyValue: { fontSize: 34, fontFamily: typeface[800], color: colors.green, letterSpacing: -0.5 },
+  moneyLabel: {
+    fontSize: 12,
+    fontFamily: typeface[700],
+    color: colors.textMuted,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  moneyValue: { fontSize: 44, fontFamily: typeface[800], color: colors.green, letterSpacing: -1.4 },
   moneyPending: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, textAlign: 'center' },
   thumb: { width: 52, height: 52, borderRadius: radius.md, backgroundColor: colors.border },
   thumbEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },

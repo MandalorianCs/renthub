@@ -294,6 +294,26 @@ function DamageClaim({
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
+  /**
+   * Чего не хватает для отправки — одним значением, а не условием в disabled.
+   *
+   * Раньше кнопка просто гасла, и человек с заполненной суммой, но без фото,
+   * видел мёртвую кнопку без единого слова о причине. Теперь текст и
+   * блокировка выводятся из одного места: разойтись они не могут.
+   *
+   * Фото обязательны не из формальности — авторешение спора сравнивает их со
+   * снимками «до», и претензия без доказательства не может быть рассмотрена
+   * ни автоматикой, ни модератором.
+   */
+  const missing =
+    photos.length === 0 && !Number(amount)
+      ? 'Нужны фото повреждения и сумма ущерба'
+      : photos.length === 0
+        ? 'Добавьте хотя бы одно фото повреждения'
+        : !Number(amount)
+          ? 'Укажите сумму ущерба'
+          : null;
+
   if (!open) {
     return <Button title="Заявить о повреждении" variant="danger" onPress={() => setOpen(true)} />;
   }
@@ -354,10 +374,12 @@ function DamageClaim({
         </Pressable>
       </View>
 
+      {missing ? <Badge label={missing} fg={colors.warn} bg={colors.warnSoft} /> : null}
+
       <Button
         title="Отправить претензию"
         variant="danger"
-        disabled={photos.length === 0 || !Number(amount)}
+        disabled={Boolean(missing)}
         onPress={() =>
           onSubmit({ claimAmount: Number(amount), photos, description: description || undefined })
         }

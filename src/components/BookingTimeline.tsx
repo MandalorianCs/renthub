@@ -72,7 +72,7 @@ export function BookingTimeline({ status }: { status: BookingStatus }) {
                   всеми: так крайние этапы не тянут «хвост» в пустоту. */}
               <View style={[s.rail, { backgroundColor: i === 0 ? 'transparent' : done || now ? colors.accent : colors.border }]} />
               <View style={[s.dot, done && s.dotDone, now && s.dotNow]}>
-                {done ? <Ionicons name="checkmark" size={11} color="#FFFFFF" /> : null}
+                {done ? <Ionicons name="checkmark" size={11} color={colors.onFill} /> : null}
               </View>
               <View style={[s.rail, { backgroundColor: i === STEPS.length - 1 ? 'transparent' : done ? colors.accent : colors.border }]} />
             </View>

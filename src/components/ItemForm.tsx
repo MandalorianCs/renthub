@@ -132,7 +132,7 @@ export function ItemForm({
               onPress={() => setCategory(c.slug)}
               style={[s.chip, category === c.slug && s.chipActive]}
             >
-              <Text style={[s.chipText, category === c.slug && { color: '#FFFFFF' }]}>
+              <Text style={[s.chipText, category === c.slug && { color: colors.onFill }]}>
                 {c.title_ru}
               </Text>
             </Pressable>
@@ -201,7 +201,7 @@ export function ItemForm({
                 hitSlop={8}
                 onPress={() => setPhotos((p) => p.filter((x) => x !== uri))}
               >
-                <Ionicons name="close" size={14} color="#FFFFFF" />
+                <Ionicons name="close" size={14} color={colors.onFill} />
               </Pressable>
             </View>
           ))}
@@ -330,5 +330,5 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   submitOff: { opacity: 0.5 },
-  submitText: { fontSize: 15, fontFamily: typeface[700], color: '#FFFFFF' },
+  submitText: { fontSize: 15, fontFamily: typeface[700], color: colors.onFill },
 });

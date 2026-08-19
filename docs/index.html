@@ -335,6 +335,252 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
     color: var(--accent);
   }
 }
+
+/* ── Движение ────────────────────────────────────────────── */
+/*
+  Правило, которому подчинён весь этот блок: движение показывает связь, а не
+  украшает. Блок появляется — значит вы до него дошли. Число набегает — значит
+  оно посчитано, а не нарисовано. Карточка поднимается под курсором — значит
+  её можно взять. Ничего, что просто «красиво шевелится», здесь нет.
+
+  Весь слой выключается системной настройкой «уменьшить движение»: анимация,
+  которую человек не может остановить, — это не стиль, а препятствие.
+*/
+
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity .7s cubic-bezier(.16, 1, .3, 1), transform .7s cubic-bezier(.16, 1, .3, 1);
+    will-change: opacity, transform;
+  }
+  .reveal.is-in { opacity: 1; transform: none; }
+}
+
+/* Подъём под курсором — только там, где элемент действительно «предмет».
+   Абзацы и заголовки не двигаются: у них нечего брать. */
+.tile, .goods, .flow-box, .card, .step, .person {
+  transition: transform .28s cubic-bezier(.16, 1, .3, 1), box-shadow .28s ease, border-color .28s ease;
+}
+@media (hover: hover) {
+  .tile:hover, .goods:hover, .flow-box:hover, .card:hover {
+    transform: translateY(-4px);
+    border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+    box-shadow: 0 2px 4px rgba(26, 25, 23, .04), 0 22px 46px -26px rgba(26, 25, 23, .42);
+  }
+  .step:hover { background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface)); }
+  .goods:hover .goods-img { transform: scale(1.03); }
+}
+.goods-img { transition: transform .5s cubic-bezier(.16, 1, .3, 1); }
+.goods { overflow: hidden; }
+
+/* Кнопки отвечают нажатию, а не только наведению: без отклика на палец
+   человек жмёт второй раз, решив, что не попал. */
+.btn { transition: background .2s ease, transform .18s ease, box-shadow .2s ease; }
+.btn:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -14px rgba(194, 96, 60, .8); }
+.btn:active { transform: translateY(0); box-shadow: none; }
+.btn-ghost:hover { box-shadow: none; }
+
+/* Подчёркивание в меню растёт от начала слова, а не проявляется целиком —
+   так видно направление, куда ведёт ссылка. */
+.nav-links a { position: relative; transition: color .2s ease; }
+.nav-links a::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -4px; height: 2px;
+  background: var(--accent); border-radius: 2px;
+  transform: scaleX(0); transform-origin: left; transition: transform .28s cubic-bezier(.16, 1, .3, 1);
+}
+.nav-links a:hover::after { transform: scaleX(1); }
+
+/* Шапка отделяется от страницы только когда под ней есть прокрученное
+   содержимое. Постоянная тень врёт: в самом верху отделять нечего. */
+header { transition: box-shadow .3s ease, background .3s ease; }
+header.is-scrolled {
+  box-shadow: 0 1px 0 var(--border), 0 12px 32px -28px rgba(26, 25, 23, .6);
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+}
+
+/* Тёплое свечение за карточкой хиро: кремовый фон на больших экранах
+   выглядит плоским листом, и герой теряется. Свечение даёт глубину, не
+   добавляя ни одного нового цвета — это тот же акцент на 14%. */
+.hero { position: relative; z-index: 0; }
+.hero::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  top: -18%; right: -12%; width: min(560px, 62%); aspect-ratio: 1;
+  background: radial-gradient(circle at 55% 45%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 62%);
+  filter: blur(28px);
+}
+@media (max-width: 900px) { .hero::before { display: none; } }
+
+/* Раскрытый вопрос проявляет ответ, а не выбрасывает его рывком. */
+@media (prefers-reduced-motion: no-preference) {
+  .faq details[open] p { animation: answerIn .32s cubic-bezier(.16, 1, .3, 1) both; }
+  @keyframes answerIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+}
+
+/* Клавиатурная навигация обязана быть видна. Без этого сайт непроходим без
+   мыши, а обводку браузера мы гасим собственными стилями. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+/* Числа, которые набегают, не должны дёргать вёрстку при каждом кадре. */
+.counting { font-variant-numeric: tabular-nums; }
+
+
+/* ── Фактура и свет ──────────────────────────────────────── */
+/*
+  Кремовый фон без фактуры на большом экране выглядит не «тёплым», а пустым:
+  это заливка, а не бумага. Зерно и два мягких пятна возвращают ощущение
+  материала, не добавляя ни одного нового цвета — это те же акцент и зелёный
+  на нескольких процентах.
+*/
+body { position: relative; }
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(60vw 46vw at 78% -6%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 68%),
+    radial-gradient(52vw 40vw at 4% 42%, color-mix(in srgb, var(--green) 9%, transparent), transparent 66%);
+}
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.42'/%3E%3C/svg%3E");
+  /* Тише, чем хочется: зерно поверх текста читается как грязь на экране. */
+  opacity: .32; mix-blend-mode: multiply;
+}
+header, section, footer, .ticker { position: relative; z-index: 1; }
+
+/* ── Дисплейная типографика ──────────────────────────────── */
+/*
+  Заголовок — не «крупный текст», а изображение. Отсюда отрицательный трекинг
+  и межстрочный меньше единицы: буквы должны собираться в плотный блок, а не
+  висеть строчками. На это работает и вес 800 — Manrope в нём сохраняет
+  геометрию логотипа.
+*/
+h1 {
+  font-size: clamp(44px, 8.6vw, 104px);
+  line-height: .94;
+  letter-spacing: -0.045em;
+}
+h2 {
+  font-size: clamp(31px, 5.2vw, 58px);
+  line-height: .98;
+  letter-spacing: -0.038em;
+}
+
+/* Подсветка ключевой фразы вместо второго цвета в заголовке. Цветное слово
+   разрывает строку на две мысли; подложка оставляет её одной. */
+.hl {
+  background: linear-gradient(transparent 58%, color-mix(in srgb, var(--accent) 26%, transparent) 0);
+  padding: 0 .06em;
+}
+
+/* Надзаголовок с линией: маленький текст в одиночестве теряется на большом
+   экране, линия делает из него отбивку раздела. */
+.eyebrow { display: flex; align-items: center; gap: 12px; }
+.eyebrow::after {
+  content: ''; height: 1px; flex: 1; max-width: 120px;
+  background: color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+/* ── Хиро ────────────────────────────────────────────────── */
+
+.hero { align-items: center; gap: 64px; }
+
+.hero-card-wrap { position: relative; }
+
+/* Лёгкий перекос: карточка перестаёт быть частью сетки и становится
+   предметом, положенным на страницу. Полтора градуса — предел, за которым
+   это читается как сбой вёрстки, а не как приём. */
+.hero .card {
+  transform: rotate(-1.5deg);
+  border-radius: 24px;
+  padding: 26px;
+  box-shadow: 0 2px 4px rgba(26,25,23,.05), 0 40px 80px -44px rgba(26,25,23,.55);
+}
+@media (hover: hover) { .hero .card:hover { transform: rotate(0deg) translateY(-4px); } }
+
+/* Стикер с цифрой заработка — единственное место, где акцент выходит за
+   пределы блока. Он держит взгляд на числе, ради которого владелец пришёл. */
+.sticker {
+  position: absolute; right: -14px; top: -22px; z-index: 2;
+  background: var(--accent); color: #fff;
+  font-weight: 800; font-size: 15px; letter-spacing: -.01em;
+  padding: 10px 16px; border-radius: 999px;
+  transform: rotate(7deg);
+  box-shadow: 0 14px 28px -16px rgba(194,96,60,.9);
+  white-space: nowrap;
+}
+@media (max-width: 900px) { .sticker { right: 4px; top: -18px; } }
+
+.hero-cta { gap: 14px; margin-top: 36px; }
+.btn { padding: 15px 26px; font-size: 16px; border-radius: 14px; }
+.btn .arr { display: inline-block; margin-left: 8px; transition: transform .24s cubic-bezier(.16,1,.3,1); }
+.btn:hover .arr { transform: translateX(4px); }
+
+/* ── Бегущая строка ──────────────────────────────────────── */
+/*
+  Она отвечает на первый вопрос посетителя — «а что тут вообще сдают» — до
+  того, как он его задал, и делает это одной строкой вместо списка. Дублируем
+  содержимое дважды: чтобы петля была бесшовной, вторая копия обязана быть
+  точной, иначе на стыке появится рывок.
+*/
+.ticker {
+  border-block: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  overflow: hidden; padding: 14px 0; margin-top: clamp(48px, 7vw, 80px);
+}
+.ticker-line { display: flex; width: max-content; animation: slide 38s linear infinite; }
+.ticker-line span {
+  font-size: 15px; font-weight: 700; color: var(--muted);
+  padding: 0 22px; display: inline-flex; align-items: center; gap: 22px; white-space: nowrap;
+}
+.ticker-line span::after {
+  content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+}
+@keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .ticker-line { animation: none; } }
+
+/* ── Крупные номера шагов ────────────────────────────────── */
+/*
+  Номер был подписью в 13px и не работал ни как навигация, ни как ритм.
+  Контурная цифра держит порядок разделов боковым зрением и не спорит с
+  заголовком за внимание: она не залита, а очерчена.
+*/
+.tile .num {
+  font-size: 56px; line-height: 1; letter-spacing: -.04em;
+  color: transparent;
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--accent) 55%, transparent);
+  margin-bottom: 6px;
+}
+
+/* ── Полоса метрик ───────────────────────────────────────── */
+
+.band {
+  border-radius: 28px;
+  padding: clamp(32px, 5vw, 56px);
+  position: relative; overflow: hidden;
+}
+.band::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(40% 60% at 88% 12%, rgba(255,255,255,.10), transparent 70%);
+}
+.band .stat-v { font-size: clamp(34px, 5.4vw, 56px); letter-spacing: -.04em; }
+.band .stat-l { font-size: 14px; opacity: .8; }
+
+/* ── Карточки товара ─────────────────────────────────────── */
+
+.goods { border-radius: 22px; }
+.goods-price { font-size: 22px; }
+
+/* Плитки: акцентная полоса появляется слева при наведении — маленький
+   сигнал «это можно трогать», не трогающий раскладку. */
+.tile { position: relative; overflow: hidden; }
+.tile::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--accent);
+  transform: scaleY(0); transform-origin: top;
+  transition: transform .32s cubic-bezier(.16,1,.3,1);
+}
+@media (hover: hover) { .tile:hover::before { transform: scaleY(1); } }
+
 </style>
 </head>
 <body>
@@ -359,7 +605,7 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
   <div class="wrap hero">
     <div>
       <div class="eyebrow">Казахстан · пилот в Кокшетау</div>
-      <h1>Перфоратор в кладовке<br>не приносит денег.</h1>
+      <h1>Перфоратор в кладовке<br><span class="hl">не приносит денег.</span></h1>
       <p class="lead" style="margin-top: 22px">
         RentHUB — аренда строительного инструмента у соседей. Владелец сдаёт то,
         что лежит без дела. Арендатор берёт на два дня вместо покупки за 90 000 ₸.
@@ -367,12 +613,14 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
         а правила, которые невозможно обойти.
       </p>
       <div class="hero-cta">
-        <a class="btn" href="app/">Сдать инструмент</a>
+        <a class="btn" href="app/">Сдать инструмент<span class="arr" aria-hidden="true">→</span></a>
         <a class="btn btn-ghost" href="#trust">Как защищена вещь</a>
       </div>
       <p class="hero-note"><span class="dot"></span> Пилот: одна категория, один город, живые сделки</p>
     </div>
 
+    <div class="hero-card-wrap">
+    <div class="sticker" aria-hidden="true">+8 400 ₸ за 3 суток</div>
     <div class="card" aria-label="Пример объявления">
       <div class="card-top">
         <div class="thumb" aria-hidden="true">
@@ -400,10 +648,16 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
         </div>
       </div>
     </div>
+    </div>
   </div>
 </section>
 
 <!-- ── Проблема ─────────────────────────────────────────── -->
+
+<!-- ── Бегущая строка категорий ─────────────────────────── -->
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-line"><span>перфоратор</span><span>бетономешалка</span><span>виброплита</span><span>плиткорез</span><span>лестница</span><span>сварочный аппарат</span><span>шуруповёрт</span><span>штроборез</span><span>генератор</span><span>тепловая пушка</span><span>перфоратор</span><span>бетономешалка</span><span>виброплита</span><span>плиткорез</span><span>лестница</span><span>сварочный аппарат</span><span>шуруповёрт</span><span>штроборез</span><span>генератор</span><span>тепловая пушка</span></div>
+</div>
 <section id="problem">
   <div class="wrap">
     <div class="eyebrow">Проблема</div>
@@ -1036,6 +1290,107 @@ footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
     <p>Пилот в Кокшетау · строительный инструмент · 2026</p>
   </div>
 </footer>
+
+
+<script>
+/*
+  Движение включается здесь, а не в разметке: классы расставляются по
+  селекторам, поэтому новый блок в разделе получает поведение сам, без
+  правки скрипта. Всё внутри — прогрессивное улучшение: без JavaScript
+  страница остаётся полностью читаемой, просто без анимаций.
+*/
+(function () {
+  var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ── Появление блоков при прокрутке ──────────────────────
+  var targets = document.querySelectorAll(
+    // .flow-op сюда не входит намеренно: на узком экране стрелки повёрнуты
+    // на 90°, а появление заканчивается на transform: none — поворот бы слетел.
+    'section h2, section .lead, .tile, .goods, .step, .flow-box, .band, .table-wrap, .faq details, .person, figure.diagram, .disclaimer'
+  );
+
+  if (!still && 'IntersectionObserver' in window) {
+    var seen = new WeakMap();
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        var el = e.target;
+        // Задержка внутри одной группы даёт «волну» вместо одновременной
+        // вспышки: глаз читает порядок, а не пятно.
+        el.style.transitionDelay = (seen.get(el) || 0) + 'ms';
+        el.classList.add('is-in');
+        io.unobserve(el);
+      });
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.08 });
+
+    var group = null;
+    var index = 0;
+    targets.forEach(function (el) {
+      var parent = el.parentElement;
+      if (parent !== group) { group = parent; index = 0; }
+      seen.set(el, Math.min(index * 70, 280));
+      index++;
+      el.classList.add('reveal');
+      io.observe(el);
+    });
+  }
+
+  // ── Числа в экономике ───────────────────────────────────
+  /*
+    Считаются только суммы и метрики: полоса цифр и разбор сделки. Цена в
+    карточке товара не анимируется намеренно — это не итог расчёта, а факт,
+    и «набегающая» цена читалась бы как торг.
+  */
+  var numbers = document.querySelectorAll('.band .stat-v, .flow-box .v');
+
+  function ruFormat(n) {
+    return n.toLocaleString('ru-RU').replace(/\u00A0/g, ' ');
+  }
+
+  function run(el) {
+    var raw = el.textContent;
+    var digits = raw.replace(/[^0-9]/g, '');
+    if (!digits) return;
+    var target = parseInt(digits, 10);
+    if (!isFinite(target) || target === 0) return;
+    var prefix = raw.slice(0, raw.search(/[0-9]/));
+    var suffix = raw.slice(raw.lastIndexOf(digits[digits.length - 1]) + 1);
+
+    el.classList.add('counting');
+    var start = performance.now();
+    var dur = 900;
+    function frame(now) {
+      var t = Math.min((now - start) / dur, 1);
+      // Замедление к концу: число «прибывает», а не тормозит рывком.
+      var eased = 1 - Math.pow(1 - t, 3);
+      el.textContent = prefix + ruFormat(Math.round(target * eased)) + suffix;
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  if (!still && 'IntersectionObserver' in window) {
+    var numObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        run(e.target);
+        numObserver.unobserve(e.target);
+      });
+    }, { threshold: 0.6 });
+    numbers.forEach(function (el) { numObserver.observe(el); });
+  }
+
+  // ── Шапка ───────────────────────────────────────────────
+  var head = document.querySelector('header');
+  if (head) {
+    var onScroll = function () {
+      head.classList.toggle('is-scrolled', window.scrollY > 8);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
+})();
+</script>
 
 </body>
 </html>

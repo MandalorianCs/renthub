@@ -222,7 +222,7 @@ const s = StyleSheet.create({
   dayDisabled: { color: colors.border },
   dayBusy: { color: colors.danger, textDecorationLine: 'line-through' },
   dayInRange: { color: colors.accent },
-  dayEdge: { color: '#FFFFFF', fontFamily: typeface[800] },
+  dayEdge: { color: colors.onFill, fontFamily: typeface[800] },
   legend: { flexDirection: 'row', gap: spacing.lg },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   dot: { width: 10, height: 10, borderRadius: 5 },

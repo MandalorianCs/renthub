@@ -1,13 +1,24 @@
 import type { Session } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { fetchProfile } from './api';
-import { supabase } from './supabase';
+import { humanizeError, supabase } from './supabase';
 import type { User } from './types';
 
 type AuthState = {
   session: Session | null;
   profile: User | null;
   loading: boolean;
+  /**
+   * Почему профиля нет — отдельно от самого профиля.
+   *
+   * `fetchProfile` читает через `maybeSingle()`: отсутствующая строка приходит
+   * как `null` без исключения. Значит выброшенная ошибка — это всегда сбой
+   * связи или политики, а не «триггер ещё не создал профиль». Различать их
+   * обязательно: в первом случае экрану нужно предложить повтор, во втором —
+   * подождать. Раньше оба случая давали `profile === null`, и экран профиля
+   * мерцал скелетоном бесконечно, обещая данные, которые не придут.
+   */
+  profileError: string | null;
   /** ПРАВИЛО 1: без подтверждённого телефона нельзя ни сдавать, ни арендовать. */
   isVerified: boolean;
   sendCode: (phone: string) => Promise<void>;
@@ -33,6 +44,7 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<User | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadProfile = useCallback(async (userId: string | undefined) => {
@@ -42,10 +54,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       setProfile(await fetchProfile(userId));
-    } catch {
-      // Профиль создаётся триггером on_auth_user_created. Если он ещё не
-      // доехал, экран покажет состояние «загрузка», а не упадёт.
+      setProfileError(null);
+    } catch (e) {
+      // Сюда попадают только настоящие сбои: профиль, которого ещё нет,
+      // возвращается как null без исключения (см. maybeSingle в fetchProfile).
+      // Профиль обнуляем, но причину сохраняем — по ней экран покажет отказ
+      // с кнопкой повтора вместо вечной заглушки.
       setProfile(null);
+      setProfileError(humanizeError(e));
     }
   }, []);
 
@@ -68,6 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       session,
       profile,
+      profileError,
       loading,
       isVerified: Boolean(profile?.verified_at),
       sendCode: async (phone) => {
@@ -95,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       refreshProfile: () => loadProfile(session?.user.id),
     }),
-    [session, profile, loading, loadProfile],
+    [session, profile, profileError, loading, loadProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

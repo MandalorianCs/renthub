@@ -68,6 +68,61 @@ export function ListSkeleton({ rows = 4 }: { rows?: number }) {
   );
 }
 
+/**
+ * Карточка объявления: фото во всю ширину, под ним цена и описание.
+ *
+ * Здесь заглушка полезнее всего: фото — самый тяжёлый элемент приложения,
+ * и без неё экран полсекунды выглядит сломанным, а потом резко прыгает,
+ * когда картинка встаёт на место.
+ */
+export function DetailSkeleton() {
+  return (
+    <View>
+      <Shimmer style={s.detailPhoto} />
+      <View style={{ padding: spacing.lg, gap: spacing.md }}>
+        <Shimmer style={s.detailPrice} />
+        <Shimmer style={s.lineTitle} />
+        <Shimmer style={s.lineMeta} />
+        <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
+          <Shimmer style={s.lineTitle} />
+          <Shimmer style={s.lineTitle} />
+          <Shimmer style={s.lineMeta} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Экран с итогом наверху — «Мои вещи».
+ *
+ * Форма важна: владелец приходит сюда ради суммы заработка, и заглушка
+ * обязана показать, что крупное число будет именно там. Общий ListSkeleton
+ * пообещал бы список строк, а пришёл бы экран с деньгами вверху — ожидание
+ * не совпало бы с результатом, и это читается как подмена.
+ */
+export function SummarySkeleton({ rows = 3 }: { rows?: number }) {
+  return (
+    <View style={{ padding: spacing.lg, gap: spacing.lg }}>
+      <View style={s.summaryCard}>
+        <Shimmer style={s.lineMeta} />
+        <Shimmer style={s.summaryValue} />
+      </View>
+      <View style={{ gap: spacing.md }}>
+        {Array.from({ length: rows }).map((_, i) => (
+          <View key={i} style={s.row}>
+            <Shimmer style={s.rowThumb} />
+            <View style={{ flex: 1, gap: spacing.sm }}>
+              <Shimmer style={s.lineTitle} />
+              <Shimmer style={s.lineMeta} />
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   block: { backgroundColor: colors.border, borderRadius: radius.sm },
 
@@ -89,4 +144,18 @@ const s = StyleSheet.create({
     padding: spacing.md,
   },
   rowThumb: { width: 56, height: 56, borderRadius: radius.md },
+
+  summaryCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.xl,
+    gap: spacing.md,
+    alignItems: 'center',
+  },
+  summaryValue: { width: '60%', height: 34 },
+
+  detailPhoto: { width: '100%', aspectRatio: 4 / 3, borderRadius: 0 },
+  detailPrice: { width: '45%', height: 24 },
 });
