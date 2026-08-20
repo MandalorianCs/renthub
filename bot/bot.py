@@ -29,6 +29,14 @@ import asyncio
 import logging
 import os
 import re
+import sys
+
+# Консоль Windows по умолчанию не в UTF-8, и Python выводит в неё русский
+# текст с заменами вида ✗ вместо символов. Одна строка снимает весь
+# класс проблемы: сообщения бота читаются одинаково в PowerShell и в логах.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import httpx
 from aiogram import Bot, Dispatcher, F
@@ -41,11 +49,54 @@ from aiogram.types import (
 )
 from dotenv import load_dotenv
 
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+BOT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(BOT_DIR)
 
-BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
-SECRET_KEY = os.environ["SUPABASE_SECRET_KEY"]
+# Три файла вместо одного — чтобы каждое значение лежало ровно в одном месте
+# и не переписывалось копированием. bot/.env — только токен Telegram; адрес
+# проекта уже есть в корневом .env (его же читает Expo), секретный ключ —
+# в .env.secret, откуда его берут и служебные скрипты. Дубли ключа в двух
+# файлах опаснее неудобства: однажды поменяют один и будут искать причину
+# в третьем.
+load_dotenv(os.path.join(BOT_DIR, ".env"))
+load_dotenv(os.path.join(ROOT, ".env"))
+load_dotenv(os.path.join(ROOT, ".env.secret"))
+
+
+def required(name: str, where: str, *fallbacks: str) -> str:
+    """
+    Значение или понятная остановка.
+
+    Питоновский KeyError с именем переменной ничего не говорит человеку,
+    который первый раз запускает бота: непонятно ни где искать, ни что
+    вписать. Поэтому — своё сообщение с адресом файла и строкой.
+    """
+    for key in (name, *fallbacks):
+        value = os.environ.get(key, "").strip()
+        if value:
+            return value
+
+    raise SystemExit(
+        f"\n✗ Не задано {name}.\n"
+        f"  Где: {where}\n"
+        f"  Бот без этого значения работать не может — заполните и запустите снова.\n"
+    )
+
+
+BOT_TOKEN = required(
+    "TELEGRAM_BOT_TOKEN",
+    "bot/.env, строка TELEGRAM_BOT_TOKEN= — токен берётся у @BotFather",
+)
+SUPABASE_URL = required(
+    "SUPABASE_URL",
+    "корневой .env, строка EXPO_PUBLIC_SUPABASE_URL=",
+    "EXPO_PUBLIC_SUPABASE_URL",
+).rstrip("/")
+SECRET_KEY = required(
+    "SUPABASE_SECRET_KEY",
+    ".env.secret в корне проекта, строка SUPABASE_SECRET_KEY=sb_secret_… "
+    "(Supabase → Project Settings → API Keys → Secret keys)",
+)
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "15"))
 
 REST = f"{SUPABASE_URL}/rest/v1"
@@ -56,6 +107,14 @@ HEADERS = {
 }
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+# httpx пишет строку на каждый запрос, а бот опрашивает базу раз в 15 секунд —
+# это 240 строк в час о том, что ничего не произошло. В таком потоке
+# теряется единственное, ради чего в лог вообще смотрят: привязка человека,
+# доставленное уведомление, ошибка. Ошибки самого httpx остаются видны.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("aiogram.event").setLevel(logging.WARNING)
+
 log = logging.getLogger("renthub-bot")
 
 dp = Dispatcher()

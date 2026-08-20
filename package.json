@@ -43,7 +43,9 @@
     "demo:fill": "node scripts/demo-listings.mjs",
     "demo:clear": "node scripts/demo-listings.mjs clear",
     "apk": "eas build -p android --profile preview",
-    "update": "eas update --channel preview"
+    "update": "eas update --channel preview",
+    "notify:test": "node scripts/notify-test.mjs",
+    "notify:clear": "node scripts/notify-clear.mjs"
   },
   "private": true
 }

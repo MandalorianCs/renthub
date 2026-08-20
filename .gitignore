@@ -65,3 +65,4 @@ bot/__pycache__/
 # Инструкция в demo-photos/README.md остаётся.
 demo-photos/*
 !demo-photos/README.md
+bot/.env.backup
