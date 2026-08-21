@@ -21,7 +21,18 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DOCS = join(ROOT, 'docs');
 
 console.log('Собираю веб-версию приложения…');
-execFileSync('npx', ['expo', 'export', '--platform', 'web'], {
+
+// --clear обязателен, а не «на всякий случай».
+//
+// Metro вшивает EXPO_PUBLIC_-переменные в момент преобразования модуля и
+// кэширует результат. Правка .env кэш не сбрасывает: сборка проходит
+// успешно, имя бандла не меняется, а внутри остаётся старое значение.
+// Поймано на смене EXPO_PUBLIC_AUTH_MODE с invite на sms — публикация
+// молча уехала бы со старым экраном входа.
+//
+// Цена — лишняя минута на пересборку. Она дешевле часа поисков причины,
+// по которой «переменную поменяли, а ничего не изменилось».
+execFileSync('npx', ['expo', 'export', '--platform', 'web', '--clear'], {
   cwd: ROOT,
   stdio: 'inherit',
   shell: process.platform === 'win32',
