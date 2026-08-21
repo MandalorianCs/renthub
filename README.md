@@ -18,8 +18,8 @@ P2P-аренда вещей, Казахстан. Пилот — узкая ни�
 |---|---|
 | Клиент | Expo (React Native + TypeScript) — один код на iOS, Android и веб |
 | Навигация | expo-router (файловая маршрутизация) |
-| Бэкенд | Supabase: Postgres + Auth (SMS-код) + Storage для фото |
-| Позже | Telegram-бот на aiogram — подключается к этой же базе |
+| Бэкенд | Supabase: Postgres + Auth (код в Telegram) + Storage для фото |
+| Уведомления и вход | Telegram-бот на aiogram — та же база, см. bot/ |
 
 Бэкенд один. Приложение и будущий бот — два разных «окна» в него, а не два
 отдельных проекта.
@@ -36,8 +36,9 @@ npm install
    неё приложение получит `permission denied for table items` при верных
    политиках.
 2. Схема приезжает пушем — см. «Миграции и деплой» ниже.
-3. Включите вход по телефону: **Authentication → Providers → Phone**, подключите
-   SMS-провайдера (Twilio / Vonage / MessageBird).
+3. Включите вход по телефону: **Authentication → Providers → Phone**. SMS-провайдер
+   не нужен — коды доставляет бот в Telegram через Send SMS Hook, см. раздел
+   «Вход по коду через Telegram».
 4. Скопируйте `.env.example` в `.env` и подставьте URL и anon-ключ из
    **Project Settings → API**. Переменные `EXPO_PUBLIC_` вшиваются в бандл при
    сборке, поэтому после правки `.env` сервер надо перезапустить — на живом
@@ -310,6 +311,10 @@ npx supabase secrets set SEND_SMS_HOOK_SECRET=v1,whsec_... TELEGRAM_BOT_TOKEN=..
 
 4. Переключить приложение: `EXPO_PUBLIC_AUTH_MODE=sms` в `.env`, затем
    `eas env:push preview --path .env --force` и `npm run update`.
+
+Развёрнуто и проверено 21.08.2026: запрос кода на номер участника с
+привязанным Telegram доходит до бота за секунды. Функция при этом не хранит
+ничего — ни кодов, ни попыток: этим занимается сам Supabase.
 
 Проверка: на экране входа вкладка «По SMS», номер участника с привязанным
 Telegram → код приходит в бота.

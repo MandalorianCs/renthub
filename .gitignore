@@ -66,3 +66,6 @@ bot/__pycache__/
 demo-photos/*
 !demo-photos/README.md
 bot/.env.backup
+
+# Служебное состояние Supabase CLI (привязка проекта).
+supabase/.temp/
