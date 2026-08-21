@@ -1,0 +1,131 @@
+// Send SMS Hook: код входа уходит в Telegram вместо SMS.
+//
+// Supabase сам генерирует код, сам его проверяет и сам держит счётчик
+// попыток — хук отвечает только за доставку. Это важно: собственная
+// реализация кодов означала бы своё хранилище, свои сроки жизни, свою
+// защиту от перебора, и всё это пришлось бы поддерживать рядом с готовым.
+//
+// Приложение при этом не меняется вовсе. На экране входа остаётся тот же
+// signInWithOtp({ phone }), а вкладка «По SMS» включается сменой
+// EXPO_PUBLIC_AUTH_MODE=sms.
+//
+// Побочное свойство, которое стоит осознать: пилот остаётся закрытым сам
+// собой. Код уходит только тому, у кого в профиле есть telegram_id, а он
+// появляется лишь после «Поделиться номером» у заведённого участника.
+// Посторонний с чужим номером получит понятный отказ, а не молчание.
+
+import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0';
+
+const HOOK_SECRET = Deno.env.get('SEND_SMS_HOOK_SECRET') ?? '';
+const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
+
+// Имена переменных у Supabase менялись вместе с форматом ключей: сначала
+// SERVICE_ROLE, потом SECRET. Берём то, что есть, — иначе функция падала бы
+// после смены ключей проекта, а причина выглядела бы как «сломался вход».
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+const SERVICE_KEY =
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SB_SECRET_KEY') ?? '';
+
+/** Ответ, который Supabase покажет человеку на экране входа. */
+function fail(message: string, code = 400) {
+  return new Response(JSON.stringify({ error: { http_code: code, message } }), {
+    status: code,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+/**
+ * Номер к тому же виду, в котором он лежит в базе.
+ *
+ * GoTrue отдаёт номер без плюса («77011234567»), а в users он хранится в
+ * E.164 («+77011234567») — это выровняла миграция 20260818100000. Без
+ * приведения поиск не найдёт никого, и все получат «Telegram не привязан».
+ */
+function toE164(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('8') && digits.length === 11) return `+7${digits.slice(1)}`;
+  return `+${digits}`;
+}
+
+async function findChat(phone: string): Promise<{ chat: number | null; found: boolean }> {
+  const url =
+    `${SUPABASE_URL}/rest/v1/users` +
+    `?phone=eq.${encodeURIComponent(phone)}&select=telegram_id&limit=1`;
+
+  const response = await fetch(url, {
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+  });
+
+  if (!response.ok) {
+    throw new Error(`база ответила ${response.status}: ${await response.text()}`);
+  }
+
+  const rows = (await response.json()) as Array<{ telegram_id: number | null }>;
+  if (rows.length === 0) return { chat: null, found: false };
+  return { chat: rows[0].telegram_id, found: true };
+}
+
+async function sendCode(chatId: number, code: string): Promise<void> {
+  const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      // Код моноширинным — по нему удобно нажать и скопировать целиком.
+      // Срок жизни называем словами: «истечёт» без числа рождает вопрос.
+      text: `<b>Код входа в RentHUB</b>\n\n<code>${code}</code>\n\nДействует час. Если вход не начинали вы — просто не вводите его и никому не пересылайте.`,
+      parse_mode: 'HTML',
+    }),
+  });
+
+  const result = (await response.json()) as { ok: boolean; description?: string };
+  if (!result.ok) throw new Error(`Telegram отказал: ${result.description ?? 'без причины'}`);
+}
+
+Deno.serve(async (req) => {
+  const payload = await req.text();
+
+  try {
+    if (!HOOK_SECRET) return fail('Не задан SEND_SMS_HOOK_SECRET у функции', 500);
+    if (!BOT_TOKEN) return fail('Не задан TELEGRAM_BOT_TOKEN у функции', 500);
+
+    // Подпись проверяется до всего остального: без неё эндпоинт стал бы
+    // способом рассылать любому участнику сообщения от имени RentHUB.
+    const webhook = new Webhook(HOOK_SECRET.replace('v1,whsec_', ''));
+    const { user, sms } = webhook.verify(payload, Object.fromEntries(req.headers)) as {
+      user: { phone: string };
+      sms: { otp: string };
+    };
+
+    const phone = toE164(user.phone ?? '');
+    const { chat, found } = await findChat(phone);
+
+    if (!found) {
+      return fail(
+        'Номер не найден среди участников пилота. Пилот идёт по приглашениям — ' +
+          'напишите организатору.',
+        404,
+      );
+    }
+
+    if (!chat) {
+      return fail(
+        'Telegram не привязан. Откройте бота RentHUB, нажмите «Поделиться номером» ' +
+          'и повторите вход — код придёт туда.',
+        409,
+      );
+    }
+
+    await sendCode(chat, sms.otp);
+
+    return new Response(JSON.stringify({}), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    // Текст уходит человеку на экран входа, поэтому без стека и без
+    // внутренностей: «не удалось отправить код» полезнее, чем трассировка.
+    console.error('telegram-otp:', error);
+    return fail('Не удалось отправить код в Telegram. Попробуйте ещё раз.', 500);
+  }
+});

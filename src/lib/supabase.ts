@@ -36,7 +36,7 @@ export const PILOT_CITY = process.env.EXPO_PUBLIC_PILOT_CITY ?? 'kokshetau';
  * Запасное значение стоит здесь, а не в .env, чтобы сборка без переменной
  * вела на живого бота, а не в никуда.
  */
-export const TELEGRAM_BOT = process.env.EXPO_PUBLIC_TELEGRAM_BOT ?? 'renthubkokshetau_bot';
+export const TELEGRAM_BOT = process.env.EXPO_PUBLIC_TELEGRAM_BOT ?? 'renthub_kokshetau_bot';
 export const TELEGRAM_BOT_URL = `https://t.me/${TELEGRAM_BOT}`;
 
 /**

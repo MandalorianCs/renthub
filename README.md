@@ -270,6 +270,50 @@ npm run notify:test -- +77011234567     # положить проверочно�
 npm run notify:clear                    # убрать все проверочные
 ```
 
+### Вход по коду через Telegram
+
+`supabase/functions/telegram-otp/` — Send SMS Hook: Supabase генерирует код,
+проверяет его и считает попытки сам, а функция только доставляет его в Telegram
+вместо SMS. Приложение при этом не меняется: на экране входа остаётся тот же
+`signInWithOtp({ phone })`, вкладка «По SMS» включается сменой
+`EXPO_PUBLIC_AUTH_MODE=sms`.
+
+Пилот при этом остаётся закрытым сам собой: код уходит только тому, у кого в
+профиле есть `telegram_id`, а он появляется лишь после «Поделиться номером» у
+заведённого участника. Посторонний получит понятный отказ, а не молчание.
+
+**Функцию не разворачивает GitHub-интеграция** — она применяет только
+миграции. Порядок ручной, шесть шагов:
+
+```bash
+npx supabase login
+npx supabase link --project-ref owfsfwqwulpossjbnprp
+npx supabase functions deploy telegram-otp --no-verify-jwt
+```
+
+Флаг `--no-verify-jwt` обязателен: хук вызывает функцию от имени платформы, а
+не пользователя, и проверка пользовательского токена отклонила бы каждый
+вызов.
+
+Дальше в панели Supabase:
+
+1. **Authentication → Providers → Phone** — включить (провайдер SMS при этом
+   не настраивается, его заменяет хук).
+2. **Authentication → Hooks → Send SMS** — тип **HTTPS**, адрес
+   `https://owfsfwqwulpossjbnprp.supabase.co/functions/v1/telegram-otp`.
+   Панель покажет секрет вида `v1,whsec_…` — скопировать.
+3. Отдать функции секрет и токен бота:
+
+```bash
+npx supabase secrets set SEND_SMS_HOOK_SECRET=v1,whsec_... TELEGRAM_BOT_TOKEN=...
+```
+
+4. Переключить приложение: `EXPO_PUBLIC_AUTH_MODE=sms` в `.env`, затем
+   `eas env:push preview --path .env --force` и `npm run update`.
+
+Проверка: на экране входа вкладка «По SMS», номер участника с привязанным
+Telegram → код приходит в бота.
+
 Чего бот пока не делает — двигать статусы сделок. Переходы живут в RPC
 Postgres и опираются на `auth.uid()`, которого у сервисного ключа нет.
 Правильный путь описан в [bot/README.md](bot/README.md): бот получает
