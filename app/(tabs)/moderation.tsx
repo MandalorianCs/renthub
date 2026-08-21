@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import { Button, Card, Empty, ErrorState, Field, Row } from '../../src/components/ui';
-import { fetchDisputesForReview, fetchModerationStats, resolveDispute } from '../../src/lib/api';
+import { fetchDisputesForReview, fetchModerationOverview, resolveDispute } from '../../src/lib/api';
 import { formatDate, formatDateRange, formatTenge } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
-import type { DisputeForReview } from '../../src/lib/types';
+import type { DisputeForReview, ModerationOverview } from '../../src/lib/types';
 import { useRefresh } from '../../src/lib/useRefresh';
 import { colors, radius, spacing, typeface } from '../../src/theme';
 
@@ -25,18 +25,13 @@ import { colors, radius, spacing, typeface } from '../../src/theme';
  */
 export default function Moderation() {
   const [disputes, setDisputes] = useState<DisputeForReview[]>([]);
-  const [stats, setStats] = useState<{
-    users: number;
-    items: number;
-    bookings: number;
-    openDisputes: number;
-  } | null>(null);
+  const [stats, setStats] = useState<ModerationOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [d, s] = await Promise.all([fetchDisputesForReview(), fetchModerationStats()]);
+      const [d, s] = await Promise.all([fetchDisputesForReview(), fetchModerationOverview()]);
       setDisputes(d);
       setStats(s);
       setError(null);
@@ -67,16 +62,60 @@ export default function Moderation() {
           только то, что сломалось. Пустой список споров без контекста
           не отличается от неработающего экрана. */}
       {stats ? (
-        <View style={s.stats}>
-          <Stat value={stats.users} label="человек" />
-          <Stat value={stats.items} label="объявлений" />
-          <Stat value={stats.bookings} label="сделок" />
-          <Stat
-            value={stats.openDisputes}
-            label="на разборе"
-            accent={stats.openDisputes > 0}
-          />
-        </View>
+        <>
+          <View style={s.stats}>
+            <Stat value={stats.users.total} label="человек" />
+            <Stat value={stats.items.active} label="объявлений" />
+            <Stat
+              value={stats.bookings.pending + stats.bookings.confirmed + stats.bookings.active}
+              label="сделок идёт"
+            />
+            <Stat value={stats.disputes.open} label="на разборе" accent={stats.disputes.open > 0} />
+          </View>
+
+          {/* Разрезы, из-за которых сводка вообще нужна. «Шесть человек» не
+              говорит ничего; «шесть, из них четверо с Telegram» объясняет,
+              почему уведомления доходят не всем. */}
+          <Card>
+            <Row left="Подтвердили номер" right={`${stats.users.verified} из ${stats.users.total}`} />
+            <Row left="Привязали Telegram" right={`${stats.users.telegram} из ${stats.users.total}`} muted />
+            <Row left="Сделок завершено" right={String(stats.bookings.completed)} muted />
+            <Row left="Отменено" right={String(stats.bookings.cancelled)} muted />
+            <Row left="Споров решено автоматически" right={String(stats.disputes.auto)} muted />
+            <Text style={s.weekNote}>
+              За неделю: {stats.users.week} новых участников, {stats.items.week} объявлений,{' '}
+              {stats.bookings.week} броней.
+            </Text>
+          </Card>
+
+          {/* Лента отвечает на вопрос «пилот живой?» лучше любых чисел:
+              видно не только сколько, но и когда. Имён достаточно — телефоны
+              и суммы сюда не приходят, функция их не возвращает. */}
+          {stats.recent.length > 0 ? (
+            <Card>
+              <Text style={s.section}>Последнее</Text>
+              {stats.recent.slice(0, 12).map((event, i) => (
+                <View key={`${event.at}-${i}`} style={s.event}>
+                  <Ionicons
+                    name={
+                      event.kind === 'user'
+                        ? 'person-add-outline'
+                        : event.kind === 'item'
+                          ? 'cube-outline'
+                          : 'calendar-outline'
+                    }
+                    size={15}
+                    color={colors.textMuted}
+                  />
+                  <Text style={s.eventText} numberOfLines={1}>
+                    {event.text}
+                  </Text>
+                  <Text style={s.eventDate}>{formatDate(event.at)}</Text>
+                </View>
+              ))}
+            </Card>
+          ) : null}
+        </>
       ) : null}
 
       <Text style={s.section}>
@@ -270,6 +309,10 @@ const s = StyleSheet.create({
   evidenceLabel: { fontSize: 11, fontFamily: typeface[700], color: colors.textMuted, textTransform: 'uppercase' },
   photo: { width: 72, height: 72, borderRadius: radius.sm, backgroundColor: colors.border },
   photoEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },
+  weekNote: { fontSize: 13, fontFamily: typeface[500], color: colors.textMuted, marginTop: spacing.sm },
+  event: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 7 },
+  eventText: { flex: 1, fontSize: 14, fontFamily: typeface[500], color: colors.text },
+  eventDate: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
   warn: {
     flexDirection: 'row',
     gap: spacing.sm,

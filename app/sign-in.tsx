@@ -19,9 +19,15 @@ import { colors, radius, spacing, typeface } from '../src/theme';
  * Правило 1 при этом выполняется по-настоящему: verified_at проставляется
  * триггером из phone_confirmed_at, и обход проверки здесь не появляется.
  *
- * Порядок способов задаётся EXPO_PUBLIC_AUTH_MODE. Пока SMS-провайдера нет,
- * показывать «Получить код» первым — ловушка: кнопка отвечает ошибкой про
- * неподключённого провайдера, и человек решает, что сломано приложение.
+ * Порядок способов задаётся EXPO_PUBLIC_AUTH_MODE. С 21.08.2026 значение
+ * `sms` — коды доставляет бот в Telegram через Send SMS Hook, и вход по коду
+ * стоит первым. Имя режима осталось прежним намеренно: так его называет сам
+ * Supabase (провайдер Phone, `signInWithOtp`), и переименование в коде
+ * разошлось бы с тем, что написано в панели.
+ *
+ * Значение `invite` возвращает прежний порядок — вход паролем из
+ * приглашения. Он остаётся рабочим для тех, у кого Telegram не привязан:
+ * бот не может написать первым, и это не обходится ничем.
  */
 const AUTH_MODE = process.env.EXPO_PUBLIC_AUTH_MODE ?? 'invite';
 
@@ -53,7 +59,7 @@ export default function SignIn() {
               }}
             />
             <Tab
-              label="По SMS"
+              label="Через Telegram"
               active={tab === 'sms'}
               onPress={() => {
                 setTab('sms');
@@ -183,7 +189,7 @@ function SmsForm({ onError }: { onError: (m: string | null) => void }) {
         autoComplete="tel"
         value={phone}
         onChangeText={setPhone}
-        hint="Пришлём SMS с кодом. Номер видят только стороны сделки."
+        hint="Код придёт в Telegram от бота RentHUB. Номер видят только стороны сделки."
       />
       <Button
         title="Получить код"
@@ -195,14 +201,13 @@ function SmsForm({ onError }: { onError: (m: string | null) => void }) {
         })}
       />
 
-      {AUTH_MODE !== 'sms' ? (
-        <View style={s.note}>
-          <Ionicons name="alert-circle-outline" size={17} color={colors.warn} />
-          <Text style={[s.noteText, { color: colors.warn }]}>
-            Вход по SMS пока не подключён. На время пилота используйте приглашение.
-          </Text>
-        </View>
-      ) : null}
+      <View style={s.note}>
+        <Ionicons name="information-circle-outline" size={17} color={colors.textMuted} />
+        <Text style={s.noteText}>
+          Код приходит в Telegram. Если вы ещё не открывали бота — откройте и нажмите
+          «Поделиться номером»: писать первым Telegram боту не разрешает.
+        </Text>
+      </View>
     </View>
   );
 }

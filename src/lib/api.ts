@@ -10,6 +10,7 @@ import type {
   DisputeForReview,
   Item,
   ItemWithOwner,
+  ModerationOverview,
   Notification,
   Payout,
   Review,
@@ -395,28 +396,24 @@ export async function fetchDisputesForReview(): Promise<DisputeForReview[]> {
  * сделки и споры, обычный пользователь получил бы здесь свои — то есть
  * экран не соврёт даже если открыть его без права.
  */
-export async function fetchModerationStats(): Promise<{
-  users: number;
-  items: number;
-  bookings: number;
-  openDisputes: number;
-}> {
-  const count = async (table: string, apply?: (q: any) => any) => {
-    let q = supabase.from(table).select('*', { count: 'exact', head: true });
-    if (apply) q = apply(q);
-    const { count: n, error } = await q;
-    if (error) throw error;
-    return n ?? 0;
-  };
-
-  const [users, items, bookings, openDisputes] = await Promise.all([
-    count('users'),
-    count('items', (q) => q.eq('status', 'active')),
-    count('bookings'),
-    count('disputes', (q) => q.eq('resolution_status', 'manual_review')),
-  ]);
-
-  return { users, items, bookings, openDisputes };
+/**
+ * Сводка модератора.
+ *
+ * Раньше здесь было четыре запроса вида `select('*', { count: 'exact' })`.
+ * После закрытия личных колонок (миграция 20260819100000) такой запрос к
+ * users стал отказом: «звёздочка» разворачивается во все колонки, включая
+ * телефон и telegram_id. Числа пропали с экрана целиком — считать их
+ * клиенту больше нечем.
+ *
+ * Теперь считает база: moderation_overview() проверяет право модератора
+ * внутри себя и возвращает только числа и короткие строки событий. Заодно
+ * это один запрос вместо четырёх и данных больше — разрез по статусам и
+ * лента последних событий.
+ */
+export async function fetchModerationOverview(): Promise<ModerationOverview> {
+  const { data, error } = await supabase.rpc('moderation_overview');
+  if (error) throw error;
+  return data as ModerationOverview;
 }
 
 export function resolveDispute(input: { disputeId: string; amount: number; note?: string }) {

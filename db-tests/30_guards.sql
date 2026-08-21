@@ -382,3 +382,41 @@ end $$;
 -- На живом проекте это отвечало 200 строкой из null — до миграции
 -- 20260819110000. Проверка стоит здесь, чтобы право не вернулось молча.
 select t.anon_fails('select id from my_profile()', 'permission denied');
+
+-- ── Сводка модератора ─────────────────────────────────────────
+--
+-- Функция security definer: политики на ней не действуют, право проверяется
+-- внутри. Проверяем оба конца — что посторонний получает отказ и что
+-- модератору приходят числа, а не пустота.
+
+select t.expect_fail(t.id('renter'),
+  'select moderation_overview()',
+  'RENTHUB_FORBIDDEN');
+
+select t.anon_fails('select moderation_overview()', 'permission denied');
+
+-- Роль модератора выдаётся только сервисным ключом; в стенде её на время
+-- одалживает «посторонний» — тот же приём, что в сценарии споров.
+update users set is_moderator = true where id = t.id('stranger');
+
+do $$
+begin
+  perform t.assert(
+    t.as_value(t.id('stranger'), 'select (moderation_overview()->''users''->>''total'')::int > 0')
+      = 'true',
+    'модератор видит число участников');
+
+  perform t.assert(
+    t.as_value(t.id('stranger'), 'select jsonb_typeof(moderation_overview()->''recent'')')
+      = 'array',
+    'лента событий приходит массивом');
+
+  -- Телефон в сводке не должен появиться ни при каких обстоятельствах:
+  -- функция обходит политики, и единственная защита здесь — её текст.
+  perform t.assert(
+    position('+7' in t.as_value(t.id('stranger'), 'select moderation_overview()::text')) = 0,
+    'в сводке нет телефонов');
+end $$;
+
+-- Флаг возвращаем: следующие сценарии рассчитывают на обычного постороннего.
+update users set is_moderator = false where id = t.id('stranger');

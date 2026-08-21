@@ -39,6 +39,29 @@ export type User = {
   created_at: string;
 };
 
+/**
+ * Сводка для вкладки «Модерация» — то, что возвращает moderation_overview().
+ *
+ * Считает база, а не клиент: подсчёт на клиенте потребовал бы читать чужие
+ * строки, а там телефоны и суммы. Функция отдаёт только числа и короткие
+ * строки событий.
+ */
+export type ModerationOverview = {
+  users: { total: number; verified: number; telegram: number; week: number };
+  items: { active: number; hidden: number; week: number };
+  bookings: {
+    pending: number;
+    confirmed: number;
+    active: number;
+    returned: number;
+    completed: number;
+    cancelled: number;
+    week: number;
+  };
+  disputes: { open: number; auto: number; resolved: number };
+  recent: Array<{ at: string; kind: 'user' | 'item' | 'booking'; text: string }>;
+};
+
 export type Category = {
   slug: string;
   title_ru: string;
