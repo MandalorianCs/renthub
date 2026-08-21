@@ -1,13 +1,13 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Badge, Button, Card, ErrorState, Field, Row, ScreenHead, tap } from '../../src/components/ui';
 import { fetchMyBookings, fetchNotifications, updateProfile } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, formatDateRange, ratingLabel } from '../../src/lib/format';
 import { Ionicons } from '@expo/vector-icons';
 import { ListSkeleton } from '../../src/components/Skeleton';
-import { humanizeError } from '../../src/lib/supabase';
+import { humanizeError, TELEGRAM_BOT, TELEGRAM_BOT_URL } from '../../src/lib/supabase';
 import { useRefresh } from '../../src/lib/useRefresh';
 import type { BookingWithItem } from '../../src/lib/types';
 import { colors, radius, spacing, typeface } from '../../src/theme';
@@ -129,6 +129,33 @@ export default function Profile() {
             }}
           />
         </View>
+      </Card>
+
+      <Card>
+        <Text style={s.sectionTitle}>Уведомления в Telegram</Text>
+        {profile.telegram_id ? (
+          <>
+            <Badge label="Подключено" fg={colors.green} bg={colors.greenSoft} />
+            <Text style={s.note}>
+              Подтверждения броней, напоминания о возврате и решения по спорам приходят
+              в Telegram{profile.telegram_username ? ` — на @${profile.telegram_username}` : ''}.
+              Отключить можно командой /unlink в самом боте.
+            </Text>
+          </>
+        ) : (
+          <>
+            <Text style={s.note}>
+              Бот пришлёт подтверждение брони и напомнит о возврате, чтобы не пришлось
+              открывать приложение. Telegram не может написать первым — поэтому первый
+              шаг за вами: откройте бота и нажмите «Поделиться номером».
+            </Text>
+            <Button
+              title={`Открыть @${TELEGRAM_BOT}`}
+              variant="secondary"
+              onPress={() => Linking.openURL(TELEGRAM_BOT_URL)}
+            />
+          </>
+        )}
       </Card>
 
       <Card>

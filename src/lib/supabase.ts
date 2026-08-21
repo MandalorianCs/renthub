@@ -29,6 +29,17 @@ export const supabase = createClient(url, anonKey, {
 export const PILOT_CITY = process.env.EXPO_PUBLIC_PILOT_CITY ?? 'kokshetau';
 
 /**
+ * Ссылка на бота.
+ *
+ * Значение вынесено в переменную по той же причине, что и город: имя бота
+ * встречается и в приложении, и на лендинге, и разойтись они не должны.
+ * Запасное значение стоит здесь, а не в .env, чтобы сборка без переменной
+ * вела на живого бота, а не в никуда.
+ */
+export const TELEGRAM_BOT = process.env.EXPO_PUBLIC_TELEGRAM_BOT ?? 'renthubkokshetau_bot';
+export const TELEGRAM_BOT_URL = `https://t.me/${TELEGRAM_BOT}`;
+
+/**
  * Ошибки бизнес-правил приходят из Postgres как `RENTHUB_CODE: текст`.
  * Показываем пользователю человеческую часть, а не сырой SQL-стейт.
  */
