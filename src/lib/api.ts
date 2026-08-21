@@ -11,6 +11,7 @@ import type {
   Item,
   ItemWithOwner,
   ModerationOverview,
+  ModerationPerson,
   Notification,
   Payout,
   Review,
@@ -410,6 +411,13 @@ export async function fetchDisputesForReview(): Promise<DisputeForReview[]> {
  * это один запрос вместо четырёх и данных больше — разрез по статусам и
  * лента последних событий.
  */
+/** Поимённый список участников. Отказывает всем, кроме модератора. */
+export async function fetchModerationPeople(): Promise<ModerationPerson[]> {
+  const { data, error } = await supabase.rpc('moderation_people');
+  if (error) throw error;
+  return (data ?? []) as ModerationPerson[];
+}
+
 export async function fetchModerationOverview(): Promise<ModerationOverview> {
   const { data, error } = await supabase.rpc('moderation_overview');
   if (error) throw error;

@@ -4,10 +4,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import { Button, Card, Empty, ErrorState, Field, Row } from '../../src/components/ui';
-import { fetchDisputesForReview, fetchModerationOverview, resolveDispute } from '../../src/lib/api';
+import {
+  fetchDisputesForReview,
+  fetchModerationOverview,
+  fetchModerationPeople,
+  resolveDispute,
+} from '../../src/lib/api';
 import { formatDate, formatDateRange, formatTenge } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
-import type { DisputeForReview, ModerationOverview } from '../../src/lib/types';
+import type { DisputeForReview, ModerationOverview, ModerationPerson } from '../../src/lib/types';
 import { useRefresh } from '../../src/lib/useRefresh';
 import { colors, radius, spacing, typeface } from '../../src/theme';
 
@@ -26,14 +31,20 @@ import { colors, radius, spacing, typeface } from '../../src/theme';
 export default function Moderation() {
   const [disputes, setDisputes] = useState<DisputeForReview[]>([]);
   const [stats, setStats] = useState<ModerationOverview | null>(null);
+  const [people, setPeople] = useState<ModerationPerson[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [d, s] = await Promise.all([fetchDisputesForReview(), fetchModerationOverview()]);
+      const [d, s, p] = await Promise.all([
+        fetchDisputesForReview(),
+        fetchModerationOverview(),
+        fetchModerationPeople(),
+      ]);
       setDisputes(d);
       setStats(s);
+      setPeople(p);
       setError(null);
     } catch (e) {
       setError(humanizeError(e));
@@ -87,6 +98,35 @@ export default function Moderation() {
               {stats.bookings.week} броней.
             </Text>
           </Card>
+
+          {people.length > 0 ? (
+            <Card>
+              <Text style={s.section}>Участники · {people.length}</Text>
+              {people.map((person) => (
+                <View key={person.id} style={s.person}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={s.personName}>
+                      {person.full_name || 'Без имени'}
+                      {person.is_moderator ? ' · модератор' : ''}
+                    </Text>
+                    <Text style={s.personMeta}>
+                      {person.phone} · с {formatDate(person.created_at)}
+                    </Text>
+                    <Text style={s.personMeta}>
+                      {person.items} объявл. · {person.bookings} аренд
+                      {person.telegram ? ' · Telegram' : ''}
+                      {person.verified ? '' : ' · номер не подтверждён'}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={person.telegram ? 'paper-plane' : 'paper-plane-outline'}
+                    size={16}
+                    color={person.telegram ? colors.green : colors.border}
+                  />
+                </View>
+              ))}
+            </Card>
+          ) : null}
 
           {/* Лента отвечает на вопрос «пилот живой?» лучше любых чисел:
               видно не только сколько, но и когда. Имён достаточно — телефоны
@@ -310,6 +350,16 @@ const s = StyleSheet.create({
   photo: { width: 72, height: 72, borderRadius: radius.sm, backgroundColor: colors.border },
   photoEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },
   weekNote: { fontSize: 13, fontFamily: typeface[500], color: colors.textMuted, marginTop: spacing.sm },
+  person: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  personName: { fontSize: 15, fontFamily: typeface[700], color: colors.text },
+  personMeta: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
   event: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 7 },
   eventText: { flex: 1, fontSize: 14, fontFamily: typeface[500], color: colors.text },
   eventDate: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },

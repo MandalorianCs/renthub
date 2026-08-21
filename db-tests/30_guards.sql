@@ -420,3 +420,37 @@ end $$;
 
 -- Флаг возвращаем: следующие сценарии рассчитывают на обычного постороннего.
 update users set is_moderator = false where id = t.id('stranger');
+
+-- ── Поимённый список участников ───────────────────────────────
+--
+-- Телефоны здесь есть намеренно (оператор пилота обзванивает людей сам),
+-- поэтому проверяем ровно два края: посторонний не получает ничего, а
+-- модератор получает строки. Сводка при этом обязана оставаться без
+-- телефонов — та проверка выше.
+
+select t.expect_fail(t.id('renter'),
+  'select * from moderation_people()',
+  'RENTHUB_FORBIDDEN');
+
+select t.anon_fails('select * from moderation_people()', 'permission denied');
+
+update users set is_moderator = true where id = t.id('stranger');
+
+do $$
+begin
+  perform t.assert(
+    t.as_value(t.id('stranger'), 'select count(*)::text from moderation_people()')::int >= 4,
+    'модератор видит список участников');
+
+  perform t.assert(
+    left(t.as_value(t.id('stranger'),
+      format('select phone from moderation_people() where id = %L', t.id('owner'))), 2) = '+7',
+    'в списке участников телефон есть — это и есть смысл списка');
+
+  perform t.assert(
+    t.as_value(t.id('stranger'),
+      format('select items::text from moderation_people() where id = %L', t.id('owner')))::int >= 1,
+    'у владельца посчитаны его объявления');
+end $$;
+
+update users set is_moderator = false where id = t.id('stranger');

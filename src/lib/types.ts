@@ -62,6 +62,25 @@ export type ModerationOverview = {
   recent: Array<{ at: string; kind: 'user' | 'item' | 'booking'; text: string }>;
 };
 
+/**
+ * Строка поимённого списка участников — moderation_people().
+ *
+ * Телефон здесь есть намеренно: пилот идёт по личным приглашениям, и
+ * оператор обзванивает людей сам. Право на этот список выдаётся только
+ * сервисным ключом, а в общей сводке телефонов нет — стенд проверяет.
+ */
+export type ModerationPerson = {
+  id: string;
+  full_name: string | null;
+  phone: string;
+  verified: boolean;
+  telegram: boolean;
+  is_moderator: boolean;
+  items: number;
+  bookings: number;
+  created_at: string;
+};
+
 export type Category = {
   slug: string;
   title_ru: string;
