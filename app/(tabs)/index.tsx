@@ -18,7 +18,7 @@ import { Empty, ErrorState, ScreenHead, tap } from '../../src/components/ui';
 import type { CatalogSort } from '../../src/lib/api';
 import { fetchCatalog, fetchCategories, fetchFavoriteIds, toggleFavorite } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
-import { formatTenge, ratingLabel } from '../../src/lib/format';
+import { formatTenge, plural, ratingLabel } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
 import type { Category, ItemWithOwner } from '../../src/lib/types';
 import { useRefresh } from '../../src/lib/useRefresh';
@@ -172,7 +172,7 @@ export default function Catalog() {
       {/* ── Сколько нашли + вход в фильтры ────────────────── */}
       <View style={s.bar}>
         <Text style={s.count}>
-          {loading ? ' ' : items.length > 0 ? `${items.length} ${plural(items.length)}` : ''}
+          {loading ? ' ' : items.length > 0 ? plural(items.length, 'объявление', 'объявления', 'объявлений') : ''}
         </Text>
         <Pressable style={s.filterBtn} onPress={() => setShowFilters((v) => !v)} hitSlop={6}>
           <Ionicons name="options-outline" size={16} color={colors.text} />
@@ -378,15 +378,6 @@ function Chip({
       <Text style={[s.chipText, selected && { color: colors.onFill }]}>{label}</Text>
     </Pressable>
   );
-}
-
-/** 1 объявление, 2 объявления, 5 объявлений — иначе счётчик режет глаз. */
-function plural(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'объявление';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'объявления';
-  return 'объявлений';
 }
 
 const s = StyleSheet.create({

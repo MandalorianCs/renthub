@@ -123,6 +123,42 @@ export function SummarySkeleton({ rows = 3 }: { rows?: number }) {
   );
 }
 
+/**
+ * Публичный профиль владельца: аватар и крупная оценка наверху, ниже строки.
+ *
+ * Тот же довод, что у SummarySkeleton. Общий ListSkeleton обещает список
+ * одинаковых строк, а приходит экран, где вверху стоит крупная оценка —
+ * то, ради чего сюда и заходят. Несовпадение обещания с результатом
+ * читается как подмена, даже если длится полсекунды.
+ */
+export function ProfileSkeleton() {
+  return (
+    <View style={{ padding: spacing.lg, gap: spacing.lg }}>
+      <View style={s.profileCard}>
+        <View style={s.profileHead}>
+          <Shimmer style={s.avatar} />
+          <View style={{ flex: 1, gap: spacing.sm }}>
+            <Shimmer style={s.lineTitle} />
+            <Shimmer style={s.lineMeta} />
+          </View>
+        </View>
+        <Shimmer style={s.profileRating} />
+      </View>
+      <View style={{ gap: spacing.md }}>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <View key={i} style={s.row}>
+            <Shimmer style={s.rowThumb} />
+            <View style={{ flex: 1, gap: spacing.sm }}>
+              <Shimmer style={s.lineTitle} />
+              <Shimmer style={s.lineMeta} />
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   block: { backgroundColor: colors.border, borderRadius: radius.sm },
 
@@ -155,6 +191,18 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   summaryValue: { width: '60%', height: 34 },
+
+  profileCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  profileHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  avatar: { width: 60, height: 60, borderRadius: 30 },
+  profileRating: { width: '45%', height: 40 },
 
   detailPhoto: { width: '100%', aspectRatio: 4 / 3, borderRadius: 0 },
   detailPrice: { width: '45%', height: 24 },
