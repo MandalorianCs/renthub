@@ -411,6 +411,39 @@ export async function fetchDisputesForReview(): Promise<DisputeForReview[]> {
  * это один запрос вместо четырёх и данных больше — разрез по статусам и
  * лента последних событий.
  */
+/**
+ * Действия модератора.
+ *
+ * Все три — функции Postgres с проверкой права внутри. Клиент не решает,
+ * можно ли: он спрашивает, а отказ приходит из базы. Поэтому те же действия
+ * будут доступны будущему боту без дублирования правил.
+ */
+export async function setUserBlocked(userId: string, blocked: boolean, reason?: string) {
+  const { error } = await supabase.rpc('set_user_blocked', {
+    p_user_id: userId,
+    p_blocked: blocked,
+    p_reason: reason ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function moderatorHideItem(itemId: string, reason?: string) {
+  const { error } = await supabase.rpc('moderator_hide_item', {
+    p_item_id: itemId,
+    p_reason: reason ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function moderatorNotify(userId: string, title: string, body: string) {
+  const { error } = await supabase.rpc('moderator_notify', {
+    p_user_id: userId,
+    p_title: title,
+    p_body: body,
+  });
+  if (error) throw error;
+}
+
 /** Поимённый список участников. Отказывает всем, кроме модератора. */
 export async function fetchModerationPeople(): Promise<ModerationPerson[]> {
   const { data, error } = await supabase.rpc('moderation_people');

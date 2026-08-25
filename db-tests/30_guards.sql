@@ -454,3 +454,93 @@ begin
 end $$;
 
 update users set is_moderator = false where id = t.id('stranger');
+
+-- ── Инструменты модератора ────────────────────────────────────
+--
+-- Блокировка, снятие объявления и сообщение участнику. Проверяем оба края
+-- каждого действия: посторонний получает отказ, модератор — результат.
+-- Отдельно проверяется то, чего быть не должно: выдача роли из приложения
+-- и блокировка самого себя.
+
+select t.expect_fail(t.id('renter'),
+  format('select set_user_blocked(%L, true)', t.id('owner')),
+  'RENTHUB_FORBIDDEN');
+
+update users set is_moderator = true where id = t.id('stranger');
+
+-- Модератор не может заблокировать себя: иначе пилот останется без разбора
+-- споров, а снять блокировку сможет только сервисный ключ.
+select t.expect_fail(t.id('stranger'),
+  format('select set_user_blocked(%L, true)', t.id('stranger')),
+  'нельзя заблокировать самого себя');
+
+do $$
+begin
+  perform t.as(t.id('stranger'),
+    format('select set_user_blocked(%L, true, ''Тестовая причина'')', t.id('unverified')));
+
+  perform t.assert(
+    t.as_value(t.id('stranger'),
+      format('select blocked::text from moderation_people() where id = %L', t.id('unverified'))) = 'true',
+    'блокировка видна в списке участников');
+
+  perform t.assert(
+    t.as_value(t.id('stranger'),
+      format('select count(*)::text from notifications where user_id = %L and type = ''blocked''',
+        t.id('unverified'))) >= '1',
+    'заблокированный получил уведомление — узнает о решении, а не упрётся в отказ');
+
+  perform t.as(t.id('stranger'), format('select set_user_blocked(%L, false)', t.id('unverified')));
+
+  perform t.assert(
+    t.as_value(t.id('stranger'),
+      format('select blocked::text from moderation_people() where id = %L', t.id('unverified'))) = 'false',
+    'разблокировка снимает отметку');
+end $$;
+
+-- Заблокированный не может ни сдавать, ни арендовать. Проверка встроена в
+-- assert_verified(), то есть в ту же точку, что и проверка номера.
+do $$
+begin
+  perform t.as(t.id('stranger'), format('select set_user_blocked(%L, true)', t.id('owner')));
+end $$;
+
+select t.expect_fail(t.id('owner'),
+  format('insert into items (owner_id, category, title, description, daily_price, deposit_amount, condition_photos) '
+      || 'values (%L, ''drills'', ''Дрель после блокировки'', '''', 1000, 5000, array[''x''])', t.id('owner')),
+  'RENTHUB_BLOCKED');
+
+do $$
+begin
+  perform t.as(t.id('stranger'), format('select set_user_blocked(%L, false)', t.id('owner')));
+end $$;
+
+-- Снятие объявления модератором и сообщение участнику.
+do $$
+begin
+  perform t.as(t.id('stranger'),
+    format('select moderator_hide_item(%L, ''Фото не соответствуют вещи'')', t.id('item_cheap')));
+
+  perform t.assert(
+    t.as_value(t.id('stranger'), format('select status::text from items where id = %L', t.id('item_cheap')))
+      = 'hidden',
+    'модератор снял объявление с публикации');
+
+  perform t.as(t.id('stranger'),
+    format('select moderator_notify(%L, ''Вопрос по объявлению'', ''Уточните комплектацию'')', t.id('owner')));
+
+  perform t.assert(
+    t.as_value(t.id('stranger'),
+      format('select count(*)::text from notifications where user_id = %L and type = ''moderator_message''',
+        t.id('owner'))) = '1',
+    'сообщение модератора легло в уведомления — бот доставит его в Telegram');
+end $$;
+
+select t.as(t.id('owner'), format('update items set status = ''active'' where id = %L', t.id('item_cheap')));
+
+-- Роль модератора из приложения по-прежнему не выдаётся: инвариант не тронут.
+select t.expect_fail(t.id('stranger'),
+  format('update users set is_moderator = true where id = %L', t.id('renter')),
+  'роль модератора выдаётся только сервисным ключом');
+
+update users set is_moderator = false where id = t.id('stranger');

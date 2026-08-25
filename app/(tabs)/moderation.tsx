@@ -8,7 +8,10 @@ import {
   fetchDisputesForReview,
   fetchModerationOverview,
   fetchModerationPeople,
+  moderatorHideItem,
+  moderatorNotify,
   resolveDispute,
+  setUserBlocked,
 } from '../../src/lib/api';
 import { formatDate, formatDateRange, formatTenge } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
@@ -103,27 +106,7 @@ export default function Moderation() {
             <Card>
               <Text style={s.section}>Участники · {people.length}</Text>
               {people.map((person) => (
-                <View key={person.id} style={s.person}>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={s.personName}>
-                      {person.full_name || 'Без имени'}
-                      {person.is_moderator ? ' · модератор' : ''}
-                    </Text>
-                    <Text style={s.personMeta}>
-                      {person.phone} · с {formatDate(person.created_at)}
-                    </Text>
-                    <Text style={s.personMeta}>
-                      {person.items} объявл. · {person.bookings} аренд
-                      {person.telegram ? ' · Telegram' : ''}
-                      {person.verified ? '' : ' · номер не подтверждён'}
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name={person.telegram ? 'paper-plane' : 'paper-plane-outline'}
-                    size={16}
-                    color={person.telegram ? colors.green : colors.border}
-                  />
-                </View>
+                <PersonRow key={person.id} person={person} onChanged={load} />
               ))}
             </Card>
           ) : null}
@@ -172,6 +155,129 @@ export default function Moderation() {
         disputes.map((d) => <DisputeCard key={d.id} dispute={d} onResolved={load} />)
       )}
     </ScrollView>
+  );
+}
+
+/**
+ * Строка участника с действиями модератора.
+ *
+ * Действия открываются нажатием, а не висят в строке: в списке на двести
+ * человек четыре кнопки в каждой строке превращают экран в приборную панель,
+ * где ничего не найти. Причина блокировки спрашивается текстом — она уходит
+ * человеку в уведомление, и «решение модератора» без объяснения читается
+ * как произвол.
+ */
+function PersonRow({ person, onChanged }: { person: ModerationPerson; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(action: () => Promise<void>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      setReason('');
+      setMessage('');
+      setOpen(false);
+      onChanged();
+    } catch (e) {
+      setError(humanizeError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View style={s.person}>
+      <Pressable
+        style={({ pressed }) => [s.personHead, { opacity: pressed ? 0.7 : 1 }]}
+        onPress={() => setOpen((v) => !v)}
+      >
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={s.personName}>
+            {person.full_name || 'Без имени'}
+            {person.is_moderator ? ' · модератор' : ''}
+            {person.blocked ? ' · заблокирован' : ''}
+          </Text>
+          <Text style={s.personMeta}>
+            {person.phone} · с {formatDate(person.created_at)}
+          </Text>
+          <Text style={s.personMeta}>
+            {person.items} объявл. · {person.bookings} аренд
+            {person.telegram ? ' · Telegram' : ''}
+            {person.verified ? '' : ' · номер не подтверждён'}
+          </Text>
+          {person.blocked && person.blocked_reason ? (
+            <Text style={[s.personMeta, { color: colors.danger }]}>
+              Причина: {person.blocked_reason}
+            </Text>
+          ) : null}
+        </View>
+        <Ionicons
+          name={open ? 'chevron-up' : 'chevron-down'}
+          size={18}
+          color={colors.textMuted}
+        />
+      </Pressable>
+
+      {open ? (
+        <View style={s.personActions}>
+          {person.blocked ? (
+            <Button
+              title="Снять блокировку"
+              variant="secondary"
+              loading={busy}
+              onPress={() => run(() => setUserBlocked(person.id, false))}
+            />
+          ) : (
+            <>
+              <Field
+                label="Причина блокировки"
+                value={reason}
+                onChangeText={setReason}
+                placeholder="Что произошло — человек это увидит"
+              />
+              <Button
+                title="Заблокировать"
+                variant="danger"
+                loading={busy}
+                disabled={reason.trim().length < 5}
+                onPress={() => run(() => setUserBlocked(person.id, true, reason.trim()))}
+              />
+            </>
+          )}
+
+          <Field
+            label="Сообщение участнику"
+            value={message}
+            onChangeText={setMessage}
+            placeholder="Придёт в Telegram, если он привязан"
+            multiline
+          />
+          <Button
+            title="Отправить сообщение"
+            variant="secondary"
+            loading={busy}
+            disabled={message.trim().length < 3}
+            onPress={() =>
+              run(() => moderatorNotify(person.id, 'Сообщение от модератора', message.trim()))
+            }
+          />
+
+          {!person.telegram ? (
+            <Text style={s.personMeta}>
+              Telegram не привязан — сообщение будет ждать в приложении, пока человек
+              не откроет бота.
+            </Text>
+          ) : null}
+
+          {error ? <Text style={s.personError}>{error}</Text> : null}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -294,6 +400,33 @@ function DisputeCard({
         После решения сделка закроется: компенсация начислится владельцу отдельной
         строкой, остаток депозита вернётся арендатору. Отменить нельзя.
       </Text>
+
+      {/* Снятие объявления — отдельное решение, а не часть разбора спора.
+          Спор бывает о состоянии вещи, а объявление снимают за другое: чужие
+          фото, запрещённый предмет, цена-приманка. Кнопка стоит здесь просто
+          потому, что модератор уже смотрит на это объявление. */}
+      {dispute.booking?.item?.id ? (
+        <Button
+          title="Снять объявление с публикации"
+          variant="ghost"
+          loading={busy}
+          onPress={async () => {
+            setBusy(true);
+            setError(null);
+            try {
+              await moderatorHideItem(
+                dispute.booking!.item!.id,
+                note.trim() || undefined,
+              );
+              onResolved();
+            } catch (e) {
+              setError(humanizeError(e));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+      ) : null}
     </Card>
   );
 }
@@ -350,14 +483,15 @@ const s = StyleSheet.create({
   photo: { width: 72, height: 72, borderRadius: radius.sm, backgroundColor: colors.border },
   photoEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },
   weekNote: { fontSize: 13, fontFamily: typeface[500], color: colors.textMuted, marginTop: spacing.sm },
-  person: {
+  person: { borderTopWidth: 1, borderTopColor: colors.border },
+  personHead: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
+  personActions: { gap: spacing.md, paddingBottom: spacing.md, paddingTop: spacing.xs },
+  personError: { fontSize: 13, fontFamily: typeface[400], color: colors.danger },
   personName: { fontSize: 15, fontFamily: typeface[700], color: colors.text },
   personMeta: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
   event: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 7 },

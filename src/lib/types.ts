@@ -76,6 +76,9 @@ export type ModerationPerson = {
   verified: boolean;
   telegram: boolean;
   is_moderator: boolean;
+  /** Заблокирован модератором: не может создавать объявления и брони. */
+  blocked: boolean;
+  blocked_reason: string | null;
   items: number;
   bookings: number;
   created_at: string;
