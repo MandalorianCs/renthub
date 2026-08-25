@@ -60,6 +60,32 @@ cpSync(join(ROOT, 'landing', 'diagrams'), join(DOCS, 'diagrams'), { recursive: t
 mkdirSync(join(DOCS, 'pitch'), { recursive: true });
 cpSync(join(ROOT, 'landing', 'pitch.html'), join(DOCS, 'pitch', 'index.html'));
 
+// robots.txt и sitemap.xml.
+//
+// Приложение из индекса исключено намеренно: это одностраничное приложение
+// на клиентской маршрутизации, поисковик увидит там пустой каркас и решит,
+// что сайт пустой. Индексировать нужно то, что читается без JavaScript, —
+// лендинг, питч и схемы.
+const SITE = 'https://mandaloriancs.github.io/renthub/';
+const pages = ['', 'pitch/', 'diagrams/deal-loop.html', 'diagrams/money-flow.html'];
+const today = new Date().toISOString().slice(0, 10);
+
+writeFileSync(
+  join(DOCS, 'robots.txt'),
+  ['User-agent: *', 'Allow: /', 'Disallow: /renthub/app/', '', `Sitemap: ${SITE}sitemap.xml`, ''].join('\n'),
+);
+
+writeFileSync(
+  join(DOCS, 'sitemap.xml'),
+  [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...pages.map((p) => `  <url><loc>${SITE}${p}</loc><lastmod>${today}</lastmod></url>`),
+    '</urlset>',
+    '',
+  ].join('\n'),
+);
+
 // GitHub Pages прогоняет сайт через Jekyll, а тот игнорирует папки,
 // начинающиеся с подчёркивания. Expo кладёт бандл в _expo/static/… —
 // без этого файла сайт откроется, а весь JavaScript вернёт 404, и
