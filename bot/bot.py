@@ -162,7 +162,8 @@ async def on_start(message: Message) -> None:
         "RentHUB — аренда инструмента у соседей.\n\n"
         "Нажмите кнопку ниже, чтобы связать Telegram с вашим аккаунтом. "
         "После этого сюда будут приходить уведомления по сделкам: "
-        "подтверждения броней, напоминания о возврате, решения по спорам.",
+        "подтверждения броней, напоминания о возврате, решения по спорам.\n\n"
+        "Команда /deals покажет активные сделки, /help — всё остальное.",
         reply_markup=SHARE_KEYBOARD,
     )
 
@@ -239,6 +240,119 @@ async def on_contact(message: Message) -> None:
         reply_markup=ReplyKeyboardRemove(),
     )
     log.info("привязан tg=%s к пользователю %s", message.from_user.id, user["id"])
+
+
+# ── Мои сделки ────────────────────────────────────────────────
+
+# Подписи статусов повторяют src/lib/format.ts. Дублирование здесь
+# осознанное и минимальное: переносить тексты интерфейса в базу ради
+# одного списка — плохой размен, а расхождение заметно сразу и правится
+# в двух местах. Правило противоположно тому, что в Postgres: там живут
+# правила перехода, здесь — только их названия.
+STATUS_LABEL = {
+    "pending": "ждёт подтверждения",
+    "confirmed": "подтверждено",
+    "active": "в аренде",
+    "returned": "возвращено, ждёт проверки",
+    "completed": "завершено",
+    "disputed": "спор",
+    "cancelled": "отменено",
+}
+
+# Показываем только живые сделки: завершённые и отменённые уходят в
+# приложение. Список в мессенджере отвечает на вопрос «что сейчас», а не
+# заменяет историю.
+LIVE_STATUSES = ("pending", "confirmed", "active", "returned", "disputed")
+
+
+def money(value: int | None) -> str:
+    """Тенге с разделителем разрядов — как formatTenge в приложении."""
+    return f"{value or 0:,}".replace(",", " ") + " ₸"
+
+
+@dp.message(F.text.in_({"/deals", "/сделки"}))
+async def on_deals(message: Message) -> None:
+    async with httpx.AsyncClient(timeout=20) as client:
+        found = await rest_get(
+            client,
+            "users",
+            {"telegram_id": f"eq.{message.from_user.id}", "select": "id,full_name", "limit": "1"},
+        )
+
+        if not found:
+            await message.answer(
+                "Сначала свяжите Telegram с аккаунтом — нажмите /start и поделитесь номером."
+            )
+            return
+
+        user_id = found[0]["id"]
+        statuses = ",".join(LIVE_STATUSES)
+
+        # Две выборки вместо одной: PostgREST не умеет условие «или» по
+        # разным колонкам так, чтобы это осталось читаемым. Двадцать строк
+        # на человека — не та нагрузка, ради которой стоит усложнять запрос.
+        as_owner, as_renter = [
+            await rest_get(
+                client,
+                "bookings",
+                {
+                    role: f"eq.{user_id}",
+                    "status": f"in.({statuses})",
+                    # Присоединение без имени ключа: у bookings ровно одна
+                    # связь с items, и PostgREST разрешает её однозначно.
+                    # Так же записано в приложении — расходиться незачем.
+                    "select": "id,status,start_date,end_date,rent_total,renter_total,"
+                    "item:items(title)",
+                    "order": "start_date.asc",
+                    "limit": "20",
+                },
+            )
+            for role in ("owner_id", "renter_id")
+        ]
+
+    if not as_owner and not as_renter:
+        await message.answer(
+            "Сейчас активных сделок нет.\n\n"
+            "Каталог открыт без входа: "
+            "https://mandaloriancs.github.io/renthub/app/"
+        )
+        return
+
+    lines: list[str] = []
+
+    def block(title: str, rows: list[dict], mine: bool) -> None:
+        if not rows:
+            return
+        lines.append(f"<b>{title}</b>")
+        for row in rows:
+            item = (row.get("item") or {}).get("title") or "объявление удалено"
+            status = STATUS_LABEL.get(row["status"], row["status"])
+            # Владельцу показываем его выручку, арендатору — что он платит:
+            # одна и та же сделка выглядит по-разному с двух сторон, и общая
+            # сумма запутала бы обоих.
+            amount = money(row.get("rent_total") if mine else row.get("renter_total"))
+            lines.append(f"• {item} — {status}")
+            lines.append(f"  {row['start_date']} → {row['end_date']} · {amount}")
+        lines.append("")
+
+    block("Сдаёте", as_owner, mine=True)
+    block("Арендуете", as_renter, mine=False)
+
+    lines.append("Подробности и действия — в приложении:")
+    lines.append("https://mandaloriancs.github.io/renthub/app/")
+
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+@dp.message(F.text.in_({"/help", "/помощь"}))
+async def on_help(message: Message) -> None:
+    await message.answer(
+        "Что я умею:\n\n"
+        "/start — связать Telegram с аккаунтом\n"
+        "/deals — активные сделки: что сдаёте и что арендуете\n"
+        "/unlink — отвязать Telegram\n\n"
+        "Уведомления о бронях, возвратах и спорах приходят сюда сами."
+    )
 
 
 @dp.message(F.text == "/unlink")

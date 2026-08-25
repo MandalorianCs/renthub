@@ -67,6 +67,7 @@ npm run demo:clear                  убрать их
 npm run notify:test -- +7701...     проверить связь «база → бот → Telegram»
 npm run notify:clear                убрать проверочные уведомления
 python bot/bot.py                   бот в Telegram (отдельное окно, свой .env)
+                                    команды: /start /deals /help /unlink
 ```
 
 Последние четыре требуют секретного ключа. Он лежит в `.env.secret` — файл
