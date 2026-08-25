@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
@@ -6,6 +7,7 @@ import { Badge, Empty, ErrorState, ScreenHead, tap } from '../../src/components/
 import { fetchMyBookings } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, DEPOSIT_STATUS, formatDateRange, formatTenge } from '../../src/lib/format';
+import { nextMove } from '../../src/lib/nextMove';
 import { humanizeError } from '../../src/lib/supabase';
 import { useRefresh } from '../../src/lib/useRefresh';
 import type { BookingWithItem } from '../../src/lib/types';
@@ -40,12 +42,20 @@ export default function MyBookings() {
 
   const { refreshing, onRefresh } = useRefresh(load);
 
+  // Ваш ход — наверх. Порядок внутри групп прежний: список приходит из базы
+  // отсортированным, и стабильная сортировка его сохраняет.
+  const ordered = [...bookings].sort((a, b) => {
+    const aMine = nextMove(a, false).yours ? 0 : 1;
+    const bMine = nextMove(b, false).yours ? 0 : 1;
+    return aMine - bMine;
+  });
+
   if (loading) return <ListSkeleton />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <FlatList
-      data={bookings}
+      data={ordered}
       keyExtractor={(b) => b.id}
       contentContainerStyle={s.list}
       ListHeaderComponent={
@@ -68,6 +78,7 @@ export default function MyBookings() {
       renderItem={({ item }) => {
         const status = BOOKING_STATUS[item.status];
         const deposit = DEPOSIT_STATUS[item.deposit_status];
+        const move = nextMove(item, false);
         return (
           <Pressable
             style={({ pressed }) => [s.card, tap({ pressed })]}
@@ -80,6 +91,13 @@ export default function MyBookings() {
               <Badge label={status.label} fg={status.fg} bg={status.bg} />
             </View>
             <Text style={s.meta}>{formatDateRange(item.start_date, item.end_date)} · {item.days} дн.</Text>
+
+            {move.yours ? (
+              <View style={s.move}>
+                <Ionicons name={move.icon} size={14} color={colors.accent} />
+                <Text style={s.moveText}>{move.title}</Text>
+              </View>
+            ) : null}
             <View style={s.footer}>
               <Text style={s.amount}>{formatTenge(item.renter_total)}</Text>
               <Text style={[s.depositNote, { color: deposit.fg }]}>{deposit.label}</Text>
@@ -109,5 +127,17 @@ const s = StyleSheet.create({
   meta: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   amount: { fontSize: 20, fontFamily: typeface[800], color: colors.text, letterSpacing: -0.6 },
+  move: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.accentSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginTop: 2,
+  },
+  moveText: { fontSize: 12, fontFamily: typeface[700], color: colors.accent },
   depositNote: { fontSize: 12, fontFamily: typeface[600] },
 });
