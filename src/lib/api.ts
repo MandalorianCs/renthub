@@ -188,6 +188,23 @@ export async function fetchPublicProfile(userId: string): Promise<PublicProfile 
   return (data as unknown as PublicProfile) ?? null;
 }
 
+/**
+ * Сколько сделок человек довёл до конца.
+ *
+ * Через RPC по той же причине, что и календарь занятости: политика
+ * bookings_read_participants показывает бронь только её сторонам, и прямой
+ * `count(*)` вернул бы постороннему ноль — не «сделок нет», а «вам не
+ * видно». Функция отдаёт одно число, без сторон, сумм и дат.
+ *
+ * Счётчик сильнее счётчика отзывов: отзыв оставляют не после каждой сделки,
+ * и человек с двадцатью закрытыми арендами выглядел как человек с тремя.
+ */
+export async function fetchDealsCount(userId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('user_deals_count', { p_user_id: userId });
+  if (error) throw error;
+  return (data as number | null) ?? 0;
+}
+
 export async function fetchOwnerItems(ownerId: string): Promise<Item[]> {
   const { data, error } = await supabase
     .from('items')

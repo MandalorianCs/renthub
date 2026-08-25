@@ -205,6 +205,25 @@ begin
     'обе границы интервала заполнены');
 end $$;
 
+-- Счётчик сделок — та же история и то же обоснование: витрина открыта без
+-- входа, а брони закрыты политикой. Гарантия приватности здесь — тип
+-- результата: вернуть что-то кроме одного числа функция не может.
+do $$
+begin
+  perform t.assert(
+    t.as_anon(format('select user_deals_count(%L)::text', t.id('owner')))::int >= 1,
+    'аноним видит счётчик сделок — профиль владельца открыт без входа');
+
+  perform t.assert(
+    (select pg_get_function_result(oid) = 'integer'
+       from pg_proc where proname = 'user_deals_count'),
+    'счётчик отдаёт одно число — ни сторон сделки, ни сумм, ни дат');
+
+  perform t.assert(
+    t.as_anon('select count(*)::text from bookings') = '0',
+    'при этом сами брони анониму по-прежнему не видны');
+end $$;
+
 -- Убираем за собой, чтобы не мешать следующим сценариям.
 select t.as(t.id('stranger'), format($sql$
   update bookings set status = 'cancelled'

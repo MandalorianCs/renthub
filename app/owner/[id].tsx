@@ -5,7 +5,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ProfileSkeleton } from '../../src/components/Skeleton';
 import { Card, Empty, ErrorState, tap } from '../../src/components/ui';
-import { fetchOwnerItems, fetchPublicProfile, fetchReviewsAbout } from '../../src/lib/api';
+import {
+  fetchDealsCount,
+  fetchOwnerItems,
+  fetchPublicProfile,
+  fetchReviewsAbout,
+} from '../../src/lib/api';
 import { formatDate, formatRating, formatTenge, plural } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
 import type { Item, PublicProfile, ReviewWithAuthor } from '../../src/lib/types';
@@ -20,11 +25,11 @@ import { colors, radius, spacing, typeface } from '../../src/theme';
  * решают. Цифре без объяснения не верят, и рядом с ней лежит то, из чего
  * она сложилась: сколько отзывов, что в них написано, что человек сдаёт.
  *
- * Числа сделок здесь нет намеренно. Брони закрыты политикой
- * bookings_read_participants, и достать счётчик можно только отдельной
- * функцией security definer — как item_busy_dates(). Пока показывается то,
- * что видно честно: отзывы приходят только после закрытой сделки, так что
- * их число — нижняя граница числа сделок, а не выдумка.
+ * Рядом с оценкой стоит число закрытых сделок, а не только отзывов:
+ * отзыв оставляют не после каждой сделки, и человек с двадцатью арендами
+ * выглядел бы как человек с тремя. Брони закрыты политикой
+ * bookings_read_participants, поэтому счётчик приходит через
+ * user_deals_count() — узкую функцию, отдающую одно число.
  *
  * Телефона нет: анониму он закрыт грантом на колонки, а участнику сделки
  * до подтверждения брони он не нужен.
@@ -36,20 +41,26 @@ export default function OwnerProfile() {
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [reviews, setReviews] = useState<ReviewWithAuthor[]>([]);
+  const [deals, setDeals] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [p, i, r] = await Promise.all([
+      const [p, i, r, d] = await Promise.all([
         fetchPublicProfile(id),
         fetchOwnerItems(id),
         fetchReviewsAbout(id),
+        // Счётчик — единственное здесь, чей сбой не должен ронять экран:
+        // профиль без него читается, а без имени и отзывов — нет. Ноль при
+        // сбое не врёт, потому что ноль мы просто не показываем.
+        fetchDealsCount(id).catch(() => 0),
       ]);
       setProfile(p);
       setItems(i);
       setReviews(r);
+      setDeals(d);
       setError(null);
     } catch (e) {
       setError(humanizeError(e));
@@ -109,6 +120,7 @@ export default function OwnerProfile() {
               <Stars value={profile.rating!} size={16} />
               <Text style={s.ratingCount}>
                 {plural(profile.ratings_count, 'отзыв', 'отзыва', 'отзывов')}
+                {deals > 0 ? ` · ${plural(deals, 'сделка', 'сделки', 'сделок')}` : ''}
               </Text>
             </View>
           </View>
@@ -118,8 +130,9 @@ export default function OwnerProfile() {
           <View style={s.ratingNoneBlock}>
             <Text style={s.ratingNone}>Оценок пока нет</Text>
             <Text style={s.note}>
-              Оценку ставят только стороны закрытой сделки, поэтому у новых участников
-              её не бывает. Это не признак плохого владельца — это признак нового.
+              {deals > 0
+                ? `Уже закрыто: ${plural(deals, 'сделка', 'сделки', 'сделок')} — но оценку ни одна сторона не оставила. Её ставят по желанию, и молчание здесь не отзыв.`
+                : 'Оценку ставят только стороны закрытой сделки, поэтому у новых участников её не бывает. Это не признак плохого владельца — это признак нового.'}
             </Text>
           </View>
         )}
