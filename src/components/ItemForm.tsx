@@ -181,6 +181,10 @@ export function ItemForm({
               {formatTenge(price - Math.round((price * COMMISSION_PCT) / 100))}
             </Text>
             <Text style={s.payoutNote}>комиссия платформы {COMMISSION_PCT}%</Text>
+            <Text style={s.payoutDays}>
+              за трое суток —{' '}
+              {formatTenge((price - Math.round((price * COMMISSION_PCT) / 100)) * 3)}
+            </Text>
           </View>
         ) : null}
       </View>
@@ -283,14 +287,27 @@ const s = StyleSheet.create({
   // мелким шрифтом среди подсказок.
   payout: {
     backgroundColor: colors.greenSoft,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
   },
-  payoutLabel: { fontSize: 12, fontFamily: typeface[600], color: colors.green },
-  payoutValue: { fontSize: 22, fontFamily: typeface[800], color: colors.green },
+  payoutLabel: {
+    fontSize: 11,
+    fontFamily: typeface[700],
+    color: colors.green,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
+  payoutValue: { fontSize: 38, fontFamily: typeface[800], color: colors.green, letterSpacing: -1.2 },
   payoutNote: { fontSize: 11, fontFamily: typeface[400], color: colors.green, opacity: 0.8 },
+  payoutDays: {
+    fontSize: 13,
+    fontFamily: typeface[600],
+    color: colors.green,
+    opacity: 0.9,
+    marginTop: 4,
+  },
 
   photos: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   photo: { width: 88, height: 88, borderRadius: radius.md, backgroundColor: colors.border },
