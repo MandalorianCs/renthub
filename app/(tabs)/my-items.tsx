@@ -13,6 +13,7 @@ import {
 } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, formatDate, formatDateRange, formatTenge } from '../../src/lib/format';
+import { shareItem } from '../../src/lib/share';
 import { humanizeError } from '../../src/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -39,6 +40,8 @@ export default function MyItems() {
   const [news, setNews] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Какая ссылка скопирована: галочка на одной строке, а не на всех.
+  const [copied, setCopied] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -245,6 +248,24 @@ export default function MyItems() {
 
                 {/* Действия владельца прямо в списке: раньше править было
                     нельзя вообще, а снять с публикации — только через базу. */}
+                {/* Поделиться — способ, которым пилот и растёт: владелец
+                    показывает вещь соседу и отправляет ссылку. Без неё
+                    остаётся «найди в приложении», а это обрыв пути. */}
+                <Pressable
+                  hitSlop={8}
+                  style={s.iconBtn}
+                  onPress={async () => {
+                    const result = await shareItem(item.id, item.title);
+                    if (result === 'copied') setCopied(item.id);
+                  }}
+                >
+                  <Ionicons
+                    name={copied === item.id ? 'checkmark' : 'share-outline'}
+                    size={18}
+                    color={copied === item.id ? colors.green : colors.textMuted}
+                  />
+                </Pressable>
+
                 <Pressable
                   hitSlop={8}
                   style={s.iconBtn}

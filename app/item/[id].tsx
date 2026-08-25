@@ -19,6 +19,7 @@ import { createBooking, fetchItem, fetchItemCalendar } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { formatDateRange, formatTenge, ratingLabel } from '../../src/lib/format';
 import { calcPrice, countDays } from '../../src/lib/pricing';
+import { shareItem } from '../../src/lib/share';
 import { humanizeError } from '../../src/lib/supabase';
 import type { BusyRange, ItemWithOwner } from '../../src/lib/types';
 import { colors, elevation, radius, spacing, typeface } from '../../src/theme';
@@ -42,6 +43,7 @@ export default function ItemScreen() {
   const [photoIndex, setPhotoIndex] = useState(0);
   const [viewerAt, setViewerAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [shared, setShared] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -150,7 +152,26 @@ export default function ItemScreen() {
       ) : null}
 
       <View style={{ gap: spacing.sm }}>
-        <Text style={s.title}>{item.title}</Text>
+        <View style={s.titleRow}>
+          <Text style={[s.title, { flex: 1 }]}>{item.title}</Text>
+
+          {/* Ссылка на объявление — способ распространения пилота.
+              Владелец показывает вещь соседу, сосед пересылает знакомому;
+              без готовой ссылки этот путь обрывается на «поищи в приложении». */}
+          <Pressable
+            style={({ pressed }) => [s.share, { opacity: pressed ? 0.6 : 1 }]}
+            hitSlop={8}
+            onPress={async () => {
+              const result = await shareItem(item.id, item.title);
+              // «Скопировано» без подтверждения читается как несработавшая
+              // кнопка: на десктопе ничего видимого не происходит.
+              if (result === 'copied') setShared(true);
+            }}
+          >
+            <Ionicons name="share-outline" size={20} color={colors.text} />
+          </Pressable>
+        </View>
+        {shared ? <Text style={s.sharedNote}>Ссылка скопирована</Text> : null}
         <Text style={s.price}>{formatTenge(item.daily_price)} / сутки</Text>
         {item.description ? <Text style={s.description}>{item.description}</Text> : null}
       </View>
@@ -387,6 +408,9 @@ const s = StyleSheet.create({
   stickyTotal: { fontSize: 26, fontFamily: typeface[800], color: colors.text, letterSpacing: -0.8 },
   stickyMeta: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
   photo: { width: 240, height: 180, borderRadius: radius.lg, marginRight: spacing.md, backgroundColor: colors.border },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  share: { padding: 4 },
+  sharedNote: { fontSize: 13, fontFamily: typeface[600], color: colors.green },
   title: { fontSize: 21, fontFamily: typeface[700], color: colors.text, letterSpacing: -0.4 },
   price: { fontSize: 30, fontFamily: typeface[800], color: colors.accent, letterSpacing: -0.9 },
   description: { fontSize: 15, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 22 },
