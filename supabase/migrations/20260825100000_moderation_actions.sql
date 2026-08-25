@@ -187,8 +187,16 @@ grant execute on function moderator_hide_item(uuid, text) to authenticated;
 grant execute on function moderator_notify(uuid, text, text) to authenticated;
 
 -- ── Список участников: показать блокировку ────────────────────
+--
+-- Здесь именно drop, а не create or replace: у функции добавляются две
+-- колонки в returns table, а это OUT-параметры, то есть тип результата.
+-- Заменить тело `create or replace` умеет, тип результата — нет, и падает
+-- прямо посреди деплоя. Дроп снимает и гранты, поэтому они выданы заново
+-- ниже по файлу.
 
-create or replace function moderation_people()
+drop function if exists moderation_people();
+
+create function moderation_people()
 returns table (
   id uuid,
   full_name text,

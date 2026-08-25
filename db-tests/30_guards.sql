@@ -321,18 +321,29 @@ begin
 end $$;
 
 -- Скрытое объявление остаётся скрытым.
+--
+-- Берём t.id('item') — он создан сценарием 1 и к этому моменту существует.
+-- Раньше здесь стоял item_cheap, который заводится только в сценарии 4:
+-- проверка «аноним не видит» проходила потому, что видеть было нечего.
+-- Зелёный тест, который не может упасть, хуже отсутствующего, поэтому
+-- ниже сначала утверждается, что объявление вообще есть.
 select t.as(t.id('owner'), format(
-  'update items set status = ''hidden'' where id = %L', t.id('item_cheap')));
+  'update items set status = ''hidden'' where id = %L', t.id('item')));
 
 do $$
 begin
   perform t.assert(
-    t.as_anon(format('select count(*)::text from items where id = %L', t.id('item_cheap'))) = '0',
+    t.as_value(t.id('owner'),
+      format('select count(*)::text from items where id = %L', t.id('item'))) = '1',
+    'объявление на месте — иначе следующая проверка ничего не значит');
+
+  perform t.assert(
+    t.as_anon(format('select count(*)::text from items where id = %L', t.id('item'))) = '0',
     'снятое с публикации объявление анониму не видно');
 end $$;
 
 select t.as(t.id('owner'), format(
-  'update items set status = ''active'' where id = %L', t.id('item_cheap')));
+  'update items set status = ''active'' where id = %L', t.id('item')));
 
 -- Отзывы — часть витрины: рейтинг без них цифра без объяснения.
 do $$
@@ -484,10 +495,13 @@ begin
       format('select blocked::text from moderation_people() where id = %L', t.id('unverified'))) = 'true',
     'блокировка видна в списке участников');
 
+  -- Читаем из сессии самого адресата, а не модератора: политика
+  -- notifications_read_own пускает только к своим строкам, и модератор
+  -- чужих уведомлений не видит. Это не мешает проверке — важно ровно то,
+  -- что уведомление дошло до того, кого заблокировали.
   perform t.assert(
-    t.as_value(t.id('stranger'),
-      format('select count(*)::text from notifications where user_id = %L and type = ''blocked''',
-        t.id('unverified'))) >= '1',
+    t.as_value(t.id('unverified'),
+      'select count(*)::text from notifications where type = ''blocked''')::int >= 1,
     'заблокированный получил уведомление — узнает о решении, а не упрётся в отказ');
 
   perform t.as(t.id('stranger'), format('select set_user_blocked(%L, false)', t.id('unverified')));
@@ -519,10 +533,10 @@ end $$;
 do $$
 begin
   perform t.as(t.id('stranger'),
-    format('select moderator_hide_item(%L, ''Фото не соответствуют вещи'')', t.id('item_cheap')));
+    format('select moderator_hide_item(%L, ''Фото не соответствуют вещи'')', t.id('item')));
 
   perform t.assert(
-    t.as_value(t.id('stranger'), format('select status::text from items where id = %L', t.id('item_cheap')))
+    t.as_value(t.id('stranger'), format('select status::text from items where id = %L', t.id('item')))
       = 'hidden',
     'модератор снял объявление с публикации');
 
@@ -530,16 +544,34 @@ begin
     format('select moderator_notify(%L, ''Вопрос по объявлению'', ''Уточните комплектацию'')', t.id('owner')));
 
   perform t.assert(
-    t.as_value(t.id('stranger'),
-      format('select count(*)::text from notifications where user_id = %L and type = ''moderator_message''',
-        t.id('owner'))) = '1',
+    t.as_value(t.id('owner'),
+      'select count(*)::text from notifications where type = ''moderator_message''')::int = 1,
     'сообщение модератора легло в уведомления — бот доставит его в Telegram');
 end $$;
 
-select t.as(t.id('owner'), format('update items set status = ''active'' where id = %L', t.id('item_cheap')));
+select t.as(t.id('owner'), format('update items set status = ''active'' where id = %L', t.id('item')));
 
--- Роль модератора из приложения по-прежнему не выдаётся: инвариант не тронут.
-select t.expect_fail(t.id('stranger'),
+-- Роль модератора из приложения по-прежнему не выдаётся. Защищают её два
+-- разных механизма, и проверять их надо порознь.
+--
+-- Чужую строку закрывает RLS: users_update_own пускает только к своей.
+-- Запрос к чужой при этом НЕ падает — политика фильтрует строки, а не
+-- отклоняет запрос, и update молча меняет ноль строк. Ждать здесь
+-- исключения бессмысленно: проверять надо результат.
+do $$
+begin
+  perform t.as(t.id('stranger'),
+    format('update users set is_moderator = true where id = %L', t.id('renter')));
+
+  perform t.assert(
+    (select not is_moderator from users where id = t.id('renter')),
+    'модератор не выдал роль другому — чужую строку закрывает RLS');
+end $$;
+
+-- Свою строку RLS пускает, и вот здесь работает триггер
+-- users_protect_moderator_role. Это и есть настоящий путь эскалации:
+-- без триггера любой вошедший поставил бы себе is_moderator одним запросом.
+select t.expect_fail(t.id('renter'),
   format('update users set is_moderator = true where id = %L', t.id('renter')),
   'роль модератора выдаётся только сервисным ключом');
 
