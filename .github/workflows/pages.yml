@@ -1,0 +1,87 @@
+# Публикация сайта при каждом пуше в main.
+#
+# Зачем. Раньше `docs/` была собранной копией, лежащей в репозитории: чтобы
+# сайт догнал код, кто-то должен был вспомнить про `npm run build:pages` и
+# закоммитить результат. Забыли — и на живом адресе старая версия при свежем
+# коде, а понять это можно только сравнив имена бандлов.
+#
+# Теперь копию собирает GitHub при пуше. Забыть нечего: если код уехал в
+# main, сайт из него и соберётся.
+#
+# Побочная польза: история перестаёт толстеть. Каждая пересборка добавляла
+# в неё бандл на 2 МБ, хотя это производное от исходников, а не исходник.
+
+name: Публикация на Pages
+
+on:
+  push:
+    branches: [main]
+  # Ручной запуск — на случай, когда нужно пересобрать без изменений в коде:
+  # например, после смены переменной окружения в настройках репозитория.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Параллельные публикации отменяют друг друга: если пушей было два подряд,
+# смысл имеет только последний. Без этого они гонятся за одним и тем же
+# адресом и выигрывает не обязательно свежий.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Переменные окружения сборки. Anon-ключ публичный по замыслу — он и
+      # так вшит в бандл, который раздаётся всем. Но держать его в
+      # переменных репозитория удобнее: смена ключа не требует правки кода.
+      #
+      # Задать: Settings → Secrets and variables → Actions → Variables.
+      # Если переменные не заданы, сборка честно упадёт на проверке ниже,
+      # а не выложит приложение без адреса базы.
+      - name: Проверить переменные
+        env:
+          URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "✗ Не заданы EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY"
+            echo "  Settings → Secrets and variables → Actions → Variables"
+            exit 1
+          fi
+
+      - name: Собрать сайт
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_PILOT_CITY: ${{ vars.EXPO_PUBLIC_PILOT_CITY || 'kokshetau' }}
+          EXPO_PUBLIC_AUTH_MODE: ${{ vars.EXPO_PUBLIC_AUTH_MODE || 'sms' }}
+          EXPO_PUBLIC_TELEGRAM_BOT: ${{ vars.EXPO_PUBLIC_TELEGRAM_BOT || 'renthub_kokshetau_bot' }}
+        run: npm run build:pages
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

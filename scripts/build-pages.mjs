@@ -54,6 +54,12 @@ cpSync(join(ROOT, 'landing', 'index.html'), join(DOCS, 'index.html'));
 // весь SVG внутри, внешних файлов нет.
 cpSync(join(ROOT, 'landing', 'diagrams'), join(DOCS, 'diagrams'), { recursive: true });
 
+// Питч — отдельная страница, а не замена лендинга: лендинг написан для
+// владельцев инструмента, питч — для жюри и инвесторов. Один текст не
+// обслуживает обе аудитории, а адрес /pitch/ удобно диктовать голосом.
+mkdirSync(join(DOCS, 'pitch'), { recursive: true });
+cpSync(join(ROOT, 'landing', 'pitch.html'), join(DOCS, 'pitch', 'index.html'));
+
 // GitHub Pages прогоняет сайт через Jekyll, а тот игнорирует папки,
 // начинающиеся с подчёркивания. Expo кладёт бандл в _expo/static/… —
 // без этого файла сайт откроется, а весь JavaScript вернёт 404, и
@@ -72,13 +78,17 @@ writeFileSync(join(DOCS, '.nojekyll'), '');
 cpSync(join(DOCS, 'app', 'index.html'), join(DOCS, '404.html'));
 
 console.log(`
-✓ Готово. Опубликовать:
+✓ Собрано в docs/ — это локальный предпросмотр.
 
-  1. git add docs && git commit && git push
-  2. В репозитории: Settings → Pages → Source: Deploy from a branch
-     Branch: main, папка: /docs → Save
+  Публикацию делает GitHub Actions при пуше в main
+  (.github/workflows/pages.yml): сайт всегда собирается из того кода,
+  который лежит в main, и забыть пересборку больше нельзя.
 
-Через минуту-две:
+  Открыть собранное локально:
+    docs/index.html      лендинг
+    docs/app/index.html  приложение
+
+Живые адреса:
   лендинг     https://mandaloriancs.github.io/renthub/
   приложение  https://mandaloriancs.github.io/renthub/app/
 `);
