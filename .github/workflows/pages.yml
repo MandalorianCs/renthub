@@ -45,28 +45,18 @@ jobs:
 
       - run: npm ci
 
-      # Переменные окружения сборки. Anon-ключ публичный по замыслу — он и
-      # так вшит в бандл, который раздаётся всем. Но держать его в
-      # переменных репозитория удобнее: смена ключа не требует правки кода.
+      # Значения по умолчанию — публичные по замыслу: адрес проекта и
+      # anon-ключ и так вшиты в бандл, который раздаётся каждому посетителю.
+      # Держать их здесь честнее, чем требовать ручной настройки: сборка
+      # работает сразу после клонирования репозитория.
       #
-      # Задать: Settings → Secrets and variables → Actions → Variables.
-      # Если переменные не заданы, сборка честно упадёт на проверке ниже,
-      # а не выложит приложение без адреса базы.
-      - name: Проверить переменные
-        env:
-          URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
-          KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
-        run: |
-          if [ -z "$URL" ] || [ -z "$KEY" ]; then
-            echo "✗ Не заданы EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY"
-            echo "  Settings → Secrets and variables → Actions → Variables"
-            exit 1
-          fi
-
+      # Переопределить (например, после смены ключа) можно переменными:
+      # Settings → Secrets and variables → Actions → Variables. Заданная
+      # переменная побеждает значение по умолчанию.
       - name: Собрать сайт
         env:
-          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL || 'https://owfsfwqwulpossjbnprp.supabase.co' }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_NU7hn1PyfmEXLsOkY1EECg_phBvx0e9' }}
           EXPO_PUBLIC_PILOT_CITY: ${{ vars.EXPO_PUBLIC_PILOT_CITY || 'kokshetau' }}
           EXPO_PUBLIC_AUTH_MODE: ${{ vars.EXPO_PUBLIC_AUTH_MODE || 'sms' }}
           EXPO_PUBLIC_TELEGRAM_BOT: ${{ vars.EXPO_PUBLIC_TELEGRAM_BOT || 'renthub_kokshetau_bot' }}
