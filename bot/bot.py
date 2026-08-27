@@ -113,6 +113,14 @@ SECRET_KEY = required(
 )
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "15"))
 
+# Город пилота берётся из того же корневого .env, что читает Expo. Значение
+# обязано совпадать с дефолтом items.city в базе: разойдутся — объявления
+# будут создаваться в одном городе, а искаться в другом, и витрина окажется
+# пустой при полной базе.
+PILOT_CITY = os.environ.get("EXPO_PUBLIC_PILOT_CITY", "kokshetau").strip() or "kokshetau"
+
+APP_URL = "https://mandaloriancs.github.io/renthub/app/"
+
 REST = f"{SUPABASE_URL}/rest/v1"
 HEADERS = {
     "apikey": SECRET_KEY,
@@ -143,6 +151,23 @@ class Damage(StatesGroup):
 
     photos = State()
     amount = State()
+
+
+class NewItem(StatesGroup):
+    """
+    Шаги публикации.
+
+    Пять вопросов подряд — много для чата, и короче не выходит: без цены,
+    депозита и фото объявление либо не создастся, либо будет бесполезным.
+    Зато владелец, который сдаёт вторую однотипную вещь, не открывает
+    приложение вовсе, а он и есть основной сценарий пилота.
+    """
+
+    category = State()
+    title = State()
+    price = State()
+    deposit = State()
+    photos = State()
 
 
 def normalize_phone(raw: str) -> str:
@@ -453,6 +478,24 @@ def money(value: int | None) -> str:
     return f"{value or 0:,}".replace(",", " ") + " ₸"
 
 
+# Отмена регистрируется здесь, до всех диалогов, и это не вкусовщина.
+# aiogram выбирает первый подходящий обработчик, а у шагов публикации и
+# претензии фильтр F.text — они перехватили бы «/отмена» раньше и ответили
+# «напишите название». Человек оказался бы заперт в диалоге командой, которую
+# сам же диалог ему и предложил.
+@dp.message(Command("отмена", "cancel"))
+async def on_cancel(message: Message, state: FSMContext) -> None:
+    if await state.get_state() is None:
+        await message.answer("Сейчас нечего отменять.")
+        return
+
+    await state.clear()
+    await message.answer(
+        "Отменил, претензию не подал. Загруженные снимки остались в хранилище — "
+        "они никому не показываются, пока претензии нет."
+    )
+
+
 @dp.message(F.text.in_({"/deals", "/сделки"}))
 async def on_deals(message: Message) -> None:
     async with httpx.AsyncClient(timeout=20) as client:
@@ -657,7 +700,9 @@ async def on_help(message: Message) -> None:
         "и то, что зависит от вас, можно сделать кнопкой прямо в чате: "
         "подтвердить бронь, отметить получение и возврат, закрыть сделку, "
         "отменить заявку, поставить оценку.\n\n"
-        "Витрина, публикация объявлений и споры с фото — в приложении: "
+        "/каталог — свежие объявления, /найти перфоратор — поиск\n"
+        "/сдать — опубликовать свою вещь, не открывая приложение\n\n"
+        "Витрина целиком, с фото и календарём занятости, — в приложении: "
         "https://mandaloriancs.github.io/renthub/app/"
     )
 
@@ -675,6 +720,275 @@ async def on_unlink(message: Message) -> None:
         "Отвязал. Уведомления сюда больше не придут. "
         "Чтобы связать снова — /start."
     )
+
+
+# ── Публикация объявления ─────────────────────────────────────
+#
+# Правила публикации бот не знает: верификацию, блокировку, длину названия
+# и цену больше нуля проверяет create_item() вместе с триггерами таблицы.
+# Здесь только сбор ответов и понятные вопросы.
+
+
+def amount_or_none(text: str) -> int | None:
+    digits = re.sub(r"[^0-9]", "", text or "")
+    return int(digits) if digits else None
+
+
+@dp.message(F.text.in_({"/publish", "/сдать"}))
+async def on_publish(message: Message, state: FSMContext) -> None:
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, message.from_user.id)
+        if user is None:
+            await message.answer("Сначала свяжите Telegram — /start")
+            return
+
+        categories = await rest_get(
+            client, "categories", {"select": "slug,title_ru", "order": "sort_order.asc"}
+        )
+
+    await state.set_state(NewItem.category)
+    await state.update_data(photos=[])
+    await message.answer(
+        "Что сдаёте? Выберите раздел.",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text=row["title_ru"], callback_data=f"c:{row['slug']}")]
+                for row in categories
+            ]
+        ),
+    )
+
+
+@dp.callback_query(F.data.startswith("c:"), NewItem.category)
+async def on_pick_category(query: CallbackQuery, state: FSMContext) -> None:
+    await state.update_data(category=query.data.split(":", 1)[1])
+    await state.set_state(NewItem.title)
+    await query.answer()
+    await query.message.edit_reply_markup(reply_markup=None)
+    await query.message.answer(
+        "Название — коротко и узнаваемо: «Перфоратор Bosch GBH 2-26».\n\n"
+        "По нему ищут, поэтому марка и модель работают лучше, чем «хороший инструмент»."
+    )
+
+
+@dp.message(NewItem.title, F.text)
+async def on_item_title(message: Message, state: FSMContext) -> None:
+    title = (message.text or "").strip()
+
+    if title.startswith("/"):
+        await message.answer("Идёт публикация. Напишите название или /отмена.")
+        return
+
+    await state.update_data(title=title)
+    await state.set_state(NewItem.price)
+    await message.answer(
+        "Сколько берёте за сутки? Напишите числом, в тенге.\n\n"
+        "Платформа удержит 20% — остальное ваше."
+    )
+
+
+@dp.message(NewItem.price, F.text)
+async def on_item_price(message: Message, state: FSMContext) -> None:
+    if (message.text or "").strip().startswith("/"):
+        await message.answer("Идёт публикация. Напишите цену или /отмена.")
+        return
+
+    price = amount_or_none(message.text)
+    if not price:
+        await message.answer("Нужна сумма числом, например 3000.")
+        return
+
+    await state.update_data(price=price)
+    await state.set_state(NewItem.deposit)
+    # Считаем заработок сразу: ради него владелец и публикует, а 20% в уме
+    # от трёх тысяч — не та арифметика, которую делают в чате.
+    await message.answer(
+        f"Ваш заработок: {money(round(price * 0.8))} за сутки.\n\n"
+        "Теперь депозит — сумма, которую заморозят у арендатора на время аренды "
+        "и вернут при целом возврате. Обычно это цена ремонта, а не цена вещи."
+    )
+
+
+@dp.message(NewItem.deposit, F.text)
+async def on_item_deposit(message: Message, state: FSMContext) -> None:
+    if (message.text or "").strip().startswith("/"):
+        await message.answer("Идёт публикация. Напишите депозит или /отмена.")
+        return
+
+    deposit = amount_or_none(message.text)
+    if deposit is None:
+        await message.answer("Нужна сумма числом, например 15000.")
+        return
+
+    await state.update_data(deposit=deposit)
+    await state.set_state(NewItem.photos)
+    await message.answer(
+        "Осталось фото — это фото «до». Именно с ними будут сверять состояние "
+        "вещи при возврате, поэтому снимайте то, что потом захотите доказать: "
+        "царапины, комплектацию, следы использования.\n\n"
+        "Пришлите один снимок или несколько."
+    )
+
+
+@dp.message(NewItem.photos, F.photo)
+async def on_item_photo(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    photos = list(data.get("photos", []))
+
+    if len(photos) >= 6:
+        await message.answer("Шести снимков достаточно — нажмите «Опубликовать».")
+        return
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        user = await user_by_telegram(client, message.from_user.id)
+        if user is None:
+            await state.clear()
+            await message.answer("Сначала свяжите Telegram — /start")
+            return
+
+        file = await message.bot.get_file(message.photo[-1].file_id)
+        buffer = await message.bot.download_file(file.file_path)
+
+        try:
+            url = await upload_photo(client, user["id"], buffer.read())
+        except RentHubError as error:
+            await message.answer(str(error))
+            return
+
+    photos.append(url)
+    await state.update_data(photos=photos)
+    await message.answer(
+        f"Принял, всего {len(photos)} фото.",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="🚀 Опубликовать", callback_data="p:go")]]
+        ),
+    )
+
+
+@dp.callback_query(F.data == "p:go", NewItem.photos)
+async def on_item_publish(query: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+
+    if not data.get("photos"):
+        await query.answer("Сначала пришлите хотя бы одно фото", show_alert=True)
+        return
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        user = await user_by_telegram(client, query.from_user.id)
+        if user is None:
+            await state.clear()
+            await query.answer("Сначала свяжите Telegram — /start", show_alert=True)
+            return
+
+        try:
+            item_id = await rest_rpc(
+                client,
+                "bot_create_item",
+                {
+                    "p_actor": user["id"],
+                    "p_category": data["category"],
+                    "p_title": data["title"],
+                    "p_daily_price": data["price"],
+                    "p_deposit_amount": data["deposit"],
+                    "p_photos": data["photos"],
+                },
+            )
+        except RentHubError as error:
+            # Состояние не чистим: человек ввёл пять ответов, и терять их
+            # из-за короткого названия значило бы заставить пройти всё заново.
+            await query.answer(str(error), show_alert=True)
+            return
+
+    await state.clear()
+    await query.answer("Опубликовано")
+    await query.message.edit_reply_markup(reply_markup=None)
+    await query.message.answer(
+        f"Готово, объявление на витрине.\n{APP_URL}#/item/{item_id}\n\n"
+        "Когда его забронируют, я напишу — подтвердить можно будет кнопкой отсюда."
+    )
+
+
+# ── Витрина ───────────────────────────────────────────────────
+#
+# Каталог в чате намеренно беднее, чем в приложении: ни фото, ни календаря
+# занятости, ни фильтров. Лента карточек с картинками в мессенджере читается
+# хуже сетки на экране, а забронировать всё равно можно только выбрав даты —
+# то есть в приложении.
+#
+# Смысл команды другой: ответить на вопрос «а есть ли вообще перфоратор»
+# не выходя из чата. Ссылка на карточку стоит у каждой строки — переход
+# нужен ровно тогда, когда ответ «есть».
+
+CATALOG_LIMIT = 8
+
+
+def item_line(row: dict) -> str:
+    owner = row.get("owner") or {}
+    rating = owner.get("rating")
+    # Оценку показываем только когда она есть. «0.0» рядом с новым владельцем
+    # читается как «плохой», хотя верно «его ещё не оценивали».
+    mark = f" · ★ {rating}" if rating else ""
+    return (
+        f"• <b>{row['title']}</b> — {money(row.get('daily_price'))} / сутки\n"
+        f"  депозит {money(row.get('deposit_amount'))}{mark}\n"
+        f"  {APP_URL}#/item/{row['id']}"
+    )
+
+
+async def show_catalog(message: Message, search: str | None) -> None:
+    params = {
+        "select": "id,title,daily_price,deposit_amount,"
+        "owner:users!items_owner_id_fkey(full_name,rating)",
+        "status": "eq.active",
+        "city": f"eq.{PILOT_CITY}",
+        "order": "created_at.desc",
+        "limit": str(CATALOG_LIMIT),
+    }
+
+    if search:
+        # Запятая и скобки — служебные символы PostgREST: «дрель, буры»
+        # развалило бы фильтр на два условия и вернуло мусор. То же самое
+        # делает fetchCatalog в приложении.
+        clean = re.sub(r"[,()]", " ", search).strip()
+        params["or"] = f"(title.ilike.*{clean}*,description.ilike.*{clean}*)"
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        rows = await rest_get(client, "items", params)
+
+    if not rows:
+        await message.answer(
+            "Ничего не нашлось.\n\n"
+            "Витрина пилота — только Кокшетау и только инструмент. "
+            f"Посмотреть целиком: {APP_URL}"
+        )
+        return
+
+    head = f"Нашёл по запросу «{search}»:" if search else "Свежие объявления:"
+    tail = (
+        f"\n\nЗабронировать — в приложении: там календарь занятости и расчёт "
+        f"стоимости.\n{APP_URL}"
+    )
+    await message.answer(
+        head + "\n\n" + "\n\n".join(item_line(row) for row in rows) + tail,
+        parse_mode="HTML",
+        disable_web_page_preview=True,
+    )
+
+
+@dp.message(F.text.in_({"/catalog", "/каталог"}))
+async def on_catalog(message: Message) -> None:
+    await show_catalog(message, None)
+
+
+@dp.message(Command("find", "найти"))
+async def on_find(message: Message) -> None:
+    parts = (message.text or "").split(maxsplit=1)
+
+    if len(parts) < 2 or not parts[1].strip():
+        await message.answer("Напишите, что искать: /найти перфоратор")
+        return
+
+    await show_catalog(message, parts[1].strip())
 
 
 # ── Претензия по порче ────────────────────────────────────────
@@ -801,19 +1115,6 @@ async def on_damage_amount(message: Message, state: FSMContext) -> None:
         "Претензия подана. Дальше решает сумма: небольшие закрываются автоматически, "
         "крупные уходят модератору. Обе стороны получат уведомление, а фото видны "
         "в приложении на экране сделки."
-    )
-
-
-@dp.message(Command("отмена", "cancel"))
-async def on_cancel(message: Message, state: FSMContext) -> None:
-    if await state.get_state() is None:
-        await message.answer("Сейчас нечего отменять.")
-        return
-
-    await state.clear()
-    await message.answer(
-        "Отменил, претензию не подал. Загруженные снимки остались в хранилище — "
-        "они никому не показываются, пока претензии нет."
     )
 
 

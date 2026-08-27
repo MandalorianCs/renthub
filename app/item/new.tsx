@@ -13,7 +13,7 @@ export default function NewItem() {
       submitLabel="Опубликовать"
       onSubmit={async (values) => {
         if (!session) return;
-        const item = await createItem({ ownerId: session.user.id, ...values });
+        const item = await createItem(values);
         router.replace(`/item/${item.id}`);
       }}
     />

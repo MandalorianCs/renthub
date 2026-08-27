@@ -107,8 +107,20 @@ export async function fetchMyItems(userId: string): Promise<Item[]> {
   return data ?? [];
 }
 
+/**
+ * Публикация объявления.
+ *
+ * Через RPC, а не insert: тот же вход использует бот, а под сервисным
+ * ключом RLS не применяется — значит правилу место в функции, иначе оно
+ * жило бы в двух местах.
+ *
+ * Владелец и город больше не передаются. Первого функция берёт из
+ * auth.uid(), второй ставит база своим дефолтом. Город, приходивший от
+ * клиента, был единственным способом сломать витрину: разойдись
+ * EXPO_PUBLIC_PILOT_CITY с дефолтом items.city — и объявления создавались
+ * бы в одном городе, а искались в другом.
+ */
 export async function createItem(input: {
-  ownerId: string;
   category: string;
   title: string;
   description: string;
@@ -116,22 +128,14 @@ export async function createItem(input: {
   depositAmount: number;
   photos: string[];
 }): Promise<Item> {
-  const { data, error } = await supabase
-    .from('items')
-    .insert({
-      owner_id: input.ownerId,
-      category: input.category,
-      title: input.title,
-      description: input.description,
-      daily_price: input.dailyPrice,
-      deposit_amount: input.depositAmount,
-      condition_photos: input.photos,
-      city: PILOT_CITY,
-    })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  return rpc<Item>('create_item', {
+    p_category: input.category,
+    p_title: input.title,
+    p_daily_price: input.dailyPrice,
+    p_deposit_amount: input.depositAmount,
+    p_photos: input.photos,
+    p_description: input.description,
+  });
 }
 
 /**

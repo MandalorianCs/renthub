@@ -195,6 +195,81 @@ exception when others then
     'суммы брони при отмене не меняются');
 end $$;
 
+-- ── Публикация объявления из Telegram ─────────────────────────
+
+do $$
+declare
+  v_id uuid;
+begin
+  v_id := bot_create_item(
+    t.id('owner'), 'saws', 'Сабельная пила из бота', 2500, 8000,
+    array['https://example.test/saw.jpg'], 'Проверка публикации через бота');
+
+  perform t.assert(v_id is not null, 'бот опубликовал объявление');
+
+  -- Владелец и город не приходят аргументами: первый берётся из auth.uid(),
+  -- второй — из дефолта таблицы. Раньше оба слал клиент, и город мог
+  -- разойтись с тем, по которому фильтруется витрина.
+  perform t.assert(
+    (select owner_id = t.id('owner') from items where id = v_id),
+    'владелец взят из контекста, а не из аргумента');
+
+  perform t.assert(
+    (select city = 'kokshetau' from items where id = v_id),
+    'город проставила база — клиент его не передаёт');
+
+  perform t.assert(
+    (select status = 'active' from items where id = v_id),
+    'объявление сразу на витрине');
+
+  -- Убираем: следующие сценарии считают объявления владельца.
+  delete from items where id = v_id;
+end $$;
+
+-- Без фото объявление не создаётся: спор разбирают сверкой «до» и «после»,
+-- и объявление без снимков делает претензию неразрешимой.
+do $$
+declare
+  v_err text;
+begin
+  begin
+    perform bot_create_item(t.id('owner'), 'saws', 'Пила без фото', 1000, 2000, null);
+    perform t.assert(false, 'объявление без фото должно было упасть');
+  exception when others then
+    v_err := sqlerrm;
+  end;
+
+  perform t.assert(v_err like '%хотя бы одно фото%',
+    'без фото объявление не публикуется');
+end $$;
+
+-- Заблокированный не публикует. Правило живёт в assert_verified(), и здесь
+-- проверяется, что через бота его не обойти.
+do $$
+declare
+  v_err text;
+begin
+  update users set blocked_at = now() where id = t.id('owner');
+
+  begin
+    perform bot_create_item(t.id('owner'), 'saws', 'Пила заблокированного',
+      1000, 2000, array['https://example.test/x.jpg']);
+    perform t.assert(false, 'заблокированный не должен публиковать');
+  exception when others then
+    v_err := sqlerrm;
+  end;
+
+  update users set blocked_at = null where id = t.id('owner');
+
+  perform t.assert(v_err like '%RENTHUB_BLOCKED%',
+    'блокировка действует и через бота — отказ пришёл из assert_verified');
+end $$;
+
+select t.expect_fail(t.id('renter'),
+  format('select bot_create_item(%L, ''saws'', ''Чужая пила'', 1000, 2000, array[''x''])',
+    t.id('owner')),
+  'permission denied');
+
 -- Главная проверка этой миграции. Обёртка выставляет auth.uid() по
 -- аргументу, поэтому право её вызвать равно праву действовать от любого
 -- имени. Оно должно быть только у сервисного ключа.
