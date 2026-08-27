@@ -14,7 +14,7 @@ import { colors, radius, spacing, typeface } from '../../src/theme';
 
 /** Экран 6: профиль — рейтинг, история сделок, настройки. */
 export default function Profile() {
-  const { session, profile, profileError, isVerified, signOut, refreshProfile } = useAuth();
+  const { session, profile, profileError, isVerified, linkEmail, signOut, refreshProfile } = useAuth();
   const router = useRouter();
 
   const [history, setHistory] = useState<BookingWithItem[]>([]);
@@ -158,6 +158,8 @@ export default function Profile() {
         )}
       </Card>
 
+      <EmailCard current={session?.user.email ?? null} onLink={linkEmail} />
+
       <Card>
         <Pressable
           style={({ pressed }) => [s.linkRow, tap({ pressed })]}
@@ -201,6 +203,101 @@ export default function Profile() {
 
       <Button title="Выйти" variant="ghost" onPress={signOut} />
     </ScrollView>
+  );
+}
+
+/**
+ * Почта для входа.
+ *
+ * Привязывает её сам человек, а не админ-скрипт: почта — личные данные, и
+ * подставлять её за него странно. Supabase шлёт письмо подтверждения, и
+ * адрес меняется только после перехода по ссылке — до этого в аккаунте
+ * остаётся прежний.
+ *
+ * Служебный адрес вида 77010000001@renthub.test показывать как «вашу
+ * почту» нельзя: человек его не заводил, не знает и написать на него
+ * не сможет. Для него это то же самое, что почты нет.
+ */
+function EmailCard({
+  current,
+  onLink,
+}: {
+  current: string | null;
+  onLink: (email: string) => Promise<void>;
+}) {
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const real = current && !current.endsWith('@renthub.test') ? current : null;
+
+  return (
+    <Card>
+      <Text style={s.sectionTitle}>Почта для входа</Text>
+
+      {real ? (
+        <>
+          <Badge label="Привязана" fg={colors.green} bg={colors.greenSoft} />
+          <Text style={s.note}>
+            Вход по почте работает на адрес {real}. Сменить — введите другой ниже,
+            подтверждение придёт письмом на новый адрес.
+          </Text>
+        </>
+      ) : (
+        <Text style={s.note}>
+          Запасной способ войти, если Telegram недоступен. Код или ссылка придут
+          письмом. Пока почта не привязана, вход по ней не работает: незнакомый
+          адрес получает отказ, чтобы на него не завёлся пустой второй аккаунт.
+        </Text>
+      )}
+
+      {sent ? (
+        <Text style={s.note}>
+          Письмо отправлено. Перейдите по ссылке в нём — адрес сменится только после
+          этого. Проверьте папку «Спам».
+        </Text>
+      ) : (
+        <>
+          <Field
+            label={real ? 'Новый адрес' : 'Адрес почты'}
+            placeholder="name@gmail.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            value={value}
+            onChangeText={setValue}
+          />
+          <Button
+            title={real ? 'Сменить почту' : 'Привязать почту'}
+            loading={busy}
+            disabled={!/.+@.+\..+/.test(value.trim())}
+            onPress={async () => {
+              setBusy(true);
+              setError(null);
+              try {
+                await onLink(value);
+                setSent(true);
+              } catch (e) {
+                setError(humanizeError(e));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+          {/* Предупреждение стоит рядом с кнопкой, а не в общей справке:
+              адрес учётной записи и есть логин для входа по приглашению,
+              и человек должен узнать об этом до нажатия, а не когда пароль
+              перестанет подходить. */}
+          <Text style={s.note}>
+            Адрес учётной записи — это и логин для входа по приглашению. После смены
+            пароль из приглашения работает с новой почтой, а не с номером телефона.
+          </Text>
+        </>
+      )}
+
+      {error ? <Text style={s.error}>{error}</Text> : null}
+    </Card>
   );
 }
 

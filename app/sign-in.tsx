@@ -32,7 +32,7 @@ import { colors, radius, spacing, typeface } from '../src/theme';
 const AUTH_MODE = process.env.EXPO_PUBLIC_AUTH_MODE ?? 'invite';
 
 export default function SignIn() {
-  const [tab, setTab] = useState<'invite' | 'sms'>(AUTH_MODE === 'sms' ? 'sms' : 'invite');
+  const [tab, setTab] = useState<'invite' | 'sms' | 'email'>(AUTH_MODE === 'sms' ? 'sms' : 'invite');
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -49,9 +49,13 @@ export default function SignIn() {
             </Text>
           </View>
 
+          {/* Подписи короткие: трёх полных названий («По приглашению»,
+              «Через Telegram», «По почте») в ряд на телефоне не помещается,
+              а перенос на две строки превращает переключатель в блок
+              текста. Способ входа человек выбирает по одному слову. */}
           <View style={s.tabs}>
             <Tab
-              label="По приглашению"
+              label="Приглашение"
               active={tab === 'invite'}
               onPress={() => {
                 setTab('invite');
@@ -59,10 +63,18 @@ export default function SignIn() {
               }}
             />
             <Tab
-              label="Через Telegram"
+              label="Telegram"
               active={tab === 'sms'}
               onPress={() => {
                 setTab('sms');
+                setError(null);
+              }}
+            />
+            <Tab
+              label="Почта"
+              active={tab === 'email'}
+              onPress={() => {
+                setTab('email');
                 setError(null);
               }}
             />
@@ -70,8 +82,10 @@ export default function SignIn() {
 
           {tab === 'invite' ? (
             <InviteForm onError={setError} />
-          ) : (
+          ) : tab === 'sms' ? (
             <SmsForm onError={setError} />
+          ) : (
+            <EmailForm onError={setError} />
           )}
 
           {error ? <Text style={s.error}>{error}</Text> : null}
@@ -235,6 +249,105 @@ function SmsForm({ onError }: { onError: (m: string | null) => void }) {
   );
 }
 
+/**
+ * Вход по почте.
+ *
+ * Работает только для адреса, уже привязанного к аккаунту, — за это
+ * отвечает `shouldCreateUser: false` в sendEmailCode. Незнакомая почта
+ * получает отказ, а не тихо заводит второй аккаунт с пустым профилем.
+ *
+ * Экран принимает оба исхода письма, и это не перестраховка. Пока у
+ * проекта нет своего SMTP, Supabase шлёт письма встроенным сервисом, а на
+ * нём шаблоны править нельзя — приходит ссылка, а не код. Со своим SMTP
+ * шаблон Magic Link меняется на `{{ .Token }}`, и приходит код. Экран,
+ * написанный под один из вариантов, сломался бы при переключении.
+ */
+function EmailForm({ onError }: { onError: (m: string | null) => void }) {
+  const { sendEmailCode, verifyEmailCode } = useAuth();
+  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function run(action: () => Promise<void>) {
+    setBusy(true);
+    onError(null);
+    try {
+      await action();
+    } catch (e) {
+      onError(humanizeError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (step === 'code') {
+    return (
+      <View style={s.form}>
+        <View style={s.step}>
+          <View style={s.stepHead}>
+            <Ionicons name="mail-outline" size={18} color={colors.accent} />
+            <Text style={s.stepTitle}>Письмо отправлено на {email}</Text>
+          </View>
+          <Text style={s.stepBody}>
+            В письме может быть ссылка или код — зависит от настроек почты.
+            Ссылка вернёт вас в приложение уже с входом, код введите ниже.
+            Проверьте папку «Спам».
+          </Text>
+        </View>
+
+        <Field
+          label="Код из письма"
+          placeholder="123456"
+          keyboardType="number-pad"
+          value={code}
+          onChangeText={setCode}
+        />
+        <Button
+          title="Войти"
+          loading={busy}
+          disabled={code.length < 4}
+          onPress={() => run(() => verifyEmailCode(email, code))}
+        />
+        <Button title="Другая почта" variant="ghost" onPress={() => setStep('email')} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={s.form}>
+      <Field
+        label="Почта"
+        placeholder="name@gmail.com"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoComplete="email"
+        value={email}
+        onChangeText={setEmail}
+        hint="Та, которую вы привязали к аккаунту в профиле."
+      />
+      <Button
+        title="Получить письмо"
+        loading={busy}
+        disabled={!/.+@.+\..+/.test(email.trim())}
+        onPress={() => run(async () => {
+          await sendEmailCode(email);
+          setStep('code');
+        })}
+      />
+
+      <View style={s.note}>
+        <Ionicons name="information-circle-outline" size={17} color={colors.textMuted} />
+        <Text style={s.noteText}>
+          Почта работает, только если вы привязали её в профиле. Незнакомый адрес
+          получит отказ: иначе на него завёлся бы пустой второй аккаунт, и ваши
+          сделки в нём бы не нашлись.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function Tab({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <Pressable style={[s.tab, active && s.tabActive]} onPress={onPress}>
@@ -259,7 +372,7 @@ const s = StyleSheet.create({
     borderRadius: radius.pill,
     padding: 5,
   },
-  tab: { flex: 1, paddingVertical: 11, borderRadius: radius.pill, alignItems: 'center' },
+  tab: { flex: 1, paddingVertical: 11, paddingHorizontal: 4, borderRadius: radius.pill, alignItems: 'center' },
   tabActive: { backgroundColor: colors.accent },
   tabText: { fontSize: 14, fontFamily: typeface[700], color: colors.textMuted },
   tabTextActive: { color: colors.onFill },

@@ -41,14 +41,24 @@ function normalizePhone(input) {
 }
 
 
-const [rawPhone, ...nameParts] = process.argv.slice(2);
-const fullName = nameParts.join(' ').trim();
+// Почта распознаётся по «@», а не по позиции: иначе порядок аргументов
+// пришлось бы запоминать, а перепутанные местами имя и адрес дали бы
+// человека по имени «name@gmail.com».
+const args = process.argv.slice(2);
+const [rawPhone, ...rest] = args;
+const realEmail = rest.find((a) => a.includes('@'))?.trim().toLowerCase() ?? null;
+const fullName = rest.filter((a) => !a.includes('@')).join(' ').trim();
 
 if (!rawPhone) {
   console.error(`
 Кого приглашаем?
 
   npm run invite -- +77011234567 "Ержан Ахметов"
+  npm run invite -- +77011234567 "Ержан Ахметов" erzhan@gmail.com
+
+Почта необязательна. С ней человек сможет входить и по письму — код или
+ссылка придут на этот адрес. Без неё аккаунт получает служебный адрес,
+который человек не видит и не вводит.
 `);
   process.exit(1);
 }
@@ -84,7 +94,11 @@ const admin = createClient(url, secret, {
 // Пароль короткий и произносимый: его будут диктовать в мессенджере или
 // вслух, и «Xk9$mP2!vQ» в этом сценарии проигрывает восьми цифрам.
 const password = randomBytes(4).readUInt32BE(0).toString().padStart(8, '0').slice(0, 8);
-const email = inviteEmail(phone);
+// Настоящая почта, если её назвали, становится адресом учётной записи.
+// Второго поля под неё в auth.users нет, и это не обход, а условие:
+// signInWithOtp({ email }) ищет пользователя именно по нему. Служебный
+// адрес остаётся для тех, чью почту мы не знаем.
+const email = realEmail ?? inviteEmail(phone);
 
 const digits = (s) => (s ?? '').replace(/\D/g, '');
 const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 });
@@ -122,11 +136,17 @@ console.log(`
 Передайте человеку это:
 
   Ссылка   https://mandaloriancs.github.io/renthub/app/
-  Телефон  ${phone}
+  Телефон  ${phone}${realEmail ? `
+  Почта    ${realEmail}` : ''}
   Пароль   ${password}
 
-На экране входа он выбирает «У меня есть приглашение», вводит свой номер
+${realEmail
+  ? `Вкладка «Приглашение», номер и пароль — как обычно. Плюс работает
+вкладка «Почта»: письмо с кодом или ссылкой придёт на ${realEmail}.`
+  : `На экране входа он выбирает вкладку «Приглашение», вводит свой номер
 и этот пароль. Адрес почты вводить не нужно — клиент соберёт его сам.
+Вход по письму при этом не работает: почту человек может привязать сам
+в профиле.`}
 
 Пароль нигде не сохранён. Потеряется — запустите команду снова, она
 выдаст новый.

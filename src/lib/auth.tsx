@@ -35,6 +35,34 @@ type AuthState = {
    * его не видит и не вводит. Правило обязано совпадать со scripts/invite.mjs.
    */
   signInWithInvite: (phone: string, password: string) => Promise<void>;
+  /**
+   * Вход по почте: код или ссылка на адрес, привязанный к аккаунту.
+   *
+   * `shouldCreateUser: false` здесь — не оптимизация, а защита от худшего
+   * исхода. По умолчанию Supabase заводит нового пользователя под незнакомый
+   * адрес, и человек, набравший почту, которую он к аккаунту не привязывал,
+   * молча получил бы ВТОРОЙ аккаунт: свой id, пустой профиль, ни сделок, ни
+   * рейтинга. Он бы решил, что приложение потеряло его данные.
+   *
+   * С этим флагом незнакомый адрес получает отказ, а пилот заодно остаётся
+   * закрытым сам собой — ровно как с Telegram, где код уходит только тому,
+   * у кого в профиле есть telegram_id.
+   */
+  sendEmailCode: (email: string) => Promise<void>;
+  verifyEmailCode: (email: string, code: string) => Promise<void>;
+  /**
+   * Привязать почту к своему аккаунту.
+   *
+   * Делает это сам человек, а не админ-скрипт: почта — личные данные, и
+   * подставлять её за него странно. Supabase шлёт письмо подтверждения, и
+   * адрес меняется только после перехода по ссылке.
+   *
+   * Побочный эффект, о котором экран обязан предупредить: адрес учётной
+   * записи и есть логин для входа по приглашению. После смены пароль из
+   * приглашения работает с новой почтой, а не со старым служебным адресом,
+   * который клиент собирал из номера.
+   */
+  linkEmail: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -96,6 +124,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           phone: normalizePhone(phone),
           token: code,
           type: 'sms',
+        });
+        if (error) throw error;
+      },
+      sendEmailCode: async (email) => {
+        const { error } = await supabase.auth.signInWithOtp({
+          email: email.trim().toLowerCase(),
+          options: { shouldCreateUser: false },
+        });
+        if (error) throw error;
+      },
+      verifyEmailCode: async (email, code) => {
+        const { error } = await supabase.auth.verifyOtp({
+          email: email.trim().toLowerCase(),
+          token: code,
+          // `email` — код из письма; `magiclink` — переход по ссылке, и его
+          // обрабатывает сам Supabase при возврате в приложение.
+          type: 'email',
+        });
+        if (error) throw error;
+      },
+      linkEmail: async (email) => {
+        const { error } = await supabase.auth.updateUser({
+          email: email.trim().toLowerCase(),
         });
         if (error) throw error;
       },
