@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Field } from '../src/components/ui';
 import { useAuth } from '../src/lib/auth';
-import { humanizeError } from '../src/lib/supabase';
+import { humanizeError, TELEGRAM_BOT, TELEGRAM_BOT_URL } from '../src/lib/supabase';
 import { colors, radius, spacing, typeface } from '../src/theme';
 
 /**
@@ -182,6 +182,37 @@ function SmsForm({ onError }: { onError: (m: string | null) => void }) {
 
   return (
     <View style={s.form}>
+      {/* Открыть бота — первый шаг, а не сноска внизу.
+          Telegram запрещает боту писать первым тому, кто не начинал с ним
+          диалог. Значит код физически не придёт, пока человек не открыл
+          бота и не поделился номером. Раньше это стояло серым текстом под
+          кнопкой «Получить код» — то есть человек узнавал причину после
+          того, как нажал и ничего не дождался. */}
+      <View style={s.step}>
+        <View style={s.stepHead}>
+          <View style={s.stepNum}>
+            <Text style={s.stepNumText}>1</Text>
+          </View>
+          <Text style={s.stepTitle}>Откройте бота и поделитесь номером</Text>
+        </View>
+        <Text style={s.stepBody}>
+          Telegram не разрешает боту писать первым. Пока вы не начали с ним диалог,
+          отправить код ему некуда.
+        </Text>
+        <Button
+          title={`Открыть @${TELEGRAM_BOT}`}
+          variant="secondary"
+          onPress={() => Linking.openURL(TELEGRAM_BOT_URL)}
+        />
+      </View>
+
+      <View style={s.stepHead}>
+        <View style={s.stepNum}>
+          <Text style={s.stepNumText}>2</Text>
+        </View>
+        <Text style={s.stepTitle}>Вернитесь сюда за кодом</Text>
+      </View>
+
       <Field
         label="Номер телефона"
         placeholder="+7 705 123 45 67"
@@ -189,7 +220,7 @@ function SmsForm({ onError }: { onError: (m: string | null) => void }) {
         autoComplete="tel"
         value={phone}
         onChangeText={setPhone}
-        hint="Код придёт в Telegram от бота RentHUB. Номер видят только стороны сделки."
+        hint="Тот же номер, которым поделились с ботом. Его видят только стороны сделки."
       />
       <Button
         title="Получить код"
@@ -200,14 +231,6 @@ function SmsForm({ onError }: { onError: (m: string | null) => void }) {
           setStep('code');
         })}
       />
-
-      <View style={s.note}>
-        <Ionicons name="information-circle-outline" size={17} color={colors.textMuted} />
-        <Text style={s.noteText}>
-          Код приходит в Telegram. Если вы ещё не открывали бота — откройте и нажмите
-          «Поделиться номером»: писать первым Telegram боту не разрешает.
-        </Text>
-      </View>
     </View>
   );
 }
@@ -242,6 +265,27 @@ const s = StyleSheet.create({
   tabTextActive: { color: colors.onFill },
 
   form: { gap: spacing.lg },
+
+  // Первый шаг выделен подложкой: без него второй не работает, и это должно
+  // читаться как условие, а не как совет.
+  step: {
+    gap: spacing.md,
+    backgroundColor: colors.accentSoft,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+  },
+  stepHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  stepNum: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNumText: { fontSize: 12, fontFamily: typeface[800], color: colors.onFill },
+  stepTitle: { flex: 1, fontSize: 15, fontFamily: typeface[700], color: colors.text },
+  stepBody: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 19 },
   note: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
   noteText: { flex: 1, fontSize: 13, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 19 },
   error: { color: colors.danger, fontSize: 14, fontFamily: typeface[400], textAlign: 'center' },
