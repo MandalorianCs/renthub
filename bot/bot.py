@@ -35,7 +35,9 @@ import json
 import logging
 import os
 import re
+import secrets
 import sys
+import time
 
 # Консоль Windows по умолчанию не в UTF-8, и Python выводит в неё русский
 # текст с заменами вида ✗ вместо символов. Одна строка снимает весь
@@ -46,7 +48,10 @@ if hasattr(sys.stdout, "reconfigure"):
 
 import httpx
 from aiogram import Bot, Dispatcher, F
-from aiogram.filters import CommandStart
+from aiogram.filters import Command, CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -126,7 +131,18 @@ logging.getLogger("aiogram.event").setLevel(logging.WARNING)
 
 log = logging.getLogger("renthub-bot")
 
-dp = Dispatcher()
+# Хранилище состояний в памяти: единственный диалог в несколько шагов —
+# претензия по порче, и он живёт минуты. При перезапуске бота недособранная
+# претензия потеряется, и это правильнее, чем поднимать ради неё Redis:
+# человек начнёт заново, а не отправит фото в пустоту.
+dp = Dispatcher(storage=MemoryStorage())
+
+
+class Damage(StatesGroup):
+    """Шаги претензии: сначала фото «после», потом сумма ущерба."""
+
+    photos = State()
+    amount = State()
 
 
 def normalize_phone(raw: str) -> str:
@@ -206,6 +222,35 @@ async def rest_rpc(client: httpx.AsyncClient, fn: str, body: dict):
     return response.json() if response.content else None
 
 
+# Тот же bucket и тот же вид пути, что у приложения: <user_id>/<файл>.
+# Это не косметика — политика item_photos_write разрешает человеку писать
+# только в свою папку, а item_photos_delete по ней же даёт удалять. Положи
+# бот файл в свою папку или в корень, владелец не смог бы удалить снимок
+# собственной вещи.
+STORAGE = f"{SUPABASE_URL}/storage/v1"
+PHOTO_BUCKET = "item-photos"
+
+
+async def upload_photo(client: httpx.AsyncClient, user_id: str, data: bytes) -> str:
+    """
+    Фото из Telegram в хранилище проекта. Возвращает публичный адрес.
+
+    Telegram отдаёт снимки перекодированными в JPEG, поэтому расширение
+    здесь одно и угадывать тип не из чего — в отличие от приложения, куда
+    файл приходит из галереи как есть.
+    """
+    name = f"{user_id}/{int(time.time() * 1000)}-{secrets.token_hex(3)}.jpg"
+    response = await client.post(
+        f"{STORAGE}/object/{PHOTO_BUCKET}/{name}",
+        headers={**HEADERS, "Content-Type": "image/jpeg"},
+        content=data,
+    )
+    if response.status_code >= 400:
+        raise RentHubError(humanize(response))
+
+    return f"{STORAGE}/object/public/{PHOTO_BUCKET}/{name}"
+
+
 async def user_by_telegram(client: httpx.AsyncClient, telegram_id: int) -> dict | None:
     found = await rest_get(
         client,
@@ -242,7 +287,10 @@ ACTIONS: dict[tuple[str, bool], tuple[tuple[str, str], ...]] = {
     ("pending", False): (("✖️ Отменить заявку", "cancel"),),
     ("confirmed", False): (("📦 Забрал вещь", "picked_up"),),
     ("active", True): (("📥 Принял вещь обратно", "returned"),),
-    ("returned", True): (("✅ Всё в порядке, закрыть", "complete"),),
+    ("returned", True): (
+        ("✅ Всё в порядке, закрыть", "complete"),
+        ("⚠️ Заявить о порче", "dispute"),
+    ),
 }
 
 RPC_BY_ACTION = {
@@ -513,8 +561,13 @@ async def send_move_card(send, row: dict, is_owner: bool) -> None:
 
 
 @dp.callback_query(F.data.startswith("a:"))
-async def on_action(query: CallbackQuery) -> None:
+async def on_action(query: CallbackQuery, state: FSMContext) -> None:
     _, action, booking_id = query.data.split(":", 2)
+
+    if action == "dispute":
+        await start_damage(query, state, booking_id)
+        return
+
     fn = RPC_BY_ACTION.get(action)
 
     if fn is None:
@@ -621,6 +674,146 @@ async def on_unlink(message: Message) -> None:
     await message.answer(
         "Отвязал. Уведомления сюда больше не придут. "
         "Чтобы связать снова — /start."
+    )
+
+
+# ── Претензия по порче ────────────────────────────────────────
+#
+# Единственный диалог в несколько шагов. Всё остальное бот делает одной
+# кнопкой, и это не случайно: в чате каждый лишний шаг — это место, где
+# человек отвлёкся и не вернулся. Здесь шагов два, потому что меньше не
+# выходит: без фото претензию не примут, а сумму никто, кроме владельца,
+# не назовёт.
+#
+# Проверяет всё open_damage_dispute: и что заявляет владелец, и что окно
+# претензии не закрылось, и что фото есть. Бот только собирает.
+
+
+async def start_damage(query: CallbackQuery, state: FSMContext, booking_id: str) -> None:
+    await state.set_state(Damage.photos)
+    await state.update_data(booking_id=booking_id, photos=[])
+    await query.answer()
+    await query.message.answer(
+        "Пришлите фото повреждений — можно несколько подряд.\n\n"
+        "Их сверят с фото «до», снятыми при публикации. Без снимков претензию "
+        "не примут: спор без них — слово против слова.\n\n"
+        "Передумали — /отмена."
+    )
+
+
+@dp.message(Damage.photos, F.photo)
+async def on_damage_photo(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    photos = list(data.get("photos", []))
+
+    if len(photos) >= 6:
+        await message.answer("Шести снимков достаточно — нажмите «Фото всё».")
+        return
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        user = await user_by_telegram(client, message.from_user.id)
+        if user is None:
+            await state.clear()
+            await message.answer("Сначала свяжите Telegram — /start")
+            return
+
+        # Берём самый крупный вариант: Telegram присылает лесенку размеров, а
+        # спор разбирают по деталям — на превью царапину не видно.
+        file = await message.bot.get_file(message.photo[-1].file_id)
+        buffer = await message.bot.download_file(file.file_path)
+
+        try:
+            url = await upload_photo(client, user["id"], buffer.read())
+        except RentHubError as error:
+            await message.answer(str(error))
+            return
+
+    photos.append(url)
+    await state.update_data(photos=photos)
+    await message.answer(
+        f"Принял, всего {len(photos)} фото.",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="✔️ Фото всё", callback_data="d:done")]]
+        ),
+    )
+
+
+@dp.callback_query(F.data == "d:done", Damage.photos)
+async def on_damage_done(query: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+
+    if not data.get("photos"):
+        await query.answer("Сначала пришлите хотя бы одно фото", show_alert=True)
+        return
+
+    await state.set_state(Damage.amount)
+    await query.answer()
+    await query.message.edit_reply_markup(reply_markup=None)
+    await query.message.answer(
+        "Во сколько оцениваете ущерб? Напишите сумму в тенге, числом.\n\n"
+        "Больше депозита удержать нельзя: назовёте больше — удержат депозит. "
+        "Небольшие суммы закрываются автоматически, крупные смотрит модератор."
+    )
+
+
+@dp.message(Damage.amount, F.text)
+async def on_damage_amount(message: Message, state: FSMContext) -> None:
+    text = (message.text or "").strip()
+
+    # Человек в середине диалога набрал команду — значит хотел выйти, а не
+    # назвать сумму. Молча съесть «/deals» и ждать число значит запереть его.
+    if text.startswith("/"):
+        await message.answer("Сейчас идёт претензия. Закончите сумму или напишите /отмена.")
+        return
+
+    digits = re.sub(r"[^0-9]", "", text)
+    if not digits:
+        await message.answer("Нужна сумма числом, например 12000.")
+        return
+
+    data = await state.get_data()
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        user = await user_by_telegram(client, message.from_user.id)
+        if user is None:
+            await state.clear()
+            await message.answer("Сначала свяжите Telegram — /start")
+            return
+
+        try:
+            await rest_rpc(
+                client,
+                "bot_open_damage_dispute",
+                {
+                    "p_actor": user["id"],
+                    "p_booking_id": data["booking_id"],
+                    "p_claim_amount": int(digits),
+                    "p_photos": data["photos"],
+                },
+            )
+        except RentHubError as error:
+            await state.clear()
+            await message.answer(str(error))
+            return
+
+    await state.clear()
+    await message.answer(
+        "Претензия подана. Дальше решает сумма: небольшие закрываются автоматически, "
+        "крупные уходят модератору. Обе стороны получат уведомление, а фото видны "
+        "в приложении на экране сделки."
+    )
+
+
+@dp.message(Command("отмена", "cancel"))
+async def on_cancel(message: Message, state: FSMContext) -> None:
+    if await state.get_state() is None:
+        await message.answer("Сейчас нечего отменять.")
+        return
+
+    await state.clear()
+    await message.answer(
+        "Отменил, претензию не подал. Загруженные снимки остались в хранилище — "
+        "они никому не показываются, пока претензии нет."
     )
 
 
