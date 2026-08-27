@@ -1,3 +1,4 @@
+import table from '../../shared/next-move.json';
 import type { Booking } from './types';
 
 /**
@@ -8,9 +9,15 @@ import type { Booking } from './types';
  * или от системы. Для сделки, где на кону депозит в 20 000 ₸, это главный
  * вопрос — и он должен быть написан словами, а не выведен из статуса.
  *
- * Функция намеренно живёт отдельно от экрана: то же самое понадобится
- * Telegram-боту, который будет писать людям «ваш ход», и логика не должна
- * при этом расходиться с приложением.
+ * Тексты лежат в shared/next-move.json, а не здесь. Причина записана там
+ * же: тот же текст читает Telegram-бот, и расходиться они не должны.
+ * Пока таблица была кодом на TypeScript, у бота оставалось два выхода —
+ * переписать её по-питоновски или молчать о том, чей ход. Первое
+ * расходится на второй правке, второе делает бота бесполезным ровно там,
+ * где он нужен.
+ *
+ * Функция при этом осталась чистой: никакого запроса, только те данные,
+ * что уже загружены экраном.
  */
 
 export type Move = {
@@ -22,106 +29,9 @@ export type Move = {
   icon: 'hand-right-outline' | 'time-outline' | 'checkmark-circle-outline' | 'alert-circle-outline';
 };
 
+type Table = Record<string, { owner: Move; renter: Move }>;
+
 export function nextMove(booking: Booking, isOwner: boolean): Move {
-  const other = isOwner ? 'арендатора' : 'владельца';
-
-  switch (booking.status) {
-    case 'pending':
-      return isOwner
-        ? {
-            yours: true,
-            title: 'Подтвердите бронь',
-            body:
-              'Даты уже закрыты от других арендаторов. Пока вы не подтвердите, ' +
-              'сделка не начнётся, а человек ждёт.',
-            icon: 'hand-right-outline',
-          }
-        : {
-            yours: false,
-            title: `Ждём ${other}`,
-            body: 'Он подтверждает бронь. Депозит уже заблокирован, деньги не списаны.',
-            icon: 'time-outline',
-          };
-
-    case 'confirmed':
-      return isOwner
-        ? {
-            yours: false,
-            title: `Ждём ${other}`,
-            body: 'Передайте вещь и дождитесь, пока он отметит получение в приложении.',
-            icon: 'time-outline',
-          }
-        : {
-            yours: true,
-            title: 'Отметьте получение',
-            body:
-              'Когда заберёте вещь — нажмите кнопку. С этого момента пойдёт срок аренды, ' +
-              'и владелец увидит, что вещь у вас.',
-            icon: 'hand-right-outline',
-          };
-
-    case 'active':
-      return isOwner
-        ? {
-            yours: true,
-            title: 'Примите вещь после возврата',
-            body:
-              'Когда получите вещь обратно — отметьте это. Пока не отметите, ' +
-              'система будет считать её невозвращённой.',
-            icon: 'hand-right-outline',
-          }
-        : {
-            yours: true,
-            title: 'Верните вовремя',
-            body:
-              'После окончания аренды есть небольшой запас времени. Если не вернуть — ' +
-              'откроется спор о невозврате, и депозит удержат.',
-            icon: 'time-outline',
-          };
-
-    case 'returned':
-      return isOwner
-        ? {
-            yours: true,
-            title: 'Проверьте состояние вещи',
-            body:
-              'Всё в порядке — закройте сделку, и деньги начислятся. Есть повреждения — ' +
-              'заявите о них с фото. Если ничего не делать, сделка закроется сама.',
-            icon: 'hand-right-outline',
-          }
-        : {
-            yours: false,
-            title: `Ждём ${other}`,
-            body:
-              'Он проверяет состояние вещи. Если промолчит — сделка закроется сама, ' +
-              'и депозит вернётся.',
-            icon: 'time-outline',
-          };
-
-    case 'completed':
-      return {
-        yours: true,
-        title: 'Сделка закрыта',
-        body: 'Депозит отпущен. Оцените вторую сторону — это единственное, что осталось.',
-        icon: 'checkmark-circle-outline',
-      };
-
-    case 'disputed':
-      return {
-        yours: false,
-        title: 'Идёт разбор',
-        body:
-          'Депозит удержан до решения. Мелкие претензии закрываются автоматически, ' +
-          'крупные смотрит модератор.',
-        icon: 'alert-circle-outline',
-      };
-
-    case 'cancelled':
-      return {
-        yours: false,
-        title: 'Заявка отменена',
-        body: 'Даты освободились. Деньги и депозит не удерживаются.',
-        icon: 'checkmark-circle-outline',
-      };
-  }
+  const row = (table as unknown as Table)[booking.status];
+  return isOwner ? row.owner : row.renter;
 }

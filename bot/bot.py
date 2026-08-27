@@ -18,14 +18,20 @@
 запрещено самим Telegram, а не выбором архитектуры. Отсюда порядок: сначала
 человек открывает бота, потом ему можно писать.
 
-Он не двигает статусы сделок. Переходы живут в RPC Postgres и опираются на
-auth.uid(); у сервисного ключа такого идентификатора нет. Управление из
-Telegram появится, когда бот научится получать пользовательский токен, —
-иначе правила пришлось бы дублировать, и они разъехались бы (см. README,
-раздел про Trust Score).
+Он не проверяет правила сделки — ни кто владелец, ни какой статус. Действия
+идут через обёртки bot_* : они выставляют auth.uid() и зовут ту же функцию,
+что зовёт приложение. Поэтому «подтверждать бронь может только владелец» —
+это ответ базы, а не проверка в боте. Скопировать сюда хоть одно правило
+означало бы завести второй источник правды, который однажды разойдётся
+молча (см. README, раздел про Trust Score).
+
+Он не показывает витрину. Каталог с фото, календарём занятости и формой
+публикации в чате получится хуже, чем в приложении, — поэтому здесь только
+то, ради чего человека дёргают: сделки и действия по ним.
 """
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -42,6 +48,9 @@ import httpx
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart
 from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
@@ -145,6 +154,132 @@ async def rest_get(client: httpx.AsyncClient, path: str, params: dict) -> list[d
 async def rest_patch(client: httpx.AsyncClient, path: str, params: dict, body: dict) -> None:
     response = await client.patch(f"{REST}/{path}", params=params, headers=HEADERS, json=body)
     response.raise_for_status()
+
+
+class RentHubError(Exception):
+    """Отказ базы, уже переведённый на человеческий язык."""
+
+
+# Часть запретов — это ограничения самого Postgres, и текст у них английский
+# и технический. «conflicting key value violates exclusion constraint» не
+# говорит человеку ничего, хотя означает всего лишь «даты уже заняты».
+# Список повторяет humanizeError в src/lib/supabase.ts: один и тот же отказ
+# обязан звучать одинаково в приложении и в чате.
+CONSTRAINT_MESSAGES = (
+    ("bookings_no_overlap", "Эти даты уже заняты — выберите другие"),
+    ("reviews_booking_id_from_user_id_key", "Вы уже оставили отзыв по этой сделке"),
+    ("disputes_booking_id_type_key", "Претензия по этой сделке уже подана"),
+)
+
+
+def humanize(response: httpx.Response) -> str:
+    try:
+        raw = (response.json() or {}).get("message") or response.text
+    except ValueError:
+        raw = response.text
+
+    for needle, text in CONSTRAINT_MESSAGES:
+        if needle in raw:
+            return text
+
+    # Свои отказы приходят как «RENTHUB_FORBIDDEN: подтверждать бронь может
+    # только владелец» — хвост уже написан для человека, его и показываем.
+    match = re.search(r"RENTHUB_[A-Z_]+:\s*(.+)", raw)
+    if match:
+        return match.group(1).strip()
+
+    log.warning("непереведённый отказ базы: %s", raw[:300])
+    return "Не получилось. Попробуйте ещё раз или откройте приложение."
+
+
+async def rest_rpc(client: httpx.AsyncClient, fn: str, body: dict):
+    """
+    Вызов функции Postgres — единственный способ, которым бот меняет данные.
+
+    Обёртки bot_* выставляют auth.uid() и зовут ту же функцию, что зовёт
+    приложение. Поэтому бот не проверяет ни владельца, ни статус сделки — он
+    их не знает и знать не должен. Отказ приходит текстом самой функции.
+    """
+    response = await client.post(f"{REST}/rpc/{fn}", headers=HEADERS, json=body)
+    if response.status_code >= 400:
+        raise RentHubError(humanize(response))
+    return response.json() if response.content else None
+
+
+async def user_by_telegram(client: httpx.AsyncClient, telegram_id: int) -> dict | None:
+    found = await rest_get(
+        client,
+        "users",
+        {"telegram_id": f"eq.{telegram_id}", "select": "id,full_name", "limit": "1"},
+    )
+    return found[0] if found else None
+
+
+# ── Чей ход ───────────────────────────────────────────────────
+#
+# Таблица лежит в shared/next-move.json и читается ещё и приложением
+# (src/lib/nextMove.ts). Переписать её здесь по-питоновски значило бы
+# завести второй источник правды о том, ждут ли чего-то от человека, —
+# и он разошёлся бы с приложением на первой же правке текста.
+
+with open(os.path.join(ROOT, "shared", "next-move.json"), encoding="utf-8") as _f:
+    NEXT_MOVE = json.load(_f)
+
+
+def next_move(status: str, is_owner: bool) -> dict:
+    return (NEXT_MOVE.get(status) or {}).get("owner" if is_owner else "renter") or {}
+
+
+# ── Действия ──────────────────────────────────────────────────
+#
+# Ключ — статус сделки и «вы владелец». Значение — кнопки, ровно те же, что
+# доступны на экране сделки. Лишняя кнопка дыры не откроет: база откажет
+# теми же проверками. Но она обманет ожидание, а в чате это дороже — человек
+# не видит экрана и верит кнопке.
+
+ACTIONS: dict[tuple[str, bool], tuple[tuple[str, str], ...]] = {
+    ("pending", True): (("✅ Подтвердить бронь", "confirm"),),
+    ("pending", False): (("✖️ Отменить заявку", "cancel"),),
+    ("confirmed", False): (("📦 Забрал вещь", "picked_up"),),
+    ("active", True): (("📥 Принял вещь обратно", "returned"),),
+    ("returned", True): (("✅ Всё в порядке, закрыть", "complete"),),
+}
+
+RPC_BY_ACTION = {
+    "confirm": "bot_booking_confirm",
+    "cancel": "bot_cancel_booking",
+    "picked_up": "bot_booking_picked_up",
+    "returned": "bot_booking_returned",
+    "complete": "bot_booking_complete",
+}
+
+# Что сказать после успеха. Не «готово»: человек должен узнать, что
+# изменилось и чего ждать дальше, иначе он пойдёт проверять в приложение —
+# то есть кнопка не сэкономила ему ничего.
+DONE_TEXT = {
+    "confirm": "Бронь подтверждена — арендатор уже знает. Дальше он отметит, что забрал вещь.",
+    "cancel": "Заявка отменена, даты снова свободны.",
+    "picked_up": "Отметил: вещь у вас, срок аренды пошёл. Вернуть — до конца брони.",
+    "returned": "Принято. Теперь можно закрыть сделку или заявить о порче.",
+    "complete": "Сделка закрыта, депозит отпущен. Осталось оценить вторую сторону.",
+}
+
+
+def action_keyboard(booking_id: str, status: str, is_owner: bool) -> InlineKeyboardMarkup | None:
+    rows = [
+        [InlineKeyboardButton(text=label, callback_data=f"a:{action}:{booking_id}")]
+        for label, action in ACTIONS.get((status, is_owner), ())
+    ]
+
+    # Оценка — тоже действие, но выбор из пяти, а не одна кнопка. Ставится
+    # в один ряд: пять отдельных строк заняли бы весь экран телефона.
+    if status == "completed":
+        rows.append([
+            InlineKeyboardButton(text="★" * n, callback_data=f"r:{n}:{booking_id}")
+            for n in (1, 2, 3, 4, 5)
+        ])
+
+    return InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
 
 
 # ── Привязка ──────────────────────────────────────────────────
@@ -338,10 +473,124 @@ async def on_deals(message: Message) -> None:
     block("Сдаёте", as_owner, mine=True)
     block("Арендуете", as_renter, mine=False)
 
-    lines.append("Подробности и действия — в приложении:")
+    lines.append("Подробности — в приложении:")
     lines.append("https://mandaloriancs.github.io/renthub/app/")
 
     await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+    # Отдельными сообщениями — только то, где ход за человеком. Кнопка под
+    # каждой из двадцати сделок превратила бы чат в ленту, а владельца в
+    # пассивном режиме дёргают ровно там, где без него сделка не сдвинется.
+    for rows, is_owner in ((as_owner, True), (as_renter, False)):
+        for row in rows:
+            await send_move_card(message.answer, row, is_owner)
+
+
+async def send_move_card(send, row: dict, is_owner: bool) -> None:
+    """
+    Карточка «ваш ход»: что от вас ждут и кнопка, которая это делает.
+
+    Текст берётся из общей таблицы, а не сочиняется здесь: то же самое
+    читает экран сделки в приложении. Если человек прочитал в чате одно, а
+    на экране увидел другое — он перестанет верить обоим.
+    """
+    move = next_move(row["status"], is_owner)
+    if not move.get("yours"):
+        return
+
+    # Клавиатуры может не быть, и карточка всё равно нужна: у арендатора в
+    # «active» ход за ним — вернуть вовремя, — но нажимать нечего. Молчание
+    # здесь означало бы, что человек узнает о просрочке только из спора.
+    keyboard = action_keyboard(row["id"], row["status"], is_owner)
+
+    item = (row.get("item") or {}).get("title") or "объявление удалено"
+    text = f"<b>{move['title']}</b>\n{item}\n\n{move['body']}"
+    await send(text, parse_mode="HTML", reply_markup=keyboard)
+
+
+# ── Нажатия ───────────────────────────────────────────────────
+
+
+@dp.callback_query(F.data.startswith("a:"))
+async def on_action(query: CallbackQuery) -> None:
+    _, action, booking_id = query.data.split(":", 2)
+    fn = RPC_BY_ACTION.get(action)
+
+    if fn is None:
+        await query.answer("Не знаю такого действия", show_alert=True)
+        return
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, query.from_user.id)
+        if user is None:
+            await query.answer("Сначала свяжите Telegram — /start", show_alert=True)
+            return
+
+        try:
+            await rest_rpc(client, fn, {"p_actor": user["id"], "p_booking_id": booking_id})
+        except RentHubError as error:
+            # Отказ показываем всплывающим окном и оставляем кнопку на месте:
+            # человек мог нажать вторым, и «сделка уже в другом статусе» —
+            # это ответ, а не повод прятать интерфейс.
+            await query.answer(str(error), show_alert=True)
+            return
+
+    await query.answer("Готово")
+    # Кнопку убираем: действие сделано, и повторное нажатие получило бы
+    # отказ от базы. Оставленная кнопка выглядит как «можно ещё раз».
+    await query.message.edit_reply_markup(reply_markup=None)
+    await query.message.answer(DONE_TEXT.get(action, "Готово."))
+
+
+@dp.callback_query(F.data.startswith("r:"))
+async def on_rate(query: CallbackQuery) -> None:
+    _, rating, booking_id = query.data.split(":", 2)
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, query.from_user.id)
+        if user is None:
+            await query.answer("Сначала свяжите Telegram — /start", show_alert=True)
+            return
+
+        # Кого оцениваем, бот не решает — он смотрит, кем человек был в этой
+        # сделке. Взять «кого» из кнопки было бы приглашением подставить
+        # чужого: в callback_data лежит то, что прислал клиент.
+        found = await rest_get(
+            client,
+            "bookings",
+            {"id": f"eq.{booking_id}", "select": "owner_id,renter_id", "limit": "1"},
+        )
+        if not found:
+            await query.answer("Сделка не найдена", show_alert=True)
+            return
+
+        booking = found[0]
+        if user["id"] == booking["owner_id"]:
+            to_user = booking["renter_id"]
+        elif user["id"] == booking["renter_id"]:
+            to_user = booking["owner_id"]
+        else:
+            await query.answer("Это не ваша сделка", show_alert=True)
+            return
+
+        try:
+            await rest_rpc(client, "bot_submit_review", {
+                "p_actor": user["id"],
+                "p_booking_id": booking_id,
+                "p_to_user": to_user,
+                "p_rating": int(rating),
+            })
+        except RentHubError as error:
+            await query.answer(str(error), show_alert=True)
+            return
+
+    await query.answer("Спасибо")
+    await query.message.edit_reply_markup(reply_markup=None)
+    await query.message.answer(
+        f"Оценка {rating} из 5 засчитана. Комментарий можно оставить в приложении — "
+        "в чате его неудобно писать и ещё неудобнее править."
+    )
 
 
 @dp.message(F.text.in_({"/help", "/помощь"}))
@@ -351,7 +600,12 @@ async def on_help(message: Message) -> None:
         "/start — связать Telegram с аккаунтом\n"
         "/deals — активные сделки: что сдаёте и что арендуете\n"
         "/unlink — отвязать Telegram\n\n"
-        "Уведомления о бронях, возвратах и спорах приходят сюда сами."
+        "Уведомления о бронях, возвратах и спорах приходят сюда сами, "
+        "и то, что зависит от вас, можно сделать кнопкой прямо в чате: "
+        "подтвердить бронь, отметить получение и возврат, закрыть сделку, "
+        "отменить заявку, поставить оценку.\n\n"
+        "Витрина, публикация объявлений и споры с фото — в приложении: "
+        "https://mandaloriancs.github.io/renthub/app/"
     )
 
 
@@ -388,7 +642,9 @@ async def deliver_pending(bot: Bot) -> None:
             "notifications",
             {
                 "sent_at": "is.null",
-                "select": "id,title,body,users!notifications_user_id_fkey(telegram_id)",
+                "select": "id,title,body,user_id,booking_id,"
+                "users!notifications_user_id_fkey(telegram_id),"
+                "booking:bookings(id,status,owner_id,item:items(title))",
                 "order": "created_at.asc",
                 "limit": "50",
             },
@@ -407,8 +663,21 @@ async def deliver_pending(bot: Bot) -> None:
             if row.get("body"):
                 text += f"\n\n{row['body']}"
 
+            # Кнопка прямо в уведомлении — то, ради чего бот вообще нужен
+            # владельцу в пассивном режиме: «подтвердите бронь» без кнопки
+            # означает «откройте приложение», то есть уведомление не
+            # экономит ни одного шага.
+            keyboard = None
+            booking = row.get("booking")
+            if booking:
+                keyboard = action_keyboard(
+                    booking["id"], booking["status"], row["user_id"] == booking["owner_id"]
+                )
+
             try:
-                await bot.send_message(chat_id, text, parse_mode="HTML")
+                await bot.send_message(
+                    chat_id, text, parse_mode="HTML", reply_markup=keyboard
+                )
             except Exception as error:  # noqa: BLE001 — причина пишется в лог
                 log.warning("не доставлено %s: %s", row["id"], error)
                 continue
