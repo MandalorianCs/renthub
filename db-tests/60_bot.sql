@@ -1,0 +1,230 @@
+-- Бот действует от имени человека: контекст, правила, отказы.
+--
+-- Проверяется не «функция что-то сделала», а то, ради чего она написана:
+-- проверки НЕ продублированы. Статус меняет booking_confirm(), уведомление
+-- шлёт она же, отказ чужому приходит её текстом. Если кто-то однажды
+-- скопирует правило в обёртку — «чтобы быстрее» или «чтобы понятнее» —
+-- проверка статуса продолжит зеленеть, и расхождение придётся ловить
+-- руками. Поэтому здесь отдельно проверяется происхождение отказа и
+-- побочные следы настоящей функции: уведомление и запланированные выплаты.
+
+\echo ''
+\echo '=== Сценарий 5: бот действует от имени участника ==='
+
+-- Привязка к Telegram — пропуск бота. Владельцу и арендатору её выдаём,
+-- постороннему нет: на нём проверяется отказ.
+update users set telegram_id = 100000001 where id = t.id('owner');
+update users set telegram_id = 100000002 where id = t.id('renter');
+
+-- Бронь далеко в будущем: у объявления есть занятые интервалы из прошлых
+-- сценариев, а bookings_no_overlap не разбирает, кто виноват. Переходы дат
+-- не проверяют — только роли и статусы, — поэтому весь путь проходится.
+select t.as(t.id('renter'), format($sql$
+  insert into bookings (id, item_id, renter_id, owner_id, start_date, end_date,
+                        days, daily_price_snapshot, deposit_snapshot,
+                        rent_total, platform_fee, insurance_fee,
+                        renter_total, owner_payout_total)
+  values (%L, %L, %L, %L, current_date + 60, current_date + 62, 3,
+          0, 0, 0, 0, 0, 0, 0)
+$sql$, t.id('booking_bot'), t.id('item'), t.id('renter'), t.id('owner')));
+
+do $$
+begin
+  perform t.assert(
+    (select status = 'pending' from bookings where id = t.id('booking_bot')),
+    'бронь создана и ждёт подтверждения');
+end $$;
+
+-- ── Весь путь сделки из Telegram ──────────────────────────────
+--
+-- Вызовы идут без сессии — так же, как их сделает бот сервисным ключом.
+-- Не выставляйся контекст, booking_confirm увидела бы auth.uid() пустым и
+-- отказала: владелец не совпал бы с null.
+
+select bot_booking_confirm(t.id('owner'), t.id('booking_bot'));
+
+do $$
+begin
+  perform t.assert(
+    (select status = 'confirmed' from bookings where id = t.id('booking_bot')),
+    'бот подтвердил бронь — auth.uid() внутри увидел владельца');
+
+  -- Уведомление шлёт booking_confirm(), а не обёртка. Его наличие и есть
+  -- доказательство, что отработала настоящая функция, а не копия правила.
+  perform t.assert(
+    (select count(*) from notifications
+      where booking_id = t.id('booking_bot') and type = 'booking_confirmed') = 1,
+    'арендатору ушло уведомление — работала сама booking_confirm');
+
+  perform t.assert(
+    (select count(*) from payouts where booking_id = t.id('booking_bot')) > 0,
+    'выплаты запланированы — обёртка не подменяет собой переход');
+end $$;
+
+select bot_booking_picked_up(t.id('renter'), t.id('booking_bot'));
+
+do $$
+begin
+  perform t.assert(
+    (select status = 'active' and picked_up_at is not null
+       from bookings where id = t.id('booking_bot')),
+    'арендатор подтвердил получение из Telegram');
+end $$;
+
+select bot_booking_returned(t.id('owner'), t.id('booking_bot'));
+
+do $$
+begin
+  perform t.assert(
+    (select status = 'returned' and damage_claim_ends_at is not null
+       from bookings where id = t.id('booking_bot')),
+    'владелец принял вещь — окно на претензию открылось');
+end $$;
+
+select bot_booking_complete(t.id('owner'), t.id('booking_bot'));
+
+do $$
+begin
+  perform t.assert(
+    (select status = 'completed' from bookings where id = t.id('booking_bot')),
+    'сделка закрыта из Telegram целиком');
+
+  perform t.assert(
+    (select deposit_status = 'released' from bookings where id = t.id('booking_bot')),
+    'депозит отпущен — сработал settle_booking, а не обёртка');
+end $$;
+
+-- ── Отзыв ─────────────────────────────────────────────────────
+--
+-- Раньше приложение писало в таблицу напрямую, и правило держали политика
+-- с триггером. Боту этого мало: под сервисным ключом RLS не применяется, а
+-- переключить роль внутри security definer Postgres не даёт. Поэтому
+-- правило переехало в submit_review(), и вход стал общим.
+
+select bot_submit_review(t.id('renter'), t.id('booking_bot'), t.id('owner'), 5,
+  'Забрал и вернул через бота, ни разу не открывал приложение.');
+
+do $$
+begin
+  perform t.assert(
+    (select count(*) from reviews
+      where booking_id = t.id('booking_bot') and from_user_id = t.id('renter')) = 1,
+    'отзыв из Telegram записан');
+
+  perform t.assert(
+    (select ratings_count > 1 from users where id = t.id('owner')),
+    'рейтинг владельца пересчитан триггером — правило одно на оба входа');
+end $$;
+
+-- ── Отказы ────────────────────────────────────────────────────
+
+-- Чужую бронь не подтвердить, и отказ приходит текстом booking_confirm.
+-- Это важнее самого факта отказа: обёртка не знает, кто владелец.
+do $$
+declare
+  v_err text;
+begin
+  begin
+    perform bot_booking_confirm(t.id('renter'), t.id('booking_bot'));
+    perform t.assert(false, 'подтверждение чужой брони должно было упасть');
+  exception when others then
+    v_err := sqlerrm;
+  end;
+
+  perform t.assert(
+    v_err like '%подтверждать бронь может только владелец%'
+      or v_err like '%бронь уже в статусе%',
+    'отказ пришёл текстом booking_confirm — правило не продублировано');
+end $$;
+
+-- Без привязки к Telegram бот не действует: связь telegram_id появляется
+-- только после «Поделиться номером», то есть после подтверждения номера
+-- самим Telegram. Без неё бот не знает, с кем говорит.
+do $$
+declare
+  v_err text;
+begin
+  begin
+    perform bot_booking_confirm(t.id('stranger'), t.id('booking_bot'));
+    perform t.assert(false, 'участник без Telegram должен был получить отказ');
+  exception when others then
+    v_err := sqlerrm;
+  end;
+
+  perform t.assert(
+    v_err like '%не привязан к Telegram%',
+    'без привязки к Telegram бот действовать не может');
+end $$;
+
+-- Отмена закрытой сделки обязана упасть, а не пройти молча. Прямым
+-- UPDATE она проходила бы: политика bookings_cancel_pending фильтрует
+-- строки, а не отклоняет запрос, и ноль изменённых строк выглядит как
+-- успех. В приложении это видно по неизменившемуся экрану, а в чате
+-- человек получил бы «готово» на невыполненное действие.
+do $$
+declare
+  v_err text;
+begin
+  begin
+    perform bot_cancel_booking(t.id('renter'), t.id('booking_bot'));
+    perform t.assert(false, 'отмена закрытой сделки должна была упасть');
+  exception when others then
+    v_err := sqlerrm;
+  end;
+
+  perform t.assert(
+    v_err like '%отменить можно только неподтверждённую бронь%',
+    'отказ пришёл текстом booking_cancel — обёртка правил не знает');
+end $$;
+
+-- Суммы отменённой брони переписать нельзя: функция трогает один столбец.
+-- Раньше это было дырой — арендатор менял renter_total тем же UPDATE,
+-- которым отменял.
+do $$
+declare
+  v_before integer;
+begin
+  select renter_total into v_before from bookings where id = t.id('booking4');
+
+  perform t.as(t.id('renter'),
+    format('select booking_cancel(%L)', t.id('booking4')));
+exception when others then
+  -- booking4 уже закрыта сценарием 4 — отказ ожидаем, важно другое:
+  perform t.assert(
+    (select renter_total from bookings where id = t.id('booking4')) = v_before,
+    'суммы брони при отмене не меняются');
+end $$;
+
+-- Главная проверка этой миграции. Обёртка выставляет auth.uid() по
+-- аргументу, поэтому право её вызвать равно праву действовать от любого
+-- имени. Оно должно быть только у сервисного ключа.
+select t.expect_fail(t.id('renter'),
+  format('select bot_booking_confirm(%L, %L)', t.id('owner'), t.id('booking_bot')),
+  'permission denied');
+
+select t.expect_fail(t.id('renter'),
+  format('select bot_submit_review(%L, %L, %L, 5)',
+    t.id('owner'), t.id('booking_bot'), t.id('renter')),
+  'permission denied');
+
+select t.expect_fail(t.id('renter'),
+  format('select bot_cancel_booking(%L, %L)', t.id('owner'), t.id('booking_bot')),
+  'permission denied');
+
+do $$
+declare
+  v_err text;
+begin
+  begin
+    perform t.as_anon(format('select bot_booking_confirm(%L, %L)::text',
+      t.id('owner'), t.id('booking_bot')));
+    perform t.assert(false, 'анониму вызов должен быть закрыт');
+  exception when others then
+    v_err := sqlerrm;
+  end;
+
+  perform t.assert(v_err like '%permission denied%',
+    'анониму отказано: ' || v_err);
+end $$;
+
+\echo '--- сценарий 5 пройден ---'

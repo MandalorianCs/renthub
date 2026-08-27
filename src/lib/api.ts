@@ -354,9 +354,17 @@ export const markPickedUp = (id: string) => rpc<Booking>('booking_mark_picked_up
 export const markReturned = (id: string) => rpc<Booking>('booking_mark_returned', { p_booking_id: id });
 export const completeBooking = (id: string) => rpc<Booking>('booking_complete', { p_booking_id: id });
 
+/**
+ * Отмена неподтверждённой заявки.
+ *
+ * Через RPC, а не прямым UPDATE. Политика bookings_cancel_pending проверяла
+ * в `with check` только renter_id и статус, поэтому тем же запросом можно
+ * было переписать и суммы своей брони. Функция меняет один столбец, а ещё
+ * отвечает отказом вместо молчаливого нуля изменённых строк — политика
+ * фильтрует строки, и «ничего не подошло» выглядело как успех.
+ */
 export async function cancelBooking(id: string) {
-  const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id);
-  if (error) throw error;
+  return rpc<void>('booking_cancel', { p_booking_id: id });
 }
 
 // ── Споры ─────────────────────────────────────────────────────
@@ -494,21 +502,25 @@ export async function fetchPayouts(userId: string): Promise<Payout[]> {
   return data ?? [];
 }
 
+/**
+ * Отзыв о второй стороне.
+ *
+ * Автор не передаётся: функция берёт его из auth.uid(). Раньше он приходил
+ * полем from_user_id, а совпадение с вошедшим держала политика — теперь
+ * подставить чужого нельзя даже по ошибке. Тот же вход использует бот.
+ */
 export async function submitReview(input: {
   bookingId: string;
-  fromUserId: string;
   toUserId: string;
   rating: number;
   comment?: string;
 }) {
-  const { error } = await supabase.from('reviews').insert({
-    booking_id: input.bookingId,
-    from_user_id: input.fromUserId,
-    to_user_id: input.toUserId,
-    rating: input.rating,
-    comment: input.comment ?? null,
+  return rpc<void>('submit_review', {
+    p_booking_id: input.bookingId,
+    p_to_user: input.toUserId,
+    p_rating: input.rating,
+    p_comment: input.comment ?? null,
   });
-  if (error) throw error;
 }
 
 export async function fetchNotifications(userId: string): Promise<Notification[]> {

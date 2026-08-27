@@ -149,6 +149,7 @@ as $$
     when 'booking4'   then 'cccccccc-0000-4000-8000-000000000004'
     when 'booking5'   then 'cccccccc-0000-4000-8000-000000000005'
     when 'booking6'   then 'cccccccc-0000-4000-8000-000000000006'
+    when 'booking_bot' then 'cccccccc-0000-4000-8000-000000000007'
   end::uuid
 $$;
 

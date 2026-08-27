@@ -42,6 +42,7 @@ const STEPS = [
   ['сценарий 2 — запреты', 'db-tests/30_guards.sql'],
   ['сценарий 3 — просрочка', 'db-tests/40_overdue.sql'],
   ['сценарий 4 — споры', 'db-tests/50_disputes.sql'],
+  ['сценарий 5 — бот от имени участника', 'db-tests/60_bot.sql'],
 ];
 
 const docker = (args, opts = {}) =>

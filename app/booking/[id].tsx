@@ -262,7 +262,6 @@ export default function BookingScreen() {
             act(() =>
               submitReview({
                 bookingId: booking.id,
-                fromUserId: me!,
                 toUserId: isOwner ? booking.renter_id : booking.owner_id,
                 rating,
                 comment,
