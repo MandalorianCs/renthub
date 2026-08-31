@@ -550,6 +550,14 @@ async def on_deals(message: Message) -> None:
         )
         return
 
+    # Контакты обеих ролей сразу: человек видит, с кем связаться, не
+    # открывая приложение — ради этого бот и существует.
+    async with httpx.AsyncClient(timeout=20) as client:
+        contacts = {
+            **await contacts_for(client, user_id, as_owner),
+            **await contacts_for(client, user_id, as_renter),
+        }
+
     lines: list[str] = []
 
     def block(title: str, rows: list[dict], mine: bool) -> None:
@@ -564,7 +572,8 @@ async def on_deals(message: Message) -> None:
             # сумма запутала бы обоих.
             amount = money(row.get("rent_total") if mine else row.get("renter_total"))
             lines.append(f"• {item} — {status}")
-            lines.append(f"  {row['start_date']} → {row['end_date']} · {amount}")
+            lines.append(f"  {row['start_date']} → {row['end_date']} · {amount}"
+                         + contact_line(contacts.get(row["id"])))
         lines.append("")
 
     block("Сдаёте", as_owner, mine=True)
@@ -700,7 +709,7 @@ async def on_help(message: Message) -> None:
     await message.answer(
         "Что я умею:\n\n"
         "/start — связать Telegram с аккаунтом\n"
-        "/deals — активные сделки: что сдаёте и что арендуете\n"
+        "/deals — активные сделки: что сдаёте, что арендуете и с кем связаться\n"
         "/unlink — отвязать Telegram\n\n"
         "Уведомления о бронях, возвратах и спорах приходят сюда сами, "
         "и то, что зависит от вас, можно сделать кнопкой прямо в чате: "
@@ -1012,6 +1021,55 @@ def esc(value) -> str:
     объявлений, где в названии попался угловой знак. Тише не бывает.
     """
     return html.escape(str(value or ""), quote=False)
+
+
+# Статусы, в которых контакт уже открыт. Список повторяет условие внутри
+# booking_contact(): держать его здесь — не дублирование правила, а способ
+# не звать функцию там, где она заведомо откажет. Ошибётся список — бот
+# просто не покажет телефон, а не покажет лишний.
+CONTACT_STATUSES = ("confirmed", "active", "returned", "disputed")
+
+
+async def contacts_for(client, actor_id: str, rows: list[dict]) -> dict:
+    """
+    Контакты вторых сторон для списка сделок — одним заходом.
+
+    Запросы идут параллельно: последовательно они складывались бы в
+    заметную паузу перед первым сообщением, а /deals человек открывает
+    именно чтобы быстро посмотреть.
+
+    return_exceptions=True намеренно: отказ по одной сделке не должен
+    ронять весь список. Контакта не будет только у неё.
+    """
+    live = [r for r in rows if r.get("status") in CONTACT_STATUSES]
+    if not live:
+        return {}
+
+    results = await asyncio.gather(
+        *[
+            rest_rpc(client, "bot_booking_contact",
+                     {"p_actor": actor_id, "p_booking_id": r["id"]})
+            for r in live
+        ],
+        return_exceptions=True,
+    )
+
+    out: dict = {}
+    for row, res in zip(live, results):
+        if isinstance(res, list) and res:
+            out[row["id"]] = res[0]
+    return out
+
+
+def contact_line(contact: dict | None) -> str:
+    """Строка «с кем связаться» или пусто, если контакт ещё не открыт."""
+    if not contact:
+        return ""
+    parts = [esc(contact.get("phone") or "")]
+    if contact.get("telegram_username"):
+        parts.append("@" + esc(contact["telegram_username"]))
+    who = esc(contact.get("full_name") or "вторая сторона")
+    return f"\n  {who}: {' · '.join(p for p in parts if p)}"
 
 
 def item_line(row: dict) -> str:
