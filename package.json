@@ -38,6 +38,7 @@
     "test:db": "node db-tests/run.mjs",
     "seed:users": "node scripts/seed-test-users.mjs",
     "build:pages": "node scripts/build-pages.mjs",
+    "icons": "node scripts/make-icons.mjs",
     "invite": "node scripts/invite.mjs",
     "moderator": "node scripts/moderator.mjs",
     "demo:fill": "node scripts/demo-listings.mjs",
