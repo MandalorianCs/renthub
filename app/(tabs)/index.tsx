@@ -139,7 +139,7 @@ export default function Catalog() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Перфоратор, бетономешалка, леса…"
+            placeholder="Перфоратор, леса, Васильковский…"
             placeholderTextColor={colors.textMuted}
             style={s.searchInput}
           />
