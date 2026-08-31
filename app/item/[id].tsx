@@ -197,6 +197,10 @@ export default function ItemScreen() {
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </Pressable>
         <Row left="Депозит (блокируется)" right={formatTenge(item.deposit_amount)} />
+        {/* Ориентир, а не адрес: точное место арендатор узнаёт после
+            подтверждения брони, как и телефон. До этого момента показывать
+            двор владельца незачем — он ещё никому ничего не обещал. */}
+        {item.pickup_area ? <Row left="Забирать" right={item.pickup_area} /> : null}
       </Card>
 
       {/* Календарь занятости показывается всегда, а не только когда есть

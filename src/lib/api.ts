@@ -127,6 +127,7 @@ export async function createItem(input: {
   dailyPrice: number;
   depositAmount: number;
   photos: string[];
+  pickupArea: string;
 }): Promise<Item> {
   return rpc<Item>('create_item', {
     p_category: input.category,
@@ -135,6 +136,7 @@ export async function createItem(input: {
     p_deposit_amount: input.depositAmount,
     p_photos: input.photos,
     p_description: input.description,
+    p_pickup_area: input.pickupArea,
   });
 }
 
@@ -152,6 +154,7 @@ export async function updateItem(
     dailyPrice: number;
     depositAmount: number;
     photos: string[];
+    pickupArea: string;
   },
 ): Promise<void> {
   const { error } = await supabase
@@ -163,6 +166,9 @@ export async function updateItem(
       daily_price: input.dailyPrice,
       deposit_amount: input.depositAmount,
       condition_photos: input.photos,
+      // Пустая строка -> null, а не '': ограничение таблицы запрещает
+      // пробельный ориентир, и пустое поле формы иначе ломало бы сохранение.
+      pickup_area: input.pickupArea.trim() || null,
     })
     .eq('id', id);
   if (error) throw error;

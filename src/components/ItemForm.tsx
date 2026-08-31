@@ -29,6 +29,7 @@ export type ItemFormValues = {
   dailyPrice: number;
   depositAmount: number;
   photos: string[];
+  pickupArea: string;
 };
 
 /**
@@ -79,6 +80,7 @@ export function ItemForm({
     initial?.depositAmount ? String(initial.depositAmount) : '',
   );
   const [photos, setPhotos] = useState<string[]>(initial?.photos ?? []);
+  const [pickupArea, setPickupArea] = useState(initial?.pickupArea ?? '');
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +156,18 @@ export function ItemForm({
           onChangeText={setDescription}
           placeholder="Что в комплекте, состояние, есть ли буры"
           multiline
+        />
+        {/* Где забирать — рядом с описанием, а не в конце формы: это часть
+            того, что человек решает про вещь, а не деталь оформления.
+            Необязательное: у части владельцев вещь лежит там, где ориентира
+            нет, и требовать его значило бы не пустить их в витрину. */}
+        <Field
+          label="Где забирать"
+          value={pickupArea}
+          onChangeText={setPickupArea}
+          placeholder="мкр. Васильковский или «возле вокзала»"
+          maxLength={80}
+          hint="Район или ориентир. Точный адрес не нужен — его скажете после брони"
         />
       </View>
 
@@ -244,6 +258,7 @@ export function ItemForm({
               dailyPrice: price,
               depositAmount: Number(deposit) || 0,
               photos,
+              pickupArea: pickupArea.trim(),
             });
           } catch (e) {
             setError(humanizeError(e));

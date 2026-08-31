@@ -355,6 +355,20 @@ function ItemCard({
           </Text>
         </View>
 
+        {/* Где забирать — второй вопрос после цены: вещь надо привезти и
+            вернуть, и «через дорогу» против «через весь город» меняет
+            решение сильнее, чем двести тенге. Строки нет, когда владелец
+            ориентир не указал: выдумывать «Кокшетау» вместо него значило бы
+            занять место ничем. */}
+        {item.pickup_area ? (
+          <View style={s.trust}>
+            <Ionicons name="location-outline" size={12} color={colors.textMuted} />
+            <Text style={s.trustText} numberOfLines={1}>
+              {item.pickup_area}
+            </Text>
+          </View>
+        ) : null}
+
         <Text style={s.deposit}>депозит {formatTenge(item.deposit_amount)}</Text>
       </View>
     </Pressable>
