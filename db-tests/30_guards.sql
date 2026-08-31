@@ -151,8 +151,12 @@ select t.expect_fail(t.id('stranger'), format($sql$
 $sql$, t.id('item'), t.id('stranger'), t.id('stranger')), 'bookings_no_overlap');
 
 -- Отмена освобождает даты: тот же диапазон проходит после cancel.
-select t.as(t.id('renter'), format(
-  'update bookings set status = ''cancelled'' where id = %L', t.id('booking2')));
+--
+-- Идёт через booking_cancel(), а не прямым UPDATE: с миграции
+-- 20260831110000 политики на update у bookings нет вовсе. Раньше отмена
+-- писалась в таблицу напрямую, и тем же запросом можно было переписать
+-- суммы — ради этого политику и убрали.
+select t.as(t.id('renter'), format('select booking_cancel(%L)', t.id('booking2')));
 
 do $$
 begin
@@ -225,10 +229,31 @@ begin
 end $$;
 
 -- Убираем за собой, чтобы не мешать следующим сценариям.
-select t.as(t.id('stranger'), format($sql$
-  update bookings set status = 'cancelled'
-   where item_id = %L and renter_id = %L and status = 'pending'
-$sql$, t.id('item'), t.id('stranger')));
+--
+-- Тоже через booking_cancel(): прямой UPDATE после миграции 20260831110000
+-- молча меняет ноль строк, и бронь осталась бы висеть на датах. Вылезло бы
+-- это не здесь, а в сценарии 4 — конфликтом bookings_no_overlap на другой
+-- брони. Ровно тот случай, ради которого правило «проверять результат, а не
+-- отсутствие исключения» и записано.
+do $$
+declare
+  v_id uuid;
+begin
+  select id into v_id
+    from bookings
+   where item_id = t.id('item') and renter_id = t.id('stranger') and status = 'pending'
+   limit 1;
+
+  if v_id is not null then
+    perform t.as(t.id('stranger'), format('select booking_cancel(%L)', v_id));
+  end if;
+
+  perform t.assert(
+    (select count(*) from bookings
+      where item_id = t.id('item') and renter_id = t.id('stranger')
+        and status = 'pending') = 0,
+    'уборка сработала — сценарий 4 стартует с чистыми датами');
+end $$;
 
 -- ── ПРАВИЛО 2. Отзывы ─────────────────────────────────────────
 

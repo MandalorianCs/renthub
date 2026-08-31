@@ -177,22 +177,40 @@ begin
     'отказ пришёл текстом booking_cancel — обёртка правил не знает');
 end $$;
 
--- Суммы отменённой брони переписать нельзя: функция трогает один столбец.
--- Раньше это было дырой — арендатор менял renter_total тем же UPDATE,
--- которым отменял.
+-- Суммы отменённой брони переписать нельзя.
+--
+-- Проверка была слабой: она смотрела, что booking_cancel() не трогает
+-- суммы, — но функция их и не трогает по определению. Главное осталось
+-- непроверенным: закрыт ли ПРЯМОЙ путь, которым дыра и была. До миграции
+-- 20260831110000 политика bookings_cancel_pending разрешала арендатору
+-- сменить статус своим UPDATE, а `with check` смотрел только renter_id и
+-- status — суммы ехали тем же запросом.
+--
+-- Ждать здесь исключения нельзя: RLS фильтрует строки, а не отклоняет
+-- запрос. Без политики UPDATE просто не находит строк и завершается
+-- успехом, изменив ноль. Проверять надо результат.
 do $$
 declare
   v_before integer;
 begin
   select renter_total into v_before from bookings where id = t.id('booking4');
 
-  perform t.as(t.id('renter'),
-    format('select booking_cancel(%L)', t.id('booking4')));
-exception when others then
-  -- booking4 уже закрыта сценарием 4 — отказ ожидаем, важно другое:
+  perform t.as(t.id('renter'), format(
+    'update bookings set status = ''cancelled'', renter_total = 1 where id = %L',
+    t.id('booking4')));
+
   perform t.assert(
     (select renter_total from bookings where id = t.id('booking4')) = v_before,
-    'суммы брони при отмене не меняются');
+    'прямой UPDATE не переписал суммы брони');
+
+  perform t.assert(
+    (select status from bookings where id = t.id('booking4')) <> 'cancelled',
+    'прямой UPDATE не сменил и статус — политики на update больше нет');
+exception when others then
+  -- Отказ вместо тихого нуля тоже годится: важно, что суммы целы.
+  perform t.assert(
+    (select renter_total from bookings where id = t.id('booking4')) = v_before,
+    'прямой UPDATE не переписал суммы брони');
 end $$;
 
 -- ── Публикация объявления из Telegram ─────────────────────────
