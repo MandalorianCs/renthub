@@ -31,6 +31,7 @@
 """
 
 import asyncio
+import html
 import json
 import logging
 import os
@@ -554,9 +555,9 @@ async def on_deals(message: Message) -> None:
     def block(title: str, rows: list[dict], mine: bool) -> None:
         if not rows:
             return
-        lines.append(f"<b>{title}</b>")
+        lines.append(f"<b>{esc(title)}</b>")
         for row in rows:
-            item = (row.get("item") or {}).get("title") or "объявление удалено"
+            item = esc((row.get("item") or {}).get("title") or "объявление удалено")
             status = STATUS_LABEL.get(row["status"], row["status"])
             # Владельцу показываем его выручку, арендатору — что он платит:
             # одна и та же сделка выглядит по-разному с двух сторон, и общая
@@ -600,8 +601,8 @@ async def send_move_card(send, row: dict, is_owner: bool) -> None:
     # здесь означало бы, что человек узнает о просрочке только из спора.
     keyboard = action_keyboard(row["id"], row["status"], is_owner)
 
-    item = (row.get("item") or {}).get("title") or "объявление удалено"
-    text = f"<b>{move['title']}</b>\n{item}\n\n{move['body']}"
+    item = esc((row.get("item") or {}).get("title") or "объявление удалено")
+    text = f"<b>{esc(move['title'])}</b>\n{item}\n\n{esc(move['body'])}"
     await send(text, parse_mode="HTML", reply_markup=keyboard)
 
 
@@ -998,6 +999,21 @@ async def on_item_publish(query: CallbackQuery, state: FSMContext) -> None:
 CATALOG_LIMIT = 8
 
 
+def esc(value) -> str:
+    """
+    Текст из базы — в HTML-сообщение Telegram.
+
+    Бот шлёт с parse_mode="HTML", а подставляет то, что ввели люди: название
+    вещи пишет владелец, текст сообщения — модератор. «Дрель <мощная>» или
+    «цена < 1000» ломают разметку, и Telegram отклоняет сообщение целиком.
+
+    Отказ виден только в логе: доставка ловит исключение и идёт дальше, не
+    ставя отметку. Снаружи это «уведомление не пришло» — причём именно у тех
+    объявлений, где в названии попался угловой знак. Тише не бывает.
+    """
+    return html.escape(str(value or ""), quote=False)
+
+
 def item_line(row: dict) -> str:
     owner = row.get("owner") or {}
     rating = owner.get("rating")
@@ -1007,9 +1023,9 @@ def item_line(row: dict) -> str:
     # Где забирать — то же, что показывает карточка каталога в приложении.
     # Пустое поле строкой не занимаем: у части вещей ориентира нет, и
     # выдуманное «Кокшетау» вместо него ничего не сообщает.
-    area = f"\n  📍 {row['pickup_area']}" if row.get("pickup_area") else ""
+    area = f"\n  📍 {esc(row['pickup_area'])}" if row.get("pickup_area") else ""
     return (
-        f"• <b>{row['title']}</b> — {money(row.get('daily_price'))} / сутки\n"
+        f"• <b>{esc(row['title'])}</b> — {money(row.get('daily_price'))} / сутки\n"
         f"  депозит {money(row.get('deposit_amount'))}{mark}{area}\n"
         f"  {APP_URL}#/item/{row['id']}"
     )
@@ -1240,9 +1256,9 @@ async def deliver_pending(bot: Bot) -> None:
                 # накопилось, придёт одной пачкой.
                 continue
 
-            text = f"<b>{row['title']}</b>"
+            text = f"<b>{esc(row['title'])}</b>"
             if row.get("body"):
-                text += f"\n\n{row['body']}"
+                text += f"\n\n{esc(row['body'])}"
 
             # Кнопка прямо в уведомлении — то, ради чего бот вообще нужен
             # владельцу в пассивном режиме: «подтвердите бронь» без кнопки

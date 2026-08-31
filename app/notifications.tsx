@@ -33,6 +33,13 @@ type Look = { icon: keyof typeof Ionicons.glyphMap; color: string };
  * о возврате выглядело как «что-то произошло».
  */
 const LOOKS: Record<string, Look> = {
+  // Заявка и её отмена — то, что владелец в пассивном режиме получает чаще
+  // всего, и до сих пор они падали в серый значок «прочее». Первая ждёт
+  // его хода, поэтому warn: в DESIGN.md этот цвет и означает ожидание.
+  // Отмена — textMuted, тем же цветом, что статус cancelled в BOOKING_STATUS:
+  // одно событие не должно говорить разное в списке и на экране сделки.
+  booking_requested: { icon: 'calendar-number-outline', color: colors.warn },
+  booking_cancelled: { icon: 'close-circle-outline', color: colors.textMuted },
   booking_confirmed: { icon: 'calendar-outline', color: colors.green },
   item_picked_up: { icon: 'arrow-forward-circle-outline', color: colors.accent },
   item_returned: { icon: 'arrow-back-circle-outline', color: colors.green },
