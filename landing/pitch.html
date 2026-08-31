@@ -679,14 +679,14 @@ h2 {
 
 <header>
   <div class="wrap nav">
-    <a class="logo" href="./">RentHUB<span>.</span></a>
+    <a class="logo" href="../">RentHUB<span>.</span></a>
     <div class="nav-links">
       <a href="#problem">Проблема</a>
       <a href="#market">Рынок</a>
       <a href="#done">Сделано</a>
       <a href="#ask">Запрос</a>
     </div>
-    <a class="btn btn-ghost" href="./" style="margin-left:16px">Открыть продукт</a>
+    <a class="btn btn-ghost" href="../app/" style="margin-left:16px">Открыть продукт</a>
   </div>
 </header>
 
@@ -1262,7 +1262,10 @@ h2 {
 <footer>
   <div class="wrap foot">
     <p>RentHUB · Кокшетау · пилот без реальных платежей</p>
-    <p><a href="./">Лендинг для владельцев</a> · <a href="app/">Приложение</a></p>
+    <!-- Пути относительно /renthub/pitch/, а не корня сайта: страница
+         публикуется во вложенной папке, и «app/» вело на
+         /renthub/pitch/app/ — то есть в 404. -->
+    <p><a href="../">Лендинг для владельцев</a> · <a href="../app/">Приложение</a></p>
   </div>
 </footer>
 
