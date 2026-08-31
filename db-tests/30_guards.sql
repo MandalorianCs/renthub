@@ -621,6 +621,44 @@ select t.expect_fail(t.id('renter'),
 
 update users set is_moderator = false where id = t.id('stranger');
 
+-- ── Ориентир: свободный, но не любой ──────────────────────────
+--
+-- Поле необязательное — у части владельцев вещь лежит там, где ориентира
+-- нет. Но если он задан, длина ограничена: пустая строка и роман на две
+-- страницы одинаково бесполезны в карточке каталога.
+
+-- Объявление без ориентира создаётся: проверяем результат, а не count >= 0
+-- (такое сравнение истинно всегда и упасть не может).
+do $$
+declare
+  v_id uuid;
+begin
+  perform t.as(t.id('owner'), format(
+    'insert into items (id, owner_id, category, title, daily_price, deposit_amount, '
+    || 'condition_photos) values (%L, %L, ''drills'', ''Без ориентира'', 1000, 5000, array[''x''])',
+    'dddddddd-0000-4000-8000-000000000001'::uuid, t.id('owner')));
+
+  perform t.assert(
+    (select pickup_area is null from items where id = 'dddddddd-0000-4000-8000-000000000001'),
+    'поле необязательное — объявление без ориентира создалось');
+
+  delete from items where id = 'dddddddd-0000-4000-8000-000000000001';
+end $$;
+
+select t.expect_fail(t.id('owner'), format(
+  'insert into items (owner_id, category, title, daily_price, deposit_amount, '
+  || 'condition_photos, pickup_area) values (%L, ''drills'', ''С пустым ориентиром'', '
+  || '1000, 5000, array[''x''], '' '')', t.id('owner')),
+  'items_pickup_area_check');
+
+-- repeat(), а не умножение строки: '*' для text в Postgres не определён,
+-- это питоновская привычка.
+select t.expect_fail(t.id('owner'), format(
+  'insert into items (owner_id, category, title, daily_price, deposit_amount, '
+  || 'condition_photos, pickup_area) values (%L, ''drills'', ''С длинным ориентиром'', '
+  || '1000, 5000, array[''x''], repeat(''x'', 81))', t.id('owner')),
+  'items_pickup_area_check');
+
 -- ── Блокировка снимает объявления ─────────────────────────────
 --
 -- Пробел, который видно только в сценарии: заблокированный не может выложить

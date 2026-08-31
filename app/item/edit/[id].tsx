@@ -57,6 +57,7 @@ export default function EditItem() {
         dailyPrice: item.daily_price,
         depositAmount: item.deposit_amount,
         photos: item.condition_photos,
+        pickupArea: item.pickup_area ?? '',
       }}
       onSubmit={async (values) => {
         await updateItem(item.id, values);

@@ -100,6 +100,8 @@ export type Item = {
   deposit_amount: number;
   condition_photos: string[];
   city: string;
+  /** Район или ориентир, где забирать. Необязательный: у части вещей его нет. */
+  pickup_area: string | null;
   status: ItemStatus;
   created_at: string;
   updated_at: string;
