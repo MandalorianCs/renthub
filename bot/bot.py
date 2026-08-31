@@ -161,12 +161,17 @@ class NewItem(StatesGroup):
     депозита и фото объявление либо не создастся, либо будет бесполезным.
     Зато владелец, который сдаёт вторую однотипную вещь, не открывает
     приложение вовсе, а он и есть основной сценарий пилота.
+
+    Шестой шаг — ориентир — единственный необязательный, и поэтому у него
+    есть кнопка «Пропустить». Без неё он стоил бы всем лишнего сообщения
+    ради поля, которое части владельцев нечем заполнить.
     """
 
     category = State()
     title = State()
     price = State()
     deposit = State()
+    pickup = State()
     photos = State()
 
 
@@ -821,13 +826,55 @@ async def on_item_deposit(message: Message, state: FSMContext) -> None:
         return
 
     await state.update_data(deposit=deposit)
-    await state.set_state(NewItem.photos)
+    await state.set_state(NewItem.pickup)
     await message.answer(
-        "Осталось фото — это фото «до». Именно с ними будут сверять состояние "
-        "вещи при возврате, поэтому снимайте то, что потом захотите доказать: "
-        "царапины, комплектацию, следы использования.\n\n"
-        "Пришлите один снимок или несколько."
+        "Где забирать? Район или ориентир — «мкр. Васильковский», «возле "
+        "вокзала». Точный адрес не нужен: его скажете тому, чью бронь "
+        "подтвердите.\n\n"
+        "Это помогает выбрать: вещь надо привезти и вернуть.",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="Пропустить", callback_data="item:nopickup")]]
+        ),
     )
+
+
+ASK_PHOTOS = (
+    "Осталось фото — это фото «до». Именно с ними будут сверять состояние "
+    "вещи при возврате, поэтому снимайте то, что потом захотите доказать: "
+    "царапины, комплектацию, следы использования.\n\n"
+    "Пришлите один снимок или несколько."
+)
+
+
+@dp.message(NewItem.pickup, F.text)
+async def on_item_pickup(message: Message, state: FSMContext) -> None:
+    if (message.text or "").strip().startswith("/"):
+        await message.answer("Идёт публикация. Напишите ориентир или /отмена.")
+        return
+
+    area = (message.text or "").strip()
+    # Границы те же, что в ограничении таблицы: короче двух символов —
+    # опечатка, длиннее восьмидесяти — не ориентир, а рассказ. Проверить
+    # здесь дешевле, чем показать человеку отказ базы после шага с фото.
+    if len(area) < 2:
+        await message.answer("Слишком коротко — напишите район или ориентир.")
+        return
+    if len(area) > 80:
+        await message.answer("Слишком длинно. Хватит района или заметного ориентира.")
+        return
+
+    await state.update_data(pickup=area)
+    await state.set_state(NewItem.photos)
+    await message.answer(ASK_PHOTOS)
+
+
+@dp.callback_query(F.data == "item:nopickup")
+async def on_item_skip_pickup(query: CallbackQuery, state: FSMContext) -> None:
+    await state.update_data(pickup=None)
+    await state.set_state(NewItem.photos)
+    await query.answer()
+    await query.message.edit_reply_markup(reply_markup=None)
+    await query.message.answer(ASK_PHOTOS)
 
 
 @dp.message(NewItem.photos, F.photo)
@@ -865,6 +912,34 @@ async def on_item_photo(message: Message, state: FSMContext) -> None:
     )
 
 
+# ── Ответ не того вида ────────────────────────────────────────
+#
+# Без этих двух обработчиков бот просто молчит: aiogram не находит хендлер
+# под сообщение и роняет его. Снаружи это выглядит поломкой — человек
+# прислал что-то и не получил ничего, хотя ошибся всего лишь видом ответа.
+#
+# Регистрируются после основных: aiogram проверяет обработчики в порядке
+# объявления, и поставленные выше перехватили бы правильные ответы.
+
+@dp.message(NewItem.pickup)
+async def on_item_pickup_wrong(message: Message) -> None:
+    await message.answer(
+        "Здесь нужен текст — район или ориентир. Если его нет, нажмите "
+        "«Пропустить» в сообщении выше."
+    )
+
+
+@dp.message(NewItem.photos)
+async def on_item_photo_wrong(message: Message) -> None:
+    if (message.text or "").strip().startswith("/"):
+        await message.answer("Идёт публикация. Пришлите фото или /отмена.")
+        return
+    await message.answer(
+        "На этом шаге нужны снимки вещи — пришлите фото. Текст в объявление "
+        "уже записан."
+    )
+
+
 @dp.callback_query(F.data == "p:go", NewItem.photos)
 async def on_item_publish(query: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
@@ -891,6 +966,7 @@ async def on_item_publish(query: CallbackQuery, state: FSMContext) -> None:
                     "p_daily_price": data["price"],
                     "p_deposit_amount": data["deposit"],
                     "p_photos": data["photos"],
+                    "p_pickup_area": data.get("pickup"),
                 },
             )
         except RentHubError as error:
