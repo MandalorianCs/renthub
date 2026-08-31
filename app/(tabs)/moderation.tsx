@@ -13,7 +13,7 @@ import {
   resolveDispute,
   setUserBlocked,
 } from '../../src/lib/api';
-import { formatDate, formatDateRange, formatTenge } from '../../src/lib/format';
+import { formatDate, formatDateRange, formatTenge, plural } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
 import type { DisputeForReview, ModerationOverview, ModerationPerson } from '../../src/lib/types';
 import { useRefresh } from '../../src/lib/useRefresh';
@@ -96,9 +96,13 @@ export default function Moderation() {
             <Row left="Сделок завершено" right={String(stats.bookings.completed)} muted />
             <Row left="Отменено" right={String(stats.bookings.cancelled)} muted />
             <Row left="Споров решено автоматически" right={String(stats.disputes.auto)} muted />
+            {/* Склонение здесь не косметика: сводку читают на цифрах в
+                единицах — «1 объявлений» за неделю выглядит как ошибка
+                подсчёта, а не как единственное объявление. */}
             <Text style={s.weekNote}>
-              За неделю: {stats.users.week} новых участников, {stats.items.week} объявлений,{' '}
-              {stats.bookings.week} броней.
+              За неделю: {plural(stats.users.week, 'новый участник', 'новых участника', 'новых участников')},{' '}
+              {plural(stats.items.week, 'объявление', 'объявления', 'объявлений')},{' '}
+              {plural(stats.bookings.week, 'бронь', 'брони', 'броней')}.
             </Text>
           </Card>
 
@@ -206,7 +210,8 @@ function PersonRow({ person, onChanged }: { person: ModerationPerson; onChanged:
             {person.phone} · с {formatDate(person.created_at)}
           </Text>
           <Text style={s.personMeta}>
-            {person.items} объявл. · {person.bookings} аренд
+            {plural(person.items, 'объявление', 'объявления', 'объявлений')} ·{' '}
+            {plural(person.bookings, 'аренда', 'аренды', 'аренд')}
             {person.telegram ? ' · Telegram' : ''}
             {person.verified ? '' : ' · номер не подтверждён'}
           </Text>
