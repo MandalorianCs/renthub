@@ -213,6 +213,45 @@ exception when others then
     'прямой UPDATE не переписал суммы брони');
 end $$;
 
+-- ── Контакт второй стороны из чата ────────────────────────────
+--
+-- То же правило, что в приложении, и та же функция под ним: обёртка
+-- только выставляет auth.uid(). Проверяем, что из чата приходит контакт
+-- ВТОРОЙ стороны и что посторонний получает отказ её же текстом.
+
+do $$
+declare
+  v_who   uuid;
+  v_phone text;
+  v_err   text;
+begin
+  select user_id, phone into v_who, v_phone
+    from bot_booking_contact(t.id('owner'), t.id('booking'));
+
+  perform t.assert(v_who = t.id('renter'),
+    'из чата пришёл контакт второй стороны');
+  perform t.assert(v_phone = '+77010000002',
+    'телефон тот же, что отдаёт приложение — функция под ними одна');
+
+  -- Постороннему нужен telegram_id, иначе bot_actor_ok откажет раньше — и
+  -- проверялась бы привязка к Telegram, а не защита контакта. Первая
+  -- версия теста целила именно в эту недостижимую ветку.
+  update users set telegram_id = 100000003 where id = t.id('stranger');
+
+  begin
+    perform bot_booking_contact(t.id('stranger'), t.id('booking'));
+    v_err := 'без ошибки';
+  exception when others then
+    v_err := sqlerrm;
+  end;
+
+  update users set telegram_id = null where id = t.id('stranger');
+
+  perform t.assert(
+    v_err like '%только сторонам сделки%',
+    'отказ пришёл текстом booking_contact — обёртка правил не знает');
+end $$;
+
 -- ── Публикация объявления из Telegram ─────────────────────────
 
 do $$
