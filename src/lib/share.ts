@@ -1,6 +1,5 @@
 import { Platform, Share } from 'react-native';
 
-import { TELEGRAM_BOT_URL } from './supabase';
 
 /**
  * Ссылка на объявление.
@@ -56,11 +55,3 @@ export async function shareItem(itemId: string, title: string): Promise<'shared'
   await nav?.clipboard?.writeText(url);
   return 'copied';
 }
-
-/**
- * Ссылка-приглашение в бота.
- *
- * Нужна там же, где и ссылка на вещь: бот не может написать первым, поэтому
- * человека приводят ссылкой, а не обещанием, что «уведомления придут».
- */
-export const BOT_URL = TELEGRAM_BOT_URL;

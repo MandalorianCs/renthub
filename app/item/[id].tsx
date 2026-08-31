@@ -18,7 +18,7 @@ import { Badge, Button, Card, Empty, ErrorState, Row, tap } from '../../src/comp
 import { createBooking, fetchItem, fetchItemCalendar } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { formatDateRange, formatTenge, ratingLabel } from '../../src/lib/format';
-import { calcPrice, countDays } from '../../src/lib/pricing';
+import { calcPrice, countDays, INSURANCE_FEE } from '../../src/lib/pricing';
 import { shareItem } from '../../src/lib/share';
 import { humanizeError } from '../../src/lib/supabase';
 import type { BusyRange, ItemWithOwner } from '../../src/lib/types';
@@ -270,7 +270,12 @@ export default function ItemScreen() {
           <View style={s.switchRow}>
             <View style={{ flex: 1 }}>
               <Text style={s.switchLabel}>Страховая защита</Text>
-              <Text style={s.note}>+150 ₸ к сделке — покрытие мелких повреждений</Text>
+              {/* Сумма из константы, а не текстом: рядом её же берёт calcPrice, и
+                  написанное число разошлось бы с посчитанным при первой правке
+                  тарифа — причём молча, потому что оба места выглядят верными. */}
+              <Text style={s.note}>
+                +{formatTenge(INSURANCE_FEE)} к сделке — покрытие мелких повреждений
+              </Text>
             </View>
             <Switch
               value={insurance}
