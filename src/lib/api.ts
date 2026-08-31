@@ -230,6 +230,35 @@ export async function fetchOwnerItems(ownerId: string): Promise<Item[]> {
   return data ?? [];
 }
 
+/**
+ * Ещё вещи в той же категории.
+ *
+ * Карточка объявления была тупиком: либо бронировать, либо назад. А выбор
+ * между «этим перфоратором» и «никаким» — не выбор; человек уходит искать
+ * заново, и половина уходит совсем.
+ *
+ * Своё объявление исключается по id, а не фильтрацией на клиенте: иначе
+ * при limit=4 одно из мест всегда занимал бы предмет, который человек уже
+ * открыл.
+ */
+export async function fetchSimilarItems(
+  category: string,
+  excludeId: string,
+  limit = 6,
+): Promise<Item[]> {
+  const { data, error } = await supabase
+    .from('items')
+    .select('*')
+    .eq('category', category)
+    .eq('status', 'active')
+    .eq('city', PILOT_CITY)
+    .neq('id', excludeId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function fetchReviewsAbout(userId: string): Promise<ReviewWithAuthor[]> {
   const { data, error } = await supabase
     .from('reviews')

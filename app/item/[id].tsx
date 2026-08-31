@@ -15,13 +15,18 @@ import { Calendar, toISO } from '../../src/components/Calendar';
 import { PhotoViewer } from '../../src/components/PhotoViewer';
 import { DetailSkeleton } from '../../src/components/Skeleton';
 import { Badge, Button, Card, Empty, ErrorState, Row, tap } from '../../src/components/ui';
-import { createBooking, fetchItem, fetchItemCalendar } from '../../src/lib/api';
+import {
+  createBooking,
+  fetchItem,
+  fetchItemCalendar,
+  fetchSimilarItems,
+} from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { formatDateRange, formatTenge, ratingLabel } from '../../src/lib/format';
 import { calcPrice, countDays, INSURANCE_FEE } from '../../src/lib/pricing';
 import { shareItem } from '../../src/lib/share';
 import { humanizeError } from '../../src/lib/supabase';
-import type { BusyRange, ItemWithOwner } from '../../src/lib/types';
+import type { BusyRange, Item, ItemWithOwner } from '../../src/lib/types';
 import { colors, elevation, radius, spacing, typeface } from '../../src/theme';
 
 /** Экран 3: карточка объявления + бронирование. */
@@ -44,6 +49,7 @@ export default function ItemScreen() {
   const [viewerAt, setViewerAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shared, setShared] = useState(false);
+  const [similar, setSimilar] = useState<Item[]>([]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -51,6 +57,15 @@ export default function ItemScreen() {
       const [found, calendar] = await Promise.all([fetchItem(id), fetchItemCalendar(id)]);
       setItem(found);
       setBusyDates(calendar);
+
+      // Похожие грузятся вторым заходом и своим catch: их сбой не должен
+      // ронять карточку. Объявление читается без них, а без цены и
+      // календаря — нет.
+      if (found) {
+        fetchSimilarItems(found.category, found.id)
+          .then(setSimilar)
+          .catch(() => setSimilar([]));
+      }
     } catch (e) {
       setError(humanizeError(e));
     } finally {
@@ -307,6 +322,49 @@ export default function ItemScreen() {
         </Card>
       )}
 
+      {/* Ещё в категории. Карточка была тупиком: либо бронировать, либо
+          назад — а выбор между «этим перфоратором» и «никаким» не выбор,
+          и человек уходил искать заново. Лента горизонтальная: вертикаль
+          здесь уже занята ценой и календарём, ради которых пришли. */}
+      {similar.length > 0 ? (
+        <View style={s.similar}>
+          <Text style={s.similarTitle}>Ещё в этой категории</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.similarRow}
+          >
+            {similar.map((other) => (
+              <Pressable
+                key={other.id}
+                style={({ pressed }) => [s.similarCard, tap({ pressed })]}
+                // replace, а не push: иначе стек копит по экрану на каждый
+                // переход, и «назад» ведёт через всё, что человек смотрел,
+                // вместо возврата в каталог.
+                onPress={() => router.replace(`/item/${other.id}`)}
+              >
+                {other.condition_photos[0] ? (
+                  <Image
+                    source={other.condition_photos[0]}
+                    style={s.similarPhoto}
+                    contentFit="cover"
+                    transition={180}
+                  />
+                ) : (
+                  <View style={[s.similarPhoto, s.similarPhotoEmpty]}>
+                    <Ionicons name="image-outline" size={20} color={colors.textMuted} />
+                  </View>
+                )}
+                <Text style={s.similarPrice}>{formatTenge(other.daily_price)}</Text>
+                <Text style={s.similarName} numberOfLines={2}>
+                  {other.title}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
       {error ? <Text style={s.error}>{error}</Text> : null}
     </ScrollView>
 
@@ -442,6 +500,24 @@ const s = StyleSheet.create({
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   switchLabel: { fontSize: 15, fontFamily: typeface[600], color: colors.text },
   breakdown: { gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md },
+  similar: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.md },
+  similarTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
+  similarRow: { gap: spacing.md, paddingRight: spacing.lg, paddingBottom: spacing.xs },
+  similarCard: { width: 132, gap: 4 },
+  similarPhoto: {
+    width: 132,
+    height: 99,
+    borderRadius: radius.md,
+    backgroundColor: colors.border,
+  },
+  similarPhotoEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accentSoft,
+  },
+  similarPrice: { fontSize: 15, fontFamily: typeface[800], color: colors.text, letterSpacing: -0.4 },
+  similarName: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 16 },
+
   error: { color: colors.danger, fontSize: 14, fontFamily: typeface[400] },
   selection: { fontSize: 14, fontFamily: typeface[700], color: colors.text, textAlign: 'center' },
   freeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
