@@ -1,6 +1,7 @@
 import { PILOT_CITY, supabase } from './supabase';
 import type {
   Booking,
+  BookingContact,
   BookingWithItem,
   BusyRange,
   Category,
@@ -241,6 +242,22 @@ export async function fetchOwnerItems(ownerId: string): Promise<Item[]> {
  * при limit=4 одно из мест всегда занимал бы предмет, который человек уже
  * открыл.
  */
+/**
+ * Как связаться со второй стороной сделки.
+ *
+ * Телефон закрыт грантом на колонки даже вошедшему — витрина не место для
+ * чужих номеров. Но вещь передают из рук в руки, и у сторон подтверждённой
+ * брони задача другая: без контакта им остаётся угадывать, когда встретиться.
+ *
+ * Функция отдаёт контакт того, с кем у вызывающего общая бронь, и только
+ * после подтверждения: до него владелец ещё ничего не обещал, а заявка не
+ * должна работать способом собирать телефоны.
+ */
+export async function fetchBookingContact(bookingId: string): Promise<BookingContact | null> {
+  const rows = await rpc<BookingContact[]>('booking_contact', { p_booking_id: bookingId });
+  return rows?.[0] ?? null;
+}
+
 export async function fetchSimilarItems(
   category: string,
   excludeId: string,

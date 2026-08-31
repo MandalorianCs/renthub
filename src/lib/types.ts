@@ -197,6 +197,14 @@ export type PublicProfile = {
   created_at: string;
 };
 
+/** Контакт второй стороны сделки — только после подтверждения брони. */
+export type BookingContact = {
+  user_id: string;
+  full_name: string | null;
+  phone: string;
+  telegram_username: string | null;
+};
+
 export type Review = {
   id: string;
   booking_id: string;
