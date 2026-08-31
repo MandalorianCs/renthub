@@ -1,0 +1,1372 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RentHUB — питч</title>
+<meta name="description" content="RentHUB — P2P-аренда строительного инструмента. Питч: проблема, решение, рынок, результаты инкубации.">
+
+  <!-- Свой знак вместо заготовки Expo: см. landing/assets/favicon.svg -->
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <!-- PNG рядом с вектором: SVG-фавикон понимают не все, а без PNG на
+       вкладке у части людей остаётся пустой лист. apple-touch-icon нужен
+       для ярлыка на домашнем экране iOS — без него туда попадает скриншот
+       страницы. Обе собираются командой npm run icons. -->
+  <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+  <!-- Карточка ссылки в мессенджерах и соцсетях. -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="RentHUB">
+  <meta property="og:title" content="RentHUB — питч">
+  <meta property="og:description" content="P2P-аренда строительного инструмента в Кокшетау: проблема, решение, рынок снизу, результаты инкубации и план на три года.">
+  <meta property="og:url" content="https://mandaloriancs.github.io/renthub/pitch/">
+  <!-- Картинка для карточки ссылки. Абсолютный URL обязателен:
+       Telegram и соцсети тянут её со своих серверов, относительный
+       путь им не к чему привязать. Без неё twitter:card обещает
+       большую картинку и показывает пустоту — хуже, чем summary.
+       Собирается вместе с иконками: npm run icons -->
+  <meta property="og:image" content="https://mandaloriancs.github.io/renthub/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="RentHUB — питч проекта">
+  <meta name="twitter:image" content="https://mandaloriancs.github.io/renthub/assets/og.png">
+  <meta property="og:locale" content="ru_RU">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="RentHUB — питч">
+  <meta name="twitter:description" content="P2P-аренда строительного инструмента в Кокшетау: проблема, решение, рынок снизу, результаты инкубации и план на три года.">
+
+  <!-- Канонический адрес: страница доступна и со слешем, и без —
+       поисковику нужно знать, какой считать основным. -->
+  <link rel="canonical" href="https://mandaloriancs.github.io/renthub/pitch/">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ─────────────────────────────────────────────────────────────
+   Токены. Ровно те же значения, что в src/theme.ts приложения —
+   сайт и продукт обязаны выглядеть одним целым, иначе человек,
+   пришедший с лендинга, решит, что попал не туда.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --bg: #FAF7F2;
+  --surface: #FFFFFF;
+  --border: #E7E0D6;
+  --text: #1A1917;
+  --muted: #6E675E;
+  --accent: #C2603C;        /* терракота — основное действие */
+  --accent-soft: #F6E7E0;
+  --green: #2F5D50;         /* деньги, подтверждено */
+  --green-soft: #E3EDE9;
+  --warn: #B8860B;
+  --warn-soft: #F6EEDA;
+  --danger: #A33A2A;
+  --danger-soft: #F7E3DF;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 20px;
+
+  --page: 1120px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Manrope, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { line-height: 1.1; letter-spacing: -0.02em; margin: 0; font-weight: 800; }
+h1 { font-size: clamp(38px, 6vw, 68px); }
+h2 { font-size: clamp(28px, 4vw, 42px); }
+h3 { font-size: 20px; letter-spacing: -0.01em; }
+p { margin: 0; }
+a { color: inherit; }
+
+.wrap { width: min(100% - 40px, var(--page)); margin-inline: auto; }
+
+section { padding: clamp(64px, 9vw, 120px) 0; }
+
+.eyebrow {
+  font-size: 12px; font-weight: 800; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--accent);
+  margin-bottom: 16px;
+}
+
+.lead { font-size: clamp(17px, 2vw, 20px); color: var(--muted); max-width: 62ch; }
+
+/* ── Шапка ───────────────────────────────────────────────── */
+
+header {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.nav { display: flex; align-items: center; gap: 28px; height: 64px; }
+.logo { font-weight: 800; font-size: 21px; letter-spacing: -0.03em; }
+.logo span { color: var(--accent); }
+.nav-links { display: flex; gap: 24px; margin-left: auto; font-size: 15px; font-weight: 500; }
+.nav-links a { color: var(--muted); text-decoration: none; }
+.nav-links a:hover { color: var(--text); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 13px 22px; border-radius: var(--r-md);
+  background: var(--accent); color: #fff;
+  font-weight: 700; font-size: 15px; text-decoration: none;
+  border: 1px solid transparent;
+}
+.btn:hover { background: #A94F2F; }
+.btn-ghost { background: transparent; color: var(--text); border-color: var(--border); }
+.btn-ghost:hover { background: var(--surface); }
+
+@media (max-width: 760px) { .nav-links { display: none; } }
+
+/* ── Хиро ────────────────────────────────────────────────── */
+
+.hero { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: center; }
+@media (max-width: 900px) { .hero { grid-template-columns: 1fr; gap: 40px; } }
+
+.hero-cta { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
+
+.hero-note {
+  margin-top: 24px; font-size: 14px; color: var(--muted);
+  display: flex; align-items: center; gap: 8px;
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+
+/*
+  Фирменный приём: карточка вещи переключается между простоем и арендой.
+  Это не украшение — это буквально продуктовое обещание, показанное
+  цифрой, а не словами.
+*/
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 22px;
+  box-shadow: 0 1px 2px rgba(26,25,23,.04), 0 14px 40px -24px rgba(26,25,23,.28);
+}
+.card-top { display: flex; gap: 16px; align-items: flex-start; }
+.thumb {
+  width: 84px; height: 84px; border-radius: var(--r-md); flex: none;
+  background: linear-gradient(150deg, #EFE7DC, #E2D6C6);
+  display: grid; place-items: center;
+}
+.card-title { font-weight: 800; font-size: 17px; }
+.card-sub { font-size: 14px; color: var(--muted); margin-top: 2px; }
+
+.state { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 18px; }
+.state-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; min-height: 56px;
+}
+.pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 999px;
+  font-size: 13px; font-weight: 700;
+}
+.pill-idle { background: var(--warn-soft); color: var(--warn); }
+.pill-live { background: var(--green-soft); color: var(--green); }
+.amount { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+.amount-idle { color: var(--muted); }
+.amount-live { color: var(--green); }
+
+.flip { display: grid; }
+.flip > * { grid-area: 1 / 1; }
+.flip-a { animation: flipA 7s infinite; }
+.flip-b { animation: flipB 7s infinite; }
+@keyframes flipA {
+  0%, 42% { opacity: 1; transform: translateY(0); }
+  50%, 92% { opacity: 0; transform: translateY(-8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes flipB {
+  0%, 42% { opacity: 0; transform: translateY(8px); }
+  50%, 92% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(8px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flip-a, .flip-b { animation: none; }
+  .flip-a { opacity: 0; }
+}
+
+/* ── Сетки ───────────────────────────────────────────────── */
+
+.grid { display: grid; gap: 20px; margin-top: 44px; }
+.g2 { grid-template-columns: repeat(2, 1fr); }
+.g3 { grid-template-columns: repeat(3, 1fr); }
+.g4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 900px) { .g3, .g4 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 620px) { .g2, .g3, .g4 { grid-template-columns: 1fr; } }
+
+.tile {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 26px;
+}
+.tile h3 { margin-bottom: 10px; }
+.tile p { color: var(--muted); font-size: 15px; }
+
+.num { font-size: 13px; font-weight: 800; color: var(--accent); letter-spacing: 0.1em; }
+
+/* ── Полоса цифр ─────────────────────────────────────────── */
+
+.band { background: var(--green); color: #F3F1EC; border-radius: var(--r-lg); padding: 40px; }
+.band .stat-v { font-size: clamp(28px, 4vw, 40px); font-weight: 800; letter-spacing: -0.02em; }
+.band .stat-l { font-size: 14px; opacity: .78; margin-top: 6px; }
+
+/* ── Trust Score: шаги ───────────────────────────────────── */
+
+.steps { counter-reset: step; margin-top: 44px; display: grid; gap: 2px; }
+.step {
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 24px 26px; display: grid; grid-template-columns: 44px 1fr auto; gap: 20px;
+  align-items: start;
+}
+.step:first-child { border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.step:last-child { border-radius: 0 0 var(--r-lg) var(--r-lg); }
+.step-n {
+  counter-increment: step; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent);
+  display: grid; place-items: center; font-weight: 800; font-size: 14px;
+}
+.step-n::before { content: counter(step); }
+.step h3 { font-size: 17px; margin-bottom: 4px; }
+.step p { color: var(--muted); font-size: 15px; }
+.step code {
+  font-size: 12px; color: var(--muted); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .step { grid-template-columns: 32px 1fr; }
+  .step code { display: none; }
+}
+
+/* ── Поток денег ─────────────────────────────────────────── */
+
+.flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 16px; align-items: center; margin-top: 44px; }
+.flow-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 22px; text-align: center; }
+.flow-box .v { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+.flow-box .l { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.flow-op { font-size: 22px; font-weight: 800; color: var(--muted); text-align: center; }
+.flow-box.take { border-color: var(--accent); background: var(--accent-soft); }
+.flow-box.get { border-color: var(--green); background: var(--green-soft); }
+@media (max-width: 860px) {
+  .flow { grid-template-columns: 1fr; }
+  .flow-op { transform: rotate(90deg); }
+}
+
+/* ── Таблица ─────────────────────────────────────────────── */
+
+.table-wrap { margin-top: 44px; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; }
+th, td { padding: 16px 20px; text-align: left; font-size: 15px; border-bottom: 1px solid var(--border); }
+thead th { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+tbody tr:last-child td { border-bottom: none; }
+td:first-child { font-weight: 700; }
+.yes { color: var(--green); font-weight: 700; }
+.no { color: var(--muted); }
+.mark { background: var(--accent-soft); }
+
+/* ── Превью каталога ─────────────────────────────────────── */
+/*
+  Карточки нарисованы теми же токенами, что в приложении, а не сняты
+  скриншотом. Скриншот устаревает молча: интерфейс правится, картинка
+  остаётся, и лендинг начинает обещать то, чего в продукте уже нет.
+*/
+.shelf { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 44px; }
+@media (max-width: 860px) { .shelf { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .shelf { grid-template-columns: 1fr; } }
+
+.goods {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); overflow: hidden;
+  box-shadow: 0 1px 2px rgba(26,25,23,.04), 0 14px 40px -28px rgba(26,25,23,.3);
+}
+.goods-img {
+  aspect-ratio: 4 / 3; display: grid; place-items: center;
+  background: linear-gradient(150deg, #EFE7DC, #E2D6C6); position: relative;
+}
+.goods-badge {
+  position: absolute; left: 12px; bottom: 12px;
+  background: rgba(26,25,23,.62); color: #fff;
+  font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+}
+.goods-body { padding: 16px; }
+.goods-price { font-size: 19px; font-weight: 800; letter-spacing: -.02em; }
+.goods-price span { font-size: 13px; font-weight: 600; color: var(--muted); }
+.goods-name { font-size: 14px; margin-top: 4px; }
+.goods-meta { font-size: 12px; color: var(--muted); margin-top: 8px; display: flex; gap: 10px; }
+
+/* ── Вопросы ─────────────────────────────────────────────── */
+
+.faq { margin-top: 44px; display: grid; gap: 2px; }
+.faq details {
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 0 26px;
+}
+.faq details:first-of-type { border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.faq details:last-of-type { border-radius: 0 0 var(--r-lg) var(--r-lg); }
+.faq summary {
+  cursor: pointer; list-style: none;
+  padding: 22px 0; font-weight: 700; font-size: 17px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: '+'; font-size: 22px; font-weight: 400; color: var(--accent);
+  line-height: 1; flex: none;
+}
+.faq details[open] summary::after { content: '−'; }
+.faq details p { padding-bottom: 22px; color: var(--muted); font-size: 15px; max-width: 68ch; }
+.faq details p + p { padding-top: 0; margin-top: -8px; }
+
+/* ── Команда, футер ──────────────────────────────────────── */
+
+.person { display: flex; gap: 14px; align-items: center; }
+.ava {
+  width: 46px; height: 46px; border-radius: 50%; flex: none;
+  background: var(--accent-soft); color: var(--accent);
+  display: grid; place-items: center; font-weight: 800; font-size: 15px;
+}
+.person .role { font-size: 13px; color: var(--muted); }
+
+footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
+.foot { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; align-items: center; }
+.foot p { font-size: 14px; color: var(--muted); }
+
+.disclaimer {
+  margin-top: 28px; padding: 18px 20px; border-left: 3px solid var(--border);
+  font-size: 14px; color: var(--muted);
+}
+
+/* Схемы. Ужимать их по ширине экрана нельзя: подпись в 12px на экране
+   375px превратится в 4px и станет нечитаемой. Боковая прокрутка честнее
+   нечитаемой картинки. Рамки нет намеренно: плоская рамка сообщает «это
+   отдельная область», а схема — содержание раздела, а не врезка. */
+.diagram { margin: 28px 0 0; }
+.diagram-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.diagram-scroll svg { display: block; width: 100%; min-width: 860px; height: auto; }
+.diagram figcaption {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+@media (max-width: 900px) {
+  .diagram figcaption::after {
+    content: " Схема шире экрана — листается вбок.";
+    color: var(--accent);
+  }
+}
+
+/* ── Движение ────────────────────────────────────────────── */
+/*
+  Правило, которому подчинён весь этот блок: движение показывает связь, а не
+  украшает. Блок появляется — значит вы до него дошли. Число набегает — значит
+  оно посчитано, а не нарисовано. Карточка поднимается под курсором — значит
+  её можно взять. Ничего, что просто «красиво шевелится», здесь нет.
+
+  Весь слой выключается системной настройкой «уменьшить движение»: анимация,
+  которую человек не может остановить, — это не стиль, а препятствие.
+*/
+
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity .7s cubic-bezier(.16, 1, .3, 1), transform .7s cubic-bezier(.16, 1, .3, 1);
+    will-change: opacity, transform;
+  }
+  .reveal.is-in { opacity: 1; transform: none; }
+}
+
+/* Подъём под курсором — только там, где элемент действительно «предмет».
+   Абзацы и заголовки не двигаются: у них нечего брать. */
+.tile, .goods, .flow-box, .card, .step, .person {
+  transition: transform .28s cubic-bezier(.16, 1, .3, 1), box-shadow .28s ease, border-color .28s ease;
+}
+@media (hover: hover) {
+  .tile:hover, .goods:hover, .flow-box:hover, .card:hover {
+    transform: translateY(-4px);
+    border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+    box-shadow: 0 2px 4px rgba(26, 25, 23, .04), 0 22px 46px -26px rgba(26, 25, 23, .42);
+  }
+  .step:hover { background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface)); }
+  .goods:hover .goods-img { transform: scale(1.03); }
+}
+.goods-img { transition: transform .5s cubic-bezier(.16, 1, .3, 1); }
+.goods { overflow: hidden; }
+
+/* Кнопки отвечают нажатию, а не только наведению: без отклика на палец
+   человек жмёт второй раз, решив, что не попал. */
+.btn { transition: background .2s ease, transform .18s ease, box-shadow .2s ease; }
+.btn:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -14px rgba(194, 96, 60, .8); }
+.btn:active { transform: translateY(0); box-shadow: none; }
+.btn-ghost:hover { box-shadow: none; }
+
+/* Подчёркивание в меню растёт от начала слова, а не проявляется целиком —
+   так видно направление, куда ведёт ссылка. */
+.nav-links a { position: relative; transition: color .2s ease; }
+.nav-links a::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -4px; height: 2px;
+  background: var(--accent); border-radius: 2px;
+  transform: scaleX(0); transform-origin: left; transition: transform .28s cubic-bezier(.16, 1, .3, 1);
+}
+.nav-links a:hover::after { transform: scaleX(1); }
+
+/* Шапка отделяется от страницы только когда под ней есть прокрученное
+   содержимое. Постоянная тень врёт: в самом верху отделять нечего. */
+header { transition: box-shadow .3s ease, background .3s ease; }
+header.is-scrolled {
+  box-shadow: 0 1px 0 var(--border), 0 12px 32px -28px rgba(26, 25, 23, .6);
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+}
+
+/* Тёплое свечение за карточкой хиро: кремовый фон на больших экранах
+   выглядит плоским листом, и герой теряется. Свечение даёт глубину, не
+   добавляя ни одного нового цвета — это тот же акцент на 14%. */
+.hero { position: relative; z-index: 0; }
+.hero::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  top: -18%; right: -12%; width: min(560px, 62%); aspect-ratio: 1;
+  background: radial-gradient(circle at 55% 45%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 62%);
+  filter: blur(28px);
+}
+@media (max-width: 900px) { .hero::before { display: none; } }
+
+/* Раскрытый вопрос проявляет ответ, а не выбрасывает его рывком. */
+@media (prefers-reduced-motion: no-preference) {
+  .faq details[open] p { animation: answerIn .32s cubic-bezier(.16, 1, .3, 1) both; }
+  @keyframes answerIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+}
+
+/* Клавиатурная навигация обязана быть видна. Без этого сайт непроходим без
+   мыши, а обводку браузера мы гасим собственными стилями. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+/* Числа, которые набегают, не должны дёргать вёрстку при каждом кадре. */
+.counting { font-variant-numeric: tabular-nums; }
+
+
+/* ── Фактура и свет ──────────────────────────────────────── */
+/*
+  Кремовый фон без фактуры на большом экране выглядит не «тёплым», а пустым:
+  это заливка, а не бумага. Зерно и два мягких пятна возвращают ощущение
+  материала, не добавляя ни одного нового цвета — это те же акцент и зелёный
+  на нескольких процентах.
+*/
+body { position: relative; }
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(60vw 46vw at 78% -6%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 68%),
+    radial-gradient(52vw 40vw at 4% 42%, color-mix(in srgb, var(--green) 9%, transparent), transparent 66%);
+}
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.42'/%3E%3C/svg%3E");
+  /* Тише, чем хочется: зерно поверх текста читается как грязь на экране. */
+  opacity: .32; mix-blend-mode: multiply;
+}
+header, section, footer, .ticker { position: relative; z-index: 1; }
+
+/* ── Дисплейная типографика ──────────────────────────────── */
+/*
+  Заголовок — не «крупный текст», а изображение. Отсюда отрицательный трекинг
+  и межстрочный меньше единицы: буквы должны собираться в плотный блок, а не
+  висеть строчками. На это работает и вес 800 — Manrope в нём сохраняет
+  геометрию логотипа.
+*/
+h1 {
+  font-size: clamp(44px, 8.6vw, 104px);
+  line-height: .94;
+  letter-spacing: -0.045em;
+}
+h2 {
+  font-size: clamp(31px, 5.2vw, 58px);
+  line-height: .98;
+  letter-spacing: -0.038em;
+}
+
+/* Подсветка ключевой фразы вместо второго цвета в заголовке. Цветное слово
+   разрывает строку на две мысли; подложка оставляет её одной. */
+.hl {
+  background: linear-gradient(transparent 58%, color-mix(in srgb, var(--accent) 26%, transparent) 0);
+  padding: 0 .06em;
+}
+
+/* Надзаголовок с линией: маленький текст в одиночестве теряется на большом
+   экране, линия делает из него отбивку раздела. */
+.eyebrow { display: flex; align-items: center; gap: 12px; }
+.eyebrow::after {
+  content: ''; height: 1px; flex: 1; max-width: 120px;
+  background: color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+/* ── Хиро ────────────────────────────────────────────────── */
+
+.hero { align-items: center; gap: 64px; }
+
+.hero-card-wrap { position: relative; }
+
+/* Лёгкий перекос: карточка перестаёт быть частью сетки и становится
+   предметом, положенным на страницу. Полтора градуса — предел, за которым
+   это читается как сбой вёрстки, а не как приём. */
+.hero .card {
+  transform: rotate(-1.5deg);
+  border-radius: 24px;
+  padding: 26px;
+  box-shadow: 0 2px 4px rgba(26,25,23,.05), 0 40px 80px -44px rgba(26,25,23,.55);
+}
+@media (hover: hover) { .hero .card:hover { transform: rotate(0deg) translateY(-4px); } }
+
+/* Стикер с цифрой заработка — единственное место, где акцент выходит за
+   пределы блока. Он держит взгляд на числе, ради которого владелец пришёл. */
+.sticker {
+  position: absolute; right: -14px; top: -22px; z-index: 2;
+  background: var(--accent); color: #fff;
+  font-weight: 800; font-size: 15px; letter-spacing: -.01em;
+  padding: 10px 16px; border-radius: 999px;
+  transform: rotate(7deg);
+  box-shadow: 0 14px 28px -16px rgba(194,96,60,.9);
+  white-space: nowrap;
+}
+@media (max-width: 900px) { .sticker { right: 4px; top: -18px; } }
+
+.hero-cta { gap: 14px; margin-top: 36px; }
+.btn { padding: 15px 26px; font-size: 16px; border-radius: 14px; }
+.btn .arr { display: inline-block; margin-left: 8px; transition: transform .24s cubic-bezier(.16,1,.3,1); }
+.btn:hover .arr { transform: translateX(4px); }
+
+/* ── Бегущая строка ──────────────────────────────────────── */
+/*
+  Она отвечает на первый вопрос посетителя — «а что тут вообще сдают» — до
+  того, как он его задал, и делает это одной строкой вместо списка. Дублируем
+  содержимое дважды: чтобы петля была бесшовной, вторая копия обязана быть
+  точной, иначе на стыке появится рывок.
+*/
+.ticker {
+  border-block: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  overflow: hidden; padding: 14px 0; margin-top: clamp(48px, 7vw, 80px);
+}
+.ticker-line { display: flex; width: max-content; animation: slide 38s linear infinite; }
+.ticker-line span {
+  font-size: 15px; font-weight: 700; color: var(--muted);
+  padding: 0 22px; display: inline-flex; align-items: center; gap: 22px; white-space: nowrap;
+}
+.ticker-line span::after {
+  content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+}
+@keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .ticker-line { animation: none; } }
+
+/* ── Крупные номера шагов ────────────────────────────────── */
+/*
+  Номер был подписью в 13px и не работал ни как навигация, ни как ритм.
+  Контурная цифра держит порядок разделов боковым зрением и не спорит с
+  заголовком за внимание: она не залита, а очерчена.
+*/
+.tile .num {
+  font-size: 56px; line-height: 1; letter-spacing: -.04em;
+  color: transparent;
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--accent) 55%, transparent);
+  margin-bottom: 6px;
+}
+
+/* ── Полоса метрик ───────────────────────────────────────── */
+
+.band {
+  border-radius: 28px;
+  padding: clamp(32px, 5vw, 56px);
+  position: relative; overflow: hidden;
+}
+.band::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(40% 60% at 88% 12%, rgba(255,255,255,.10), transparent 70%);
+}
+.band .stat-v { font-size: clamp(34px, 5.4vw, 56px); letter-spacing: -.04em; }
+.band .stat-l { font-size: 14px; opacity: .8; }
+
+/* ── Карточки товара ─────────────────────────────────────── */
+
+.goods { border-radius: 22px; }
+.goods-price { font-size: 22px; }
+
+/* Плитки: акцентная полоса появляется слева при наведении — маленький
+   сигнал «это можно трогать», не трогающий раскладку. */
+.tile { position: relative; overflow: hidden; }
+.tile::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--accent);
+  transform: scaleY(0); transform-origin: top;
+  transition: transform .32s cubic-bezier(.16,1,.3,1);
+}
+@media (hover: hover) { .tile:hover::before { transform: scaleY(1); } }
+
+</style>
+
+<style>
+/* ── Питч ────────────────────────────────────────────────── */
+/*
+  Структура страницы повторяет шаблон инкубатора: двенадцать блоков,
+  у каждого свой номер и хронометраж. Номер и время — не украшение: они
+  показывают, что речь укладывается в три минуты, и позволяют репетировать
+  по странице, не открывая отдельный сценарий.
+*/
+.slide-num {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 14px;
+}
+.slide-num b {
+  display: grid; place-items: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent); color: #fff; font-size: 12px;
+}
+.slide-num span { color: var(--muted); font-weight: 700; letter-spacing: 0.04em; }
+
+/* Шаблон требует: «не более 6 строк текста на слайд». Ограничение ширины
+   держит эту дисциплину физически — длинный абзац сюда просто не влезет. */
+.pitch-lead { font-size: clamp(18px, 2.2vw, 22px); color: var(--text); max-width: 60ch; font-weight: 500; }
+
+.points { margin-top: 28px; display: grid; gap: 14px; }
+.point { display: flex; gap: 14px; align-items: flex-start; }
+.point-dot {
+  flex: none; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); margin-top: 9px;
+}
+.point p { font-size: 17px; line-height: 1.55; }
+.point strong { font-weight: 800; }
+
+.fact {
+  margin-top: 28px; padding: 22px 24px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); border-radius: var(--r-md);
+}
+.fact .v { font-size: clamp(26px, 3.4vw, 38px); font-weight: 800; letter-spacing: -0.03em; }
+.fact .l { font-size: 15px; color: var(--muted); margin-top: 4px; }
+
+/* Допущение подписано словом «допущение» намеренно: жюри отличает
+   посчитанное от придуманного, и честная пометка работает лучше, чем
+   уверенный тон без опоры. */
+.assume { font-size: 13px; color: var(--muted); margin-top: 10px; font-style: normal; }
+.assume::before { content: 'допущение · '; color: var(--warn); font-weight: 700; }
+
+.todo {
+  margin-top: 20px; padding: 16px 18px; border-radius: var(--r-md);
+  background: var(--warn-soft); border: 1px dashed var(--warn);
+  font-size: 14px; color: #6b5200;
+}
+.todo b { display: block; margin-bottom: 4px; }
+
+.timing { margin-top: 44px; }
+.timing table { min-width: 420px; }
+.timing td:last-child, .timing th:last-child { text-align: right; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="logo" href="../">RentHUB<span>.</span></a>
+    <div class="nav-links">
+      <a href="#problem">Проблема</a>
+      <a href="#market">Рынок</a>
+      <a href="#done">Сделано</a>
+      <a href="#ask">Запрос</a>
+    </div>
+    <a class="btn btn-ghost" href="../app/" style="margin-left:16px">Открыть продукт</a>
+  </div>
+</header>
+
+<!-- ── 1. Заставка ──────────────────────────────────────── -->
+<section style="padding-top: clamp(48px, 7vw, 88px)">
+  <div class="wrap">
+    <div class="slide-num"><b>1</b> Заставка <span>· 5 секунд</span></div>
+    <h1>Перфоратор в кладовке<br><span class="hl">не приносит денег.</span></h1>
+    <p class="pitch-lead" style="margin-top:24px">
+      RentHUB — аренда строительного инструмента у соседей: с депозитом, проверкой номера
+      и разбором споров по правилам, записанным в базе.
+    </p>
+    <div class="hero-cta">
+      <a class="btn" href="https://mandaloriancs.github.io/renthub/app/" target="_blank" rel="noopener">
+        Открыть приложение<span class="arr" aria-hidden="true">→</span>
+      </a>
+      <a class="btn btn-ghost" href="#done">Что уже работает</a>
+    </div>
+    <p class="hero-note" style="margin-top:28px">
+      <span class="dot"></span> Глеб Савельев · основатель · Кокшетау, Казахстан
+    </p>
+    <div class="todo">
+      <b>Заполнить перед защитой</b>
+      Шаблон требует на заставке два логотипа: ваш и Терриконовой долины. Положите файл
+      логотипа в <code>landing/assets/</code> и скажите — вставлю.
+    </div>
+  </div>
+</section>
+
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-line"><span>перфоратор</span><span>бетономешалка</span><span>виброплита</span><span>плиткорез</span><span>лестница</span><span>сварочный аппарат</span><span>шуруповёрт</span><span>штроборез</span><span>генератор</span><span>тепловая пушка</span><span>перфоратор</span><span>бетономешалка</span><span>виброплита</span><span>плиткорез</span><span>лестница</span><span>сварочный аппарат</span><span>шуруповёрт</span><span>штроборез</span><span>генератор</span><span>тепловая пушка</span></div>
+</div>
+
+<!-- ── 2. Клиент ────────────────────────────────────────── -->
+<section id="client">
+  <div class="wrap">
+    <div class="slide-num"><b>2</b> Клиент <span>· 10 секунд</span></div>
+    <h2>Две стороны, и начинаем с той,<br>у кого вещь уже куплена</h2>
+
+    <div class="grid g3">
+      <div class="tile">
+        <div class="num">01</div>
+        <h3 style="margin-top:10px">Владелец инструмента</h3>
+        <p>Мужчина 30–55 лет, свой дом или гараж в Кокшетау. Купил перфоратор под ремонт,
+        пользуется 2–3 раза в год. Сдавать готов, но не хочет ни звонков, ни торга, ни рисков.</p>
+      </div>
+      <div class="tile">
+        <div class="num">02</div>
+        <h3 style="margin-top:10px">Разовый арендатор</h3>
+        <p>Делает ремонт своими руками. Инструмент нужен на два дня, покупать за 90 000 ₸
+        ради одной задачи не готов. Ищет «у кого занять» в чатах и у знакомых.</p>
+      </div>
+      <div class="tile">
+        <div class="num">03</div>
+        <h3 style="margin-top:10px">Малая бригада</h3>
+        <p>Два-три человека на отделке. Свой набор есть, под разовую задачу нужен
+        специальный инструмент. Берут регулярно — это повторяемый спрос.</p>
+      </div>
+    </div>
+
+    <div class="fact">
+      <div class="v">Начинаем с владельцев</div>
+      <div class="l">
+        Двусторонний маркетплейс не запускается с обеих сторон сразу. Владельцев в одной
+        категории и одном городе набрать проще: их вещь уже куплена и уже простаивает.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 3. Проблема ──────────────────────────────────────── -->
+<section id="problem">
+  <div class="wrap">
+    <div class="slide-num"><b>3</b> Проблема <span>· 10 секунд</span></div>
+    <h2>Инструмент купили один раз,<br>а платят за него всегда</h2>
+
+    <div class="points">
+      <div class="point"><span class="point-dot"></span><p>
+        <strong>Владелец:</strong> перфоратор за 90 000 ₸ работает 3 дня в году.
+        Остальные 362 дня это лежащие деньги.
+      </p></div>
+      <div class="point"><span class="point-dot"></span><p>
+        <strong>Арендатор:</strong> прокатные точки берут от 5 000 ₸ в сутки, требуют залог
+        документами и находятся на другом конце города.
+      </p></div>
+      <div class="point"><span class="point-dot"></span><p>
+        <strong>Оба:</strong> договориться напрямую мешает недоверие. Отдать незнакомцу вещь
+        за 90 000 ₸ без залога и без правил никто не хочет.
+      </p></div>
+      <div class="point"><span class="point-dot"></span><p>
+        <strong>Сейчас это решают</strong> объявлениями на OLX и просьбами в домовых чатах —
+        без депозита, без ответственности, без разбора, если вещь вернули сломанной.
+      </p></div>
+    </div>
+
+    <div class="fact">
+      <div class="v">≈ 87 000 ₸</div>
+      <div class="l">
+        Цена проблемы для арендатора: покупка инструмента вместо трёх суток аренды за 10 500 ₸.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 4. Решение ───────────────────────────────────────── -->
+<section id="solution">
+  <div class="wrap">
+    <div class="slide-num"><b>4</b> Решение <span>· 30 секунд</span></div>
+    <h2>Правила сделки живут в базе,<br>а не в обещаниях платформы</h2>
+
+    <p class="pitch-lead" style="margin-top:20px">
+      Владелец выкладывает вещь с фото и депозитом, арендатор бронирует даты и платит
+      за срок. Всё, что защищает обе стороны, — ограничения Postgres: их не обойдёт
+      ни приложение, ни бот, ни прямой запрос к базе.
+    </p>
+
+    <div class="grid g2" style="margin-top:36px">
+      <div class="tile">
+        <h3>Депозит вместо доверия</h3>
+        <p>Блокируется в момент заявки, а не при передаче вещи. Возвращается целиком, если
+        вещь цела; при порче компенсация идёт владельцу отдельной строкой, без комиссии.</p>
+      </div>
+      <div class="tile">
+        <h3>Споры с доказательствами</h3>
+        <p>Претензия принимается только с фото и только 48 часов. Ущерб до 15 000 ₸
+        закрывается автоматически, выше — человеком.</p>
+      </div>
+      <div class="tile">
+        <h3>Проверка личности</h3>
+        <p>Без подтверждённого телефона нельзя ни сдать, ни арендовать. Подтверждение
+        приходит через Telegram — SMS-провайдер за $250 в месяц не нужен.</p>
+      </div>
+      <div class="tile">
+        <h3>Пассивный режим владельца</h3>
+        <p>Система сама напоминает о возврате, сама открывает спор при просрочке и сама
+        закрывает сделку. Владельца дёргают дважды: подтвердить бронь и принять вещь.</p>
+      </div>
+    </div>
+
+    <figure class="diagram" style="margin-top:36px">
+      <div class="diagram-scroll">
+<svg viewBox="0 0 1040 760" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pitch-loop-title pitch-loop-desc">
+      <title id="pitch-loop-title">Петля сделки RentHUB</title>
+      <desc id="pitch-loop-desc">Шесть шагов сделки идут по кругу от публикации вещи до взаимных оценок, а бронирование, возврат и отзыв дописывают рейтинг в общий Trust Score в центре — из него берутся допуски для следующей сделки.</desc>
+      <defs>
+        <marker id="pitch-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6E675E"/></marker>
+        <marker id="pitch-arrow-soft" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#8C857A"/></marker>
+        <marker id="pitch-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#C2603C"/></marker>
+      </defs>
+
+      <rect width="100%" height="100%" fill="#FAF7F2"/>
+
+      <path d="M 600 113.726 A 240 240 0 0 1 704.969 187.073" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#pitch-arrow)"/>
+      <path d="M 743.285 252 A 240 240 0 0 1 743.722 426.882" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#pitch-arrow)"/>
+      <path d="M 705.731 492 A 240 240 0 0 1 601.13 565.871" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#pitch-arrow)"/>
+      <path d="M 440 566.274 A 240 240 0 0 1 335.031 492.927" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#pitch-arrow)"/>
+      <path d="M 296.715 428 A 240 240 0 0 1 296.278 253.118" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#pitch-arrow)"/>
+      <path d="M 334.269 188 A 240 240 0 0 1 438.87 114.129" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#pitch-arrow)"/>
+
+      <line x1="672.574" y1="428" x2="615.263" y2="395" stroke="#8C857A" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#pitch-arrow-soft)"/>
+      <line x1="367.426" y1="428" x2="424.737" y2="395" stroke="#8C857A" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#pitch-arrow-soft)"/>
+      <line x1="367.426" y1="252" x2="424.737" y2="285" stroke="#8C857A" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#pitch-arrow-soft)"/>
+
+      <rect x="440" y="68" width="160" height="64" rx="8" fill="#FAF7F2"/>
+      <rect x="440" y="68" width="160" height="64" rx="8" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="520" y="98" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Выложил</text>
+      <text x="520" y="116" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">фото, цена, депозит</text>
+      <rect x="648" y="188" width="160" height="64" rx="8" fill="#FAF7F2"/>
+      <rect x="648" y="188" width="160" height="64" rx="8" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="728" y="218" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Нашли</text>
+      <text x="728" y="236" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">каталог открыт всем</text>
+      <rect x="648" y="428" width="160" height="64" rx="8" fill="#FAF7F2"/>
+      <rect x="648" y="428" width="160" height="64" rx="8" fill="rgba(194,96,60,0.08)" stroke="#C2603C" stroke-width="1"/>
+      <text x="728" y="458" fill="#C2603C" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Забронировал</text>
+      <text x="728" y="476" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">депозит удержан</text>
+      <rect x="440" y="548" width="160" height="64" rx="8" fill="#FAF7F2"/>
+      <rect x="440" y="548" width="160" height="64" rx="8" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="520" y="578" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Аренда идёт</text>
+      <text x="520" y="596" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">сроки тикают</text>
+      <rect x="232" y="428" width="160" height="64" rx="8" fill="#FAF7F2"/>
+      <rect x="232" y="428" width="160" height="64" rx="8" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="312" y="458" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Вернул</text>
+      <text x="312" y="476" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">владелец принял</text>
+      <rect x="232" y="188" width="160" height="64" rx="8" fill="#FAF7F2"/>
+      <rect x="232" y="188" width="160" height="64" rx="8" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="312" y="218" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Оценили</text>
+      <text x="312" y="236" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">обе стороны</text>
+
+      <rect x="420" y="288" width="200" height="104" rx="8" fill="#1A1917"/>
+      <rect x="432" y="300" width="72" height="12" rx="2" fill="none" stroke="rgba(250,247,242,0.40)" stroke-width="0.8"/>
+      <text x="468" y="309" fill="rgba(250,247,242,0.80)" font-size="7" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle" letter-spacing="0.18em">POSTGRES</text>
+      <text x="520" y="352" fill="#FAF7F2" font-size="16" font-weight="700" font-family="Manrope, sans-serif" text-anchor="middle">Trust Score</text>
+      <text x="520" y="372" fill="rgba(250,247,242,0.70)" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">рейтинг, история, verified_at</text>
+
+      <line x1="40" y1="692" x2="1000" y2="692" stroke="rgba(26,25,23,0.12)" stroke-width="0.8"/>
+      <text x="40" y="708" fill="#6E675E" font-size="8" font-weight="600" font-family="Manrope, sans-serif" letter-spacing="0.14em">ЛЕГЕНДА</text>
+      <line x1="140" y1="704" x2="176" y2="704" stroke="#6E675E" stroke-width="1.2"/>
+      <text x="188" y="708" fill="#6E675E" font-size="9" font-weight="500" font-family="Manrope, sans-serif">ход сделки</text>
+      <line x1="320" y1="704" x2="356" y2="704" stroke="#8C857A" stroke-width="1" stroke-dasharray="5,4"/>
+      <text x="368" y="708" fill="#6E675E" font-size="9" font-weight="500" font-family="Manrope, sans-serif">запись в Trust Score</text>
+      <rect x="560" y="698" width="12" height="12" rx="2" fill="rgba(194,96,60,0.08)" stroke="#C2603C" stroke-width="1"/>
+      <text x="584" y="708" fill="#6E675E" font-size="9" font-weight="500" font-family="Manrope, sans-serif">шаг, где появляются деньги</text>
+    </svg>
+      </div>
+      <figcaption>
+        Стадия: работающий MVP на живой базе. Реальных платежей нет — бронирования,
+        депозиты и выплаты живут как статусы, и это сознательный этап: сперва подтверждаем
+        петлю, потом подключаем Kaspi Pay.
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ── 5. Рынок ─────────────────────────────────────────── -->
+<section id="market">
+  <div class="wrap">
+    <div class="slide-num"><b>5</b> Рынок <span>· 20 секунд</span></div>
+    <h2>Считаем снизу: чек × сделки × год</h2>
+
+    <p class="pitch-lead" style="margin-top:20px">
+      Считаем рынок аренды инструмента между людьми, а не мировой шеринг: каршеринг и
+      аренда жилья к перфоратору в Кокшетау отношения не имеют.
+    </p>
+
+    <div class="grid g3" style="margin-top:36px">
+      <div class="tile">
+        <h3>Чек сделки</h3>
+        <p><strong>10 500 ₸</strong> — трое суток по 3 500 ₸. Комиссия платформы 20% —
+        <strong>2 100 ₸</strong> с сделки.</p>
+      </div>
+      <div class="tile">
+        <h3>Пилот: Кокшетау</h3>
+        <p>≈150 000 жителей, ≈45 000 домохозяйств. Одна категория — строительный инструмент.</p>
+        <p class="assume">3% домохозяйств арендуют дважды в год</p>
+      </div>
+      <div class="tile">
+        <h3>Годовой оборот пилота</h3>
+        <p><strong>≈28 млн ₸</strong> оборота, из них <strong>≈5,6 млн ₸</strong> — выручка
+        платформы.</p>
+      </div>
+    </div>
+
+    <div class="fact">
+      <div class="v">13 млн городских жителей — весь Казахстан</div>
+      <div class="l">
+        Верхняя граница при том же чеке и той же доле: <strong>≈62 млн ₸</strong> выручки
+        первого года при 0,3% проникновения — намеренно консервативно, двусторонний
+        маркетплейс раскачивается медленно.
+      </div>
+    </div>
+
+    <figure class="diagram" style="margin-top:36px">
+      <div class="diagram-scroll">
+      <svg viewBox="0 0 1120 780" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pmoney-flow-title pmoney-flow-desc">
+      <title id="pmoney-flow-title">Куда уходят деньги сделки</title>
+      <desc id="pmoney-flow-desc">Платёж арендатора делится на аренду и депозит: из аренды платформа удерживает 20 процентов комиссии, остальное уходит владельцу, а депозит либо возвращается целиком, либо частично становится компенсацией ущерба, которая доходит до владельца без комиссии.</desc>
+      <defs>
+        <marker id="pmoney-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6E675E"/></marker>
+        <marker id="pmoney-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#C2603C"/></marker>
+        <marker id="pmoney-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2F5D50"/></marker>
+      </defs>
+      
+      <rect width="100%" height="100%" fill="#FAF7F2"/>
+      
+      <path d="M 480 124 L 480 148 A 8 8 0 0 1 472 156 L 328 156 A 8 8 0 0 0 320 164 L 320 188" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#pmoney-arrow)"/>
+      <path d="M 640 124 L 640 148 A 8 8 0 0 0 648 156 L 792 156 A 8 8 0 0 1 800 164 L 800 188" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#pmoney-arrow)"/>
+      <path d="M 280 252 L 280 296 A 8 8 0 0 1 272 304 L 168 304 A 8 8 0 0 0 160 312 L 160 368" fill="none" stroke="#C2603C" stroke-width="1.2" marker-end="url(#pmoney-arrow-accent)"/>
+      <path d="M 360 252 L 360 512 A 8 8 0 0 0 368 520 L 392 520 A 8 8 0 0 1 400 528 L 400 560" fill="none" stroke="#2F5D50" stroke-width="1.2" marker-end="url(#pmoney-arrow-link)"/>
+      <path d="M 800 252 L 800 344" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#pmoney-arrow)"/>
+      <path d="M 896 400 L 920 400" fill="none" stroke="#2F5D50" stroke-width="1.2" marker-end="url(#pmoney-arrow-link)"/>
+      <path d="M 800 456 L 800 560" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#pmoney-arrow)"/>
+      <path d="M 680 592 L 520 592" fill="none" stroke="#2F5D50" stroke-width="1.2" marker-end="url(#pmoney-arrow-link)"/>
+      
+      <rect x="890" y="374" width="28" height="14" rx="2" fill="#FAF7F2"/>
+      <text x="904" y="384" fill="#6E675E" font-size="8" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle" letter-spacing="0.06em">ДА</text>
+      <rect x="810" y="498" width="34" height="14" rx="2" fill="#FAF7F2"/>
+      <text x="827" y="508" fill="#6E675E" font-size="8" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle" letter-spacing="0.06em">НЕТ</text>
+      <rect x="556" y="566" width="88" height="14" rx="2" fill="#FAF7F2"/>
+      <text x="600" y="576" fill="#6E675E" font-size="8" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle" letter-spacing="0.06em">БЕЗ КОМИССИИ</text>
+      
+      <rect x="412" y="68" width="296" height="56" rx="28" fill="#FAF7F2"/>
+      <rect x="412" y="68" width="296" height="56" rx="28" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="560" y="94" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Арендатор платит</text>
+      <text x="560" y="112" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">аренда + депозит + страховка 150 ₸</text>
+      <rect x="200" y="188" width="240" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="200" y="188" width="240" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="320" y="218" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Аренда</text>
+      <text x="320" y="236" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">3 500 ₸ × 3 суток = 10 500 ₸</text>
+      <rect x="680" y="188" width="240" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="680" y="188" width="240" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="800" y="218" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Депозит</text>
+      <text x="800" y="236" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">20 000 ₸ заморожены</text>
+      <rect x="60" y="368" width="200" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="60" y="368" width="200" height="64" rx="6" fill="rgba(194,96,60,0.08)" stroke="#C2603C" stroke-width="1"/>
+      <text x="160" y="398" fill="#C2603C" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Комиссия платформы</text>
+      <text x="160" y="416" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">2 100 ₸ — это 20%</text>
+      <rect x="920" y="368" width="160" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="920" y="368" width="160" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="1000" y="398" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Депозит вернулся</text>
+      <text x="1000" y="416" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">20 000 ₸</text>
+      <rect x="680" y="560" width="240" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="680" y="560" width="240" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="800" y="590" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Компенсация ущерба</text>
+      <text x="800" y="608" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">меньшее из ущерба и депозита</text>
+      <rect x="280" y="560" width="240" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="280" y="560" width="240" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="400" y="590" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Владельцу</text>
+      <text x="400" y="608" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">8 400 ₸ + компенсация</text>
+      
+      <polygon points="800,344 896,400 800,456 704,400" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="800" y="398" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Вещь цела?</text>
+      <text x="800" y="416" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">фото «до» против «после»</text>
+      
+      <line x1="40" y1="708" x2="1080" y2="708" stroke="rgba(26,25,23,0.12)" stroke-width="0.8"/>
+      <text x="40" y="724" fill="#6E675E" font-size="8" font-weight="600" font-family="Manrope, sans-serif" letter-spacing="0.14em">ЛЕГЕНДА</text>
+      <rect x="140" y="714" width="12" height="12" rx="2" fill="rgba(194,96,60,0.08)" stroke="#C2603C" stroke-width="1"/>
+      <text x="164" y="724" fill="#6E675E" font-size="9" font-weight="500" font-family="Manrope, sans-serif">доход платформы</text>
+      <line x1="320" y1="720" x2="356" y2="720" stroke="#2F5D50" stroke-width="1.2"/>
+      <text x="368" y="724" fill="#6E675E" font-size="9" font-weight="500" font-family="Manrope, sans-serif">деньги владельцу</text>
+      <text x="560" y="724" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif">Пример: перфоратор 3 500 ₸ в сутки, трое суток, депозит 20 000 ₸</text>
+      </svg>
+      </div>
+      <figcaption>
+        Комиссия берётся только с аренды. Депозит проходит мимо неё и возвращается целиком,
+        если вещь цела; компенсация ущерба доходит до владельца отдельной строкой и тоже без
+        комиссии — иначе платформа зарабатывала бы на поломках.
+      </figcaption>
+    </figure>
+
+    <div class="disclaimer">
+      P2P-аренда требует плотности: вещь нужно забрать и вернуть. Поэтому рынок считается
+      по городам, а не по стране целиком — тридцать владельцев в одном микрорайоне работают
+      лучше, чем триста по миллионнику.
+    </div>
+  </div>
+</section>
+
+<!-- ── 6. Конкуренты ────────────────────────────────────── -->
+<section id="rivals">
+  <div class="wrap">
+    <div class="slide-num"><b>6</b> Конкуренты <span>· 20 секунд</span></div>
+    <h2>Сегодня это решают OLX<br>и просьбой в домовом чате</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Как решают сейчас</th><th>Депозит</th><th>Разбор спора</th><th>Рейтинг</th><th>Рядом с домом</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>OLX и доски объявлений</td><td class="no">нет</td><td class="no">нет</td><td class="no">нет</td><td class="yes">да</td></tr>
+          <tr><td>Прокатные точки</td><td class="yes">залог документами</td><td class="no">по договорённости</td><td class="no">нет</td><td class="no">через город</td></tr>
+          <tr><td>Знакомые и домовые чаты</td><td class="no">нет</td><td class="no">нет</td><td class="no">нет</td><td class="yes">да</td></tr>
+          <tr class="mark"><td>RentHUB</td><td class="yes">блокируется в базе</td><td class="yes">по фото, с порогом</td><td class="yes">после сделки</td><td class="yes">да</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="fact">
+      <div class="v">Ниша не занята слабо — она пуста</div>
+      <div class="l">
+        Весь шеринг в Казахстане — это каршеринг, и только в Алматы. В Кокшетау нет и его.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 7. До инкубации ──────────────────────────────────── -->
+<section id="before">
+  <div class="wrap">
+    <div class="slide-num"><b>7</b> До инкубации <span>· часть из 40 секунд</span></div>
+    <h2>На старте была идея и презентация</h2>
+
+    <div class="points">
+      <div class="point"><span class="point-dot"></span><p>Продукта не существовало: ни приложения, ни базы, ни одной сделки.</p></div>
+      <div class="point"><span class="point-dot"></span><p>Рынок был посчитан глобальной цифрой мирового шеринга — к Кокшетау отношения не имел.</p></div>
+      <div class="point"><span class="point-dot"></span><p>Бизнес-модель в деке обещала маржинальный спред, а не комиссию.</p></div>
+    </div>
+
+    <div class="todo">
+      <b>Обязательный пункт шаблона</b>
+      Количество экспортных контрактов до старта программы. Если их не было — так и пишем «0»,
+      это нормальная и честная цифра для пилота внутри страны. Подтвердите, и я поставлю.
+    </div>
+  </div>
+</section>
+
+<!-- ── 8. Что уже сделано ───────────────────────────────── -->
+<section id="done">
+  <div class="wrap">
+    <div class="slide-num"><b>8</b> Результаты инкубации <span>· часть из 40 секунд</span></div>
+    <h2>Продукт работает — откройте и проверьте</h2>
+
+    <div class="band" style="margin-top:36px">
+      <div class="grid g3" style="margin-top:0">
+        <div>
+          <div class="stat-v">7 правил</div>
+          <div class="stat-l">Trust Score реализованы как триггеры и политики Postgres</div>
+        </div>
+        <div>
+          <div class="stat-v">130+</div>
+          <div class="stat-l">автоматических проверок бизнес-правил прогоняются до каждого деплоя</div>
+        </div>
+        <div>
+          <div class="stat-v">0 ₸</div>
+          <div class="stat-l">стоимость подтверждения номера: Telegram вместо SMS за $250/мес</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="points" style="margin-top:36px">
+      <div class="point"><span class="point-dot"></span><p>
+        <strong>Приложение на живой базе:</strong> каталог, бронирование, депозиты, споры,
+        отзывы, рейтинг. Каталог открыт без регистрации —
+        <a href="https://mandaloriancs.github.io/renthub/app/" target="_blank" rel="noopener">откройте прямо сейчас</a>.
+      </p></div>
+      <div class="point"><span class="point-dot"></span><p>
+        <strong>Телеграм-бот:</strong> подтверждение номера, коды входа и уведомления
+        о сделках. Работает на том же бэкенде, обойти правила базы не может.
+      </p></div>
+      <div class="point"><span class="point-dot"></span><p>
+        <strong>Схема разворачивается пушем</strong> в репозиторий, каждая миграция
+        проверяется на настоящем Postgres до деплоя.
+      </p></div>
+      <div class="point"><span class="point-dot"></span><p>
+        <strong>Ближайшие шаги до конца года:</strong> витрина с реальными объявлениями,
+        первые 30 владельцев в одном микрорайоне, подключение Kaspi Pay.
+      </p></div>
+    </div>
+
+    <div class="todo">
+      <b>Заполнить перед защитой</b>
+      Шаблон требует результат в деньгах и суммы по экспортным контрактам. У пилота без
+      реальных платежей это «0 ₸ выручки, 0 экспортных контрактов» — и рядом честная строка,
+      что этап посвящён проверке петли сделки. Подтвердите формулировку.
+    </div>
+  </div>
+</section>
+
+<!-- ── 9. План ──────────────────────────────────────────── -->
+<section id="plan">
+  <div class="wrap">
+    <div class="slide-num"><b>9</b> План на 3 года <span>· 15 секунд</span></div>
+    <h2>Один город → область → соседние регионы</h2>
+
+    <div class="grid g3">
+      <div class="tile">
+        <div class="num">2026</div>
+        <h3 style="margin-top:10px">Пилот в Кокшетау</h3>
+        <p>30 владельцев, одна категория, подтверждённая петля сделки. Подключение Kaspi Pay.</p>
+        <p class="assume">выручка ≈5,6 млн ₸ при 3% проникновения</p>
+      </div>
+      <div class="tile">
+        <div class="num">2027</div>
+        <h3 style="margin-top:10px">Акмолинская область</h3>
+        <p>Ещё три города, вторая категория — садовая и бытовая техника.</p>
+        <p class="assume">выручка ≈20 млн ₸</p>
+      </div>
+      <div class="tile">
+        <div class="num">2028</div>
+        <h3 style="margin-top:10px">Север Казахстана</h3>
+        <p>Пять областных центров, доставка силами партнёров.</p>
+        <p class="assume">выручка ≈62 млн ₸ — верхняя граница расчёта из блока «Рынок»</p>
+      </div>
+    </div>
+
+    <div class="disclaimer">
+      Цифры плана намеренно совпадают с расчётом рынка: план, который выходит за границу
+      посчитанного рынка, обесценивает оба слайда.
+    </div>
+  </div>
+</section>
+
+<!-- ── 10. Команда ──────────────────────────────────────── -->
+<section id="team">
+  <div class="wrap">
+    <div class="slide-num"><b>10</b> Команда <span>· 10 секунд</span></div>
+    <h2>Кто делает</h2>
+
+    <div class="grid g2">
+      <div class="tile">
+        <div class="person">
+          <div class="ava">ГС</div>
+          <div>
+            <strong>Глеб Савельев</strong>
+            <div class="role">Продукт и разработка</div>
+          </div>
+        </div>
+        <p style="margin-top:14px">Приложение, база, бот и правила сделки. Отвечает за то,
+        чтобы обещания продукта были ограничениями системы, а не текстом на сайте.</p>
+      </div>
+      <div class="tile">
+        <div class="person">
+          <div class="ava">?</div>
+          <div>
+            <strong>Второй участник</strong>
+            <div class="role">зона ответственности</div>
+          </div>
+        </div>
+        <p style="margin-top:14px">Шаблон требует 2–3 ключевые фигуры с зонами
+        ответственности и опытом. Пришлите имя, роль и пару строк бэкграунда — впишу.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 11. Запрос ───────────────────────────────────────── -->
+<section id="ask">
+  <div class="wrap">
+    <div class="slide-num"><b>11</b> Инвестиционный запрос <span>· 15 секунд</span></div>
+    <h2>Сколько нужно и на что</h2>
+
+    <div class="todo">
+      <b>Единственный блок, который я не могу заполнить за вас</b>
+      Нужны две цифры: сумма запроса и разбивка — на что именно. Шаблон требует
+      измеримости: не «на развитие», а «X ₸ — привлечение 300 владельцев, Y ₸ — подключение
+      платежей, Z ₸ — операционные расходы на 12 месяцев». Пришлите цифры, соберу блок.
+    </div>
+
+    <div class="grid g3" style="margin-top:28px">
+      <div class="tile"><h3>Привлечение владельцев</h3><p>— ₸</p></div>
+      <div class="tile"><h3>Платежи и эскроу</h3><p>— ₸</p></div>
+      <div class="tile"><h3>Операционные расходы</h3><p>— ₸</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 12. Визитка ──────────────────────────────────────── -->
+<section id="card">
+  <div class="wrap">
+    <div class="slide-num"><b>12</b> Визитка <span>· 5 секунд</span></div>
+    <h2>RentHUB<span style="color:var(--accent)">.</span></h2>
+    <p class="pitch-lead" style="margin-top:16px">
+      Аренда строительного инструмента у соседей — с депозитом, проверкой и рейтингом.
+    </p>
+
+    <div class="grid g2" style="margin-top:32px">
+      <div class="tile">
+        <h3>Глеб Савельев</h3>
+        <p>Основатель · Кокшетау, Казахстан</p>
+        <p><a href="https://t.me/renthub_kokshetau_bot" target="_blank" rel="noopener">@renthub_kokshetau_bot</a></p>
+      </div>
+      <div class="tile">
+        <h3>Посмотреть продукт</h3>
+        <p><a href="https://mandaloriancs.github.io/renthub/app/" target="_blank" rel="noopener">Приложение</a></p>
+        <p><a href="https://mandaloriancs.github.io/renthub/" target="_blank" rel="noopener">Лендинг для владельцев</a></p>
+      </div>
+    </div>
+
+    <div class="timing">
+      <h3 style="margin-bottom:16px">Хронометраж — 180 секунд</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Блок</th><th>Секунды</th></tr></thead>
+          <tbody>
+            <tr><td>1. Заставка</td><td>5</td></tr>
+            <tr><td>2. Клиент</td><td>10</td></tr>
+            <tr><td>3. Проблема</td><td>10</td></tr>
+            <tr><td>4. Решение</td><td>30</td></tr>
+            <tr><td>5. Рынок</td><td>20</td></tr>
+            <tr><td>6. Конкуренты</td><td>20</td></tr>
+            <tr><td>7–8. До инкубации и результаты</td><td>40</td></tr>
+            <tr><td>8.2. Экспортные контракты</td><td>15</td></tr>
+            <tr><td>9. План развития</td><td>15</td></tr>
+            <tr><td>10. Команда</td><td>10</td></tr>
+            <tr><td>12. Финальный слайд</td><td>5</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <p>RentHUB · Кокшетау · пилот без реальных платежей</p>
+    <!-- Пути относительно /renthub/pitch/, а не корня сайта: страница
+         публикуется во вложенной папке, и «app/» вело на
+         /renthub/pitch/app/ — то есть в 404. -->
+    <p><a href="../">Лендинг для владельцев</a> · <a href="../app/">Приложение</a></p>
+  </div>
+</footer>
+
+<script>
+/*
+  Движение включается здесь, а не в разметке: классы расставляются по
+  селекторам, поэтому новый блок в разделе получает поведение сам, без
+  правки скрипта. Всё внутри — прогрессивное улучшение: без JavaScript
+  страница остаётся полностью читаемой, просто без анимаций.
+*/
+(function () {
+  var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ── Появление блоков при прокрутке ──────────────────────
+  var targets = document.querySelectorAll(
+    // .flow-op сюда не входит намеренно: на узком экране стрелки повёрнуты
+    // на 90°, а появление заканчивается на transform: none — поворот бы слетел.
+    'section h2, section .lead, .tile, .goods, .step, .flow-box, .band, .table-wrap, .faq details, .person, figure.diagram, .disclaimer'
+  );
+
+  if (!still && 'IntersectionObserver' in window) {
+    var seen = new WeakMap();
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        var el = e.target;
+        // Задержка внутри одной группы даёт «волну» вместо одновременной
+        // вспышки: глаз читает порядок, а не пятно.
+        el.style.transitionDelay = (seen.get(el) || 0) + 'ms';
+        el.classList.add('is-in');
+        io.unobserve(el);
+      });
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.08 });
+
+    var group = null;
+    var index = 0;
+    targets.forEach(function (el) {
+      var parent = el.parentElement;
+      if (parent !== group) { group = parent; index = 0; }
+      seen.set(el, Math.min(index * 70, 280));
+      index++;
+      el.classList.add('reveal');
+      io.observe(el);
+    });
+  }
+
+  // ── Числа в экономике ───────────────────────────────────
+  /*
+    Считаются только суммы и метрики: полоса цифр и разбор сделки. Цена в
+    карточке товара не анимируется намеренно — это не итог расчёта, а факт,
+    и «набегающая» цена читалась бы как торг.
+  */
+  var numbers = document.querySelectorAll('.band .stat-v, .flow-box .v');
+
+  function ruFormat(n) {
+    return n.toLocaleString('ru-RU').replace(/\u00A0/g, ' ');
+  }
+
+  function run(el) {
+    var raw = el.textContent;
+    var digits = raw.replace(/[^0-9]/g, '');
+    if (!digits) return;
+    var target = parseInt(digits, 10);
+    if (!isFinite(target) || target === 0) return;
+    var prefix = raw.slice(0, raw.search(/[0-9]/));
+    var suffix = raw.slice(raw.lastIndexOf(digits[digits.length - 1]) + 1);
+
+    el.classList.add('counting');
+    var start = performance.now();
+    var dur = 900;
+    function frame(now) {
+      var t = Math.min((now - start) / dur, 1);
+      // Замедление к концу: число «прибывает», а не тормозит рывком.
+      var eased = 1 - Math.pow(1 - t, 3);
+      el.textContent = prefix + ruFormat(Math.round(target * eased)) + suffix;
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  if (!still && 'IntersectionObserver' in window) {
+    var numObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        run(e.target);
+        numObserver.unobserve(e.target);
+      });
+    }, { threshold: 0.6 });
+    numbers.forEach(function (el) { numObserver.observe(el); });
+  }
+
+  // ── Шапка ───────────────────────────────────────────────
+  var head = document.querySelector('header');
+  if (head) {
+    var onScroll = function () {
+      head.classList.toggle('is-scrolled', window.scrollY > 8);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
+})();
+</script>
+</body>
+</html>

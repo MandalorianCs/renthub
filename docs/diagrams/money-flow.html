@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Куда уходят деньги сделки</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --paper: #FAF7F2; --ink: #1A1917; --muted: #6E675E; --rule: rgba(26,25,23,0.12); --font: 'Manrope', system-ui, sans-serif; }
+    body { font-family: var(--font); background: var(--paper); color: var(--ink); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3rem 2rem; }
+    .frame { max-width: 1240px; width: 100%; }
+    .eyebrow { font-size: 0.66rem; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem; }
+    h1 { font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; margin-bottom: 0.5rem; }
+    p.lead { color: var(--muted); font-size: 0.95rem; font-weight: 500; margin-bottom: 1.5rem; max-width: 64ch; }
+    .wrap { overflow-x: auto; }
+    svg { width: 100%; min-width: 960px; display: block; }
+    footer { margin-top: 1.5rem; padding-top: 0.75rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: 0.7rem; font-weight: 500; letter-spacing: 0.06em; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Схема · RentHUB</p>
+    <h1>Комиссия берётся с аренды, а не с ущерба</h1>
+    <p class="lead">Депозит — не доход платформы: он замораживается и возвращается целиком, если вещь цела. Компенсация ущерба идёт владельцу отдельной строкой и комиссией не облагается — иначе платформа зарабатывала бы на поломках.</p>
+    <div class="wrap">
+    <svg viewBox="0 0 1120 780" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="money-flow-title money-flow-desc">
+      <title id="money-flow-title">Куда уходят деньги сделки</title>
+      <desc id="money-flow-desc">Платёж арендатора делится на аренду и депозит: из аренды платформа удерживает 20 процентов комиссии, остальное уходит владельцу, а депозит либо возвращается целиком, либо частично становится компенсацией ущерба, которая доходит до владельца без комиссии.</desc>
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#6E675E"/></marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#C2603C"/></marker>
+        <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2F5D50"/></marker>
+      </defs>
+
+      <rect width="100%" height="100%" fill="#FAF7F2"/>
+
+      <path d="M 480 124 L 480 148 A 8 8 0 0 1 472 156 L 328 156 A 8 8 0 0 0 320 164 L 320 188" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <path d="M 640 124 L 640 148 A 8 8 0 0 0 648 156 L 792 156 A 8 8 0 0 1 800 164 L 800 188" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <path d="M 280 252 L 280 296 A 8 8 0 0 1 272 304 L 168 304 A 8 8 0 0 0 160 312 L 160 368" fill="none" stroke="#C2603C" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+      <path d="M 360 252 L 360 512 A 8 8 0 0 0 368 520 L 392 520 A 8 8 0 0 1 400 528 L 400 560" fill="none" stroke="#2F5D50" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+      <path d="M 800 252 L 800 344" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <path d="M 896 400 L 920 400" fill="none" stroke="#2F5D50" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+      <path d="M 800 456 L 800 560" fill="none" stroke="#6E675E" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <path d="M 680 592 L 520 592" fill="none" stroke="#2F5D50" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+
+      <rect x="890" y="374" width="28" height="14" rx="2" fill="#FAF7F2"/>
+      <text x="904" y="384" fill="#6E675E" font-size="8" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle" letter-spacing="0.06em">ДА</text>
+      <rect x="810" y="498" width="34" height="14" rx="2" fill="#FAF7F2"/>
+      <text x="827" y="508" fill="#6E675E" font-size="8" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle" letter-spacing="0.06em">НЕТ</text>
+      <rect x="556" y="566" width="88" height="14" rx="2" fill="#FAF7F2"/>
+      <text x="600" y="576" fill="#6E675E" font-size="8" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle" letter-spacing="0.06em">БЕЗ КОМИССИИ</text>
+
+      <rect x="412" y="68" width="296" height="56" rx="28" fill="#FAF7F2"/>
+      <rect x="412" y="68" width="296" height="56" rx="28" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="560" y="94" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Арендатор платит</text>
+      <text x="560" y="112" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">аренда + депозит + страховка 150 ₸</text>
+      <rect x="200" y="188" width="240" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="200" y="188" width="240" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="320" y="218" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Аренда</text>
+      <text x="320" y="236" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">3 500 ₸ × 3 суток = 10 500 ₸</text>
+      <rect x="680" y="188" width="240" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="680" y="188" width="240" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="800" y="218" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Депозит</text>
+      <text x="800" y="236" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">20 000 ₸ заморожены</text>
+      <rect x="60" y="368" width="200" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="60" y="368" width="200" height="64" rx="6" fill="rgba(194,96,60,0.08)" stroke="#C2603C" stroke-width="1"/>
+      <text x="160" y="398" fill="#C2603C" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Комиссия платформы</text>
+      <text x="160" y="416" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">2 100 ₸ — это 20%</text>
+      <rect x="920" y="368" width="160" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="920" y="368" width="160" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="1000" y="398" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Депозит вернулся</text>
+      <text x="1000" y="416" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">20 000 ₸</text>
+      <rect x="680" y="560" width="240" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="680" y="560" width="240" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="800" y="590" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Компенсация ущерба</text>
+      <text x="800" y="608" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">меньшее из ущерба и депозита</text>
+      <rect x="280" y="560" width="240" height="64" rx="6" fill="#FAF7F2"/>
+      <rect x="280" y="560" width="240" height="64" rx="6" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="400" y="590" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Владельцу</text>
+      <text x="400" y="608" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">8 400 ₸ + компенсация</text>
+
+      <polygon points="800,344 896,400 800,456 704,400" fill="#FAF7F2" stroke="#1A1917" stroke-width="1"/>
+      <text x="800" y="398" fill="#1A1917" font-size="12" font-weight="600" font-family="Manrope, sans-serif" text-anchor="middle">Вещь цела?</text>
+      <text x="800" y="416" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif" text-anchor="middle">фото «до» против «после»</text>
+
+      <line x1="40" y1="708" x2="1080" y2="708" stroke="rgba(26,25,23,0.12)" stroke-width="0.8"/>
+      <text x="40" y="724" fill="#6E675E" font-size="8" font-weight="600" font-family="Manrope, sans-serif" letter-spacing="0.14em">ЛЕГЕНДА</text>
+      <rect x="140" y="714" width="12" height="12" rx="2" fill="rgba(194,96,60,0.08)" stroke="#C2603C" stroke-width="1"/>
+      <text x="164" y="724" fill="#6E675E" font-size="9" font-weight="500" font-family="Manrope, sans-serif">доход платформы</text>
+      <line x1="320" y1="720" x2="356" y2="720" stroke="#2F5D50" stroke-width="1.2"/>
+      <text x="368" y="724" fill="#6E675E" font-size="9" font-weight="500" font-family="Manrope, sans-serif">деньги владельцу</text>
+      <text x="560" y="724" fill="#8C857A" font-size="9" font-weight="500" font-family="Manrope, sans-serif">Пример: перфоратор 3 500 ₸ в сутки, трое суток, депозит 20 000 ₸</text>
+    </svg>
+    </div>
+    <footer>RentHUB · расчёты в базе, реальных платежей на этом этапе нет</footer>
+  </div>
+</body>
+</html>
