@@ -621,6 +621,46 @@ select t.expect_fail(t.id('renter'),
 
 update users set is_moderator = false where id = t.id('stranger');
 
+-- ── Контакт второй стороны ────────────────────────────────────
+--
+-- Телефон закрыт грантом на колонки даже вошедшему, поэтому связаться
+-- участники подтверждённой сделки могут только через booking_contact().
+-- Проверяем оба края: посторонний не получает ничего, сторона получает
+-- контакт ВТОРОЙ стороны, а не свой.
+
+do $$
+begin
+  -- booking создан сценарием 1 и закрыт (completed): контакт там доступен
+  -- намеренно — вещь могли забыть вернуть, и связаться нужно как раз после.
+  perform t.assert(
+    t.as_value(t.id('owner'),
+      format('select user_id::text from booking_contact(%L)', t.id('booking')))
+      = t.id('renter')::text,
+    'владельцу отдан контакт арендатора, а не его собственный');
+
+  perform t.assert(
+    t.as_value(t.id('renter'),
+      format('select user_id::text from booking_contact(%L)', t.id('booking')))
+      = t.id('owner')::text,
+    'арендатору — контакт владельца: функция смотрит, кто спрашивает');
+
+  perform t.assert(
+    t.as_value(t.id('owner'),
+      format('select phone from booking_contact(%L)', t.id('booking')))
+      = '+77010000002',
+    'телефон второй стороны пришёл целиком — ради этого функция и нужна');
+end $$;
+
+-- Посторонний не сторона этой сделки: отказ, а не пустой список. Пустой
+-- список человек прочитал бы как «телефона нет», а это разные вещи.
+select t.expect_fail(t.id('stranger'),
+  format('select * from booking_contact(%L)', t.id('booking')),
+  'контакт доступен только сторонам сделки');
+
+select t.anon_fails(
+  format('select * from booking_contact(%L)', t.id('booking')),
+  'permission denied');
+
 -- ── Ориентир: свободный, но не любой ──────────────────────────
 --
 -- Поле необязательное — у части владельцев вещь лежит там, где ориентира

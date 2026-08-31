@@ -2,16 +2,17 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BookingTimeline } from '../../src/components/BookingTimeline';
 import { ListSkeleton } from '../../src/components/Skeleton';
-import { Badge, Button, Card, Empty, ErrorState, Field, Row } from '../../src/components/ui';
+import { Badge, Button, Card, Empty, ErrorState, Field, Row, tap } from '../../src/components/ui';
 import {
   cancelBooking,
   completeBooking,
   confirmBooking,
   fetchBooking,
+  fetchBookingContact,
   fetchBookingReviews,
   fetchDisputes,
   fetchItem,
@@ -31,7 +32,7 @@ import {
 } from '../../src/lib/format';
 import { nextMove } from '../../src/lib/nextMove';
 import { humanizeError } from '../../src/lib/supabase';
-import type { BookingWithItem, Dispute, ItemWithOwner, Review } from '../../src/lib/types';
+import type { BookingContact, BookingWithItem, Dispute, ItemWithOwner, Review } from '../../src/lib/types';
 import { colors, radius, spacing, typeface } from '../../src/theme';
 
 /**
@@ -47,6 +48,7 @@ export default function BookingScreen() {
   const [booking, setBooking] = useState<BookingWithItem | null>(null);
   const [item, setItem] = useState<ItemWithOwner | null>(null);
   const [disputes, setDisputes] = useState<Dispute[]>([]);
+  const [contact, setContact] = useState<BookingContact | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -65,6 +67,14 @@ export default function BookingScreen() {
         ]);
         setItem(i);
         setDisputes(d);
+
+        // Контакт грузится отдельно и со своим catch: до подтверждения
+        // брони функция отвечает отказом, и это нормальный ход дела, а не
+        // сбой экрана. Роняя карточку сделки, мы прятали бы от человека
+        // всё остальное ради того, чего ему пока и не положено.
+        fetchBookingContact(b.id)
+          .then(setContact)
+          .catch(() => setContact(null));
         setReviews(r);
       }
       setError(null);
@@ -219,6 +229,44 @@ export default function BookingScreen() {
               ) : null}
             </View>
           ))}
+        </Card>
+      ) : null}
+
+      {/* Контакт открывается вместе с подтверждением брони: до него
+          владелец ещё ничего не обещал, а после — вещь надо передать из
+          рук в руки, и «напишите в поддержку» на пилоте из одного города
+          это не решает. Отказ функции сюда не доходит: contact остаётся
+          null, и карточки просто нет. */}
+      {contact ? (
+        <Card>
+          <Text style={s.sectionTitle}>Как связаться</Text>
+          <Text style={s.note}>
+            {isOwner
+              ? 'Арендатор ждёт, где и когда забрать вещь. Договоритесь заранее — так меньше поводов для спора о сроке.'
+              : 'Владелец подтвердил бронь. Напишите ему, когда вам удобно забрать вещь.'}
+          </Text>
+
+          <Row left="Имя" right={contact.full_name ?? 'Без имени'} />
+
+          <Pressable
+            style={({ pressed }) => [s.contactRow, tap({ pressed })]}
+            onPress={() => Linking.openURL(`tel:${contact.phone}`)}
+          >
+            <Ionicons name="call-outline" size={18} color={colors.green} />
+            <Text style={s.contactValue}>{contact.phone}</Text>
+            <Text style={s.contactHint}>позвонить</Text>
+          </Pressable>
+
+          {contact.telegram_username ? (
+            <Pressable
+              style={({ pressed }) => [s.contactRow, tap({ pressed })]}
+              onPress={() => Linking.openURL(`https://t.me/${contact.telegram_username}`)}
+            >
+              <Ionicons name="paper-plane-outline" size={18} color={colors.accent} />
+              <Text style={s.contactValue}>@{contact.telegram_username}</Text>
+              <Text style={s.contactHint}>написать</Text>
+            </Pressable>
+          ) : null}
         </Card>
       ) : null}
 
@@ -444,6 +492,14 @@ const s = StyleSheet.create({
   deadlineTitle: { fontSize: 13, fontFamily: typeface[700] },
   deadlineWhen: { fontSize: 17, fontFamily: typeface[800], color: colors.text },
   sectionTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  contactValue: { flex: 1, fontSize: 15, fontFamily: typeface[600], color: colors.text },
+  contactHint: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
   note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
   error: { fontSize: 14, fontFamily: typeface[400], color: colors.danger },
   evidence: { width: 72, height: 72, borderRadius: radius.sm, marginRight: spacing.sm, backgroundColor: colors.border },
