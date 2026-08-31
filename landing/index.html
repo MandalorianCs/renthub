@@ -8,6 +8,12 @@
 
   <!-- Свой знак вместо заготовки Expo: см. landing/assets/favicon.svg -->
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <!-- PNG рядом с вектором: SVG-фавикон понимают не все, а без PNG на
+       вкладке у части людей остаётся пустой лист. apple-touch-icon нужен
+       для ярлыка на домашнем экране iOS — без него туда попадает скриншот
+       страницы. Обе собираются командой npm run icons. -->
+  <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <!-- Карточка ссылки в мессенджерах и соцсетях. -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="RentHUB">

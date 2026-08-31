@@ -93,6 +93,20 @@ bg.save(ROOT + "/assets/android-icon-background.png"); out.append("android-icon-
 mono = draw_mark(432, (0, 0, 0, 0), INK, INK, scale=0.34)
 mono.save(ROOT + "/assets/android-icon-monochrome.png"); out.append("android-icon-monochrome.png 432")
 
+# Фавикон сайта в PNG рядом с SVG. Вектор понимают не все: Safari до 16,
+# часть агрегаторов и превью в мессенджерах берут PNG. Без него на вкладке
+# у части людей остаётся пустой лист.
+site_fav = draw_mark(32, CREAM, INK, TERRA, scale=0.62)
+site_fav.save(ROOT + "/landing/assets/favicon-32.png")
+out.append("landing/assets/favicon-32.png 32")
+
+# apple-touch-icon: то, что iOS ставит на домашний экран. Без него берётся
+# скриншот страницы - для ярлыка это нечитаемо. Заливка обязательна:
+# прозрачность iOS не поддерживает и подставляет чёрный.
+touch = draw_mark(180, CREAM, INK, TERRA, scale=0.58)
+touch.save(ROOT + "/landing/assets/apple-touch-icon.png")
+out.append("landing/assets/apple-touch-icon.png 180")
+
 # Карточка ссылки: og:image. 1200x630 - размер, который берут Telegram,
 # WhatsApp и соцсети; без неё ссылка выглядит голой строкой.
 OG_W, OG_H = 1200, 630
