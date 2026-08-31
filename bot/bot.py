@@ -1004,16 +1004,20 @@ def item_line(row: dict) -> str:
     # Оценку показываем только когда она есть. «0.0» рядом с новым владельцем
     # читается как «плохой», хотя верно «его ещё не оценивали».
     mark = f" · ★ {rating}" if rating else ""
+    # Где забирать — то же, что показывает карточка каталога в приложении.
+    # Пустое поле строкой не занимаем: у части вещей ориентира нет, и
+    # выдуманное «Кокшетау» вместо него ничего не сообщает.
+    area = f"\n  📍 {row['pickup_area']}" if row.get("pickup_area") else ""
     return (
         f"• <b>{row['title']}</b> — {money(row.get('daily_price'))} / сутки\n"
-        f"  депозит {money(row.get('deposit_amount'))}{mark}\n"
+        f"  депозит {money(row.get('deposit_amount'))}{mark}{area}\n"
         f"  {APP_URL}#/item/{row['id']}"
     )
 
 
 async def show_catalog(message: Message, search: str | None) -> None:
     params = {
-        "select": "id,title,daily_price,deposit_amount,"
+        "select": "id,title,daily_price,deposit_amount,pickup_area,"
         "owner:users!items_owner_id_fkey(full_name,rating)",
         "status": "eq.active",
         "city": f"eq.{PILOT_CITY}",
@@ -1026,7 +1030,14 @@ async def show_catalog(message: Message, search: str | None) -> None:
         # развалило бы фильтр на два условия и вернуло мусор. То же самое
         # делает fetchCatalog в приложении.
         clean = re.sub(r"[,()]", " ", search).strip()
-        params["or"] = f"(title.ilike.*{clean}*,description.ilike.*{clean}*)"
+        # Ориентир входит в поиск наравне с названием: «Васильковский» —
+        # это запрос не про инструмент, а про то, куда за ним ехать.
+        # Список полей обязан совпадать с fetchCatalog в приложении,
+        # иначе один и тот же запрос даст в чате и на экране разное.
+        params["or"] = (
+            f"(title.ilike.*{clean}*,description.ilike.*{clean}*,"
+            f"pickup_area.ilike.*{clean}*)"
+        )
 
     async with httpx.AsyncClient(timeout=20) as client:
         rows = await rest_get(client, "items", params)
