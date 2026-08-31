@@ -213,6 +213,7 @@ npm run invite -- +77011234567 "Имя" a@mail.com  # то же плюс вхо�
 npm run moderator -- +77011234567              # право разбирать споры
 npm run demo:fill                              # витрина для показа продукта
 npm run demo:clear                             # убрать её
+npm run icons                                  # пересобрать иконки и og:image
 ```
 
 Все четыре требуют секретного ключа: он обходит RLS, и в `.env` ему нельзя —
