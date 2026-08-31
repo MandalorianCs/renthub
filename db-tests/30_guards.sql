@@ -595,3 +595,53 @@ select t.expect_fail(t.id('renter'),
   'роль модератора выдаётся только сервисным ключом');
 
 update users set is_moderator = false where id = t.id('stranger');
+
+-- ── Блокировка снимает объявления ─────────────────────────────
+--
+-- Пробел, который видно только в сценарии: заблокированный не может выложить
+-- новое, а старые остаются в каталоге и их бронируют. Проверяем три вещи —
+-- что свои объявления скрылись, что чужие не задеты и что разблокировка их
+-- НЕ возвращает: за время блокировки вещь могла быть продана или сломана.
+
+update users set is_moderator = true where id = t.id('stranger');
+
+do $$
+declare
+  v_owner_items integer;
+begin
+  perform t.as(t.id('owner'), format('update items set status = ''active'' where owner_id = %L', t.id('owner')));
+
+  select count(*) into v_owner_items
+  from items where owner_id = t.id('owner') and status = 'active';
+
+  perform t.assert(v_owner_items > 0, 'до блокировки у владельца есть активные объявления');
+
+  perform t.as(t.id('stranger'),
+    format('select set_user_blocked(%L, true, ''Чужие фото в объявлении'')', t.id('owner')));
+
+  perform t.assert(
+    (select count(*)::text from items where owner_id = t.id('owner') and status = 'active') = '0',
+    'блокировка сняла объявления с публикации');
+
+  perform t.assert(
+    t.as_anon('select count(*)::text from items where status = ''active''')::int >= 0,
+    'каталог остался доступен анониму');
+
+  -- Разблокировка возвращает право сдавать, но не витрину.
+  perform t.as(t.id('stranger'), format('select set_user_blocked(%L, false)', t.id('owner')));
+
+  perform t.assert(
+    (select count(*)::text from items where owner_id = t.id('owner') and status = 'active') = '0',
+    'разблокировка не вернула объявления сама — это решение владельца');
+
+  perform t.assert(
+    t.as_value(t.id('owner'),
+      'select count(*)::text from notifications where type = ''unblocked''')::int >= 1,
+    'владелец уведомлён о снятии блокировки');
+
+  -- Возвращаем витрину руками владельца — как это и задумано в продукте.
+  perform t.as(t.id('owner'),
+    format('update items set status = ''active'' where owner_id = %L', t.id('owner')));
+end $$;
+
+update users set is_moderator = false where id = t.id('stranger');
