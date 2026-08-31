@@ -1,5 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /renthub/app/
-
-Sitemap: https://mandaloriancs.github.io/renthub/sitemap.xml
