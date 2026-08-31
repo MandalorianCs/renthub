@@ -41,6 +41,7 @@
     "icons": "node scripts/make-icons.mjs",
     "invite": "node scripts/invite.mjs",
     "moderator": "node scripts/moderator.mjs",
+    "email": "node scripts/email.mjs",
     "demo:photos": "node scripts/make-demo-photos.mjs",
     "demo:fill": "node scripts/demo-listings.mjs",
     "demo:clear": "node scripts/demo-listings.mjs clear",

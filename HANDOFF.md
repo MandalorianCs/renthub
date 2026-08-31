@@ -113,6 +113,7 @@ npm run update          правки по воздуху в уже устано�
 npm run invite -- +7701... "Имя"    завести участника, выдать пароль
 npm run invite -- +7701... "Имя" a@mail.com   то же плюс вход по почте
 npm run moderator -- +7701...       право разбирать споры
+npm run email -- +7701... a@mail.com  привязать настоящую почту для входа
 npm run demo:fill                   демо-объявления из demo-photos/
 npm run demo:clear                  убрать их
 npm run notify:test -- +7701...     проверить связь «база → бот → Telegram»

@@ -108,12 +108,14 @@ function InviteForm({ onError }: { onError: (m: string | null) => void }) {
   return (
     <View style={s.form}>
       <Field
-        label="Номер телефона"
+        label="Номер телефона или почта"
         placeholder="+7 705 123 45 67"
-        keyboardType="phone-pad"
-        autoComplete="tel"
+        keyboardType="default"
+        autoCapitalize="none"
+        autoComplete="username"
         value={phone}
         onChangeText={setPhone}
+        hint="Почта — если вам её привязали: тогда номер здесь уже не подойдёт"
       />
       <Field
         label="Пароль из приглашения"
@@ -127,7 +129,14 @@ function InviteForm({ onError }: { onError: (m: string | null) => void }) {
       <Button
         title="Войти"
         loading={busy}
-        disabled={phone.replace(/\D/g, '').length < 10 || password.length === 0}
+        // Логин — номер или почта, поэтому проверяем оба вида. Условие
+        // «десять цифр» оставило бы кнопку выключенной навсегда тому, кто
+        // ввёл адрес: цифр в нём нет, а причина отказа не видна.
+        disabled={
+          (phone.includes('@')
+            ? !/.+@.+\..+/.test(phone.trim())
+            : phone.replace(/\D/g, '').length < 10) || password.length === 0
+        }
         onPress={async () => {
           setBusy(true);
           onError(null);

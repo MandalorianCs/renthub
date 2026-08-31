@@ -34,7 +34,7 @@ type AuthState = {
    * Адрес собирается из номера по фиксированному правилу, поэтому человек
    * его не видит и не вводит. Правило обязано совпадать со scripts/invite.mjs.
    */
-  signInWithInvite: (phone: string, password: string) => Promise<void>;
+  signInWithInvite: (login: string, password: string) => Promise<void>;
   /**
    * Вход по почте: код или ссылка на адрес, привязанный к аккаунту.
    *
@@ -150,9 +150,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         if (error) throw error;
       },
-      signInWithInvite: async (phone, password) => {
+      signInWithInvite: async (login, password) => {
+        // Логин — номер ИЛИ почта. Пока адрес учётной записи собирался из
+        // номера, второго варианта не требовалось. Но участник, которому
+        // привязали настоящую почту, поменял и логин: адрес учётной записи
+        // один, и он же служит входом по паролю. Собранный из номера
+        // служебный адрес такому человеку больше не подходит, и вход по
+        // приглашению у него молча переставал работать.
+        const login_ = login.trim();
         const { error } = await supabase.auth.signInWithPassword({
-          email: inviteEmail(normalizePhone(phone)),
+          email: login_.includes('@')
+            ? login_.toLowerCase()
+            : inviteEmail(normalizePhone(login_)),
           password,
         });
         if (error) throw error;
