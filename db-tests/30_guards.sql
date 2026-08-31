@@ -616,6 +616,13 @@ begin
 
   perform t.assert(v_owner_items > 0, 'до блокировки у владельца есть активные объявления');
 
+  -- Чужое объявление: без него «блокировка не задела остальных» проверить
+  -- не на чем — в фикстурах все объявления принадлежат owner. Заводим здесь
+  -- и убираем в конце блока, чтобы не влиять на сценарий 4.
+  perform t.as(t.id('stranger'), format(
+    'insert into items (owner_id, category, title, daily_price, deposit_amount, condition_photos) '
+    || 'values (%L, ''saws'', ''Пила постороннего'', 2000, 4000, array[''x''])', t.id('stranger')));
+
   perform t.as(t.id('stranger'),
     format('select set_user_blocked(%L, true, ''Чужие фото в объявлении'')', t.id('owner')));
 
@@ -623,9 +630,16 @@ begin
     (select count(*)::text from items where owner_id = t.id('owner') and status = 'active') = '0',
     'блокировка сняла объявления с публикации');
 
+  -- Раньше здесь стояло `count(*) >= 0`. Оно истинно всегда: count не бывает
+  -- отрицательным, то есть проверка не могла упасть ни при какой поломке.
+  -- Проверять надо следствие блокировки, а его видно с двух сторон.
   perform t.assert(
-    t.as_anon('select count(*)::text from items where status = ''active''')::int >= 0,
-    'каталог остался доступен анониму');
+    t.as_anon(format('select count(*)::text from items where owner_id = %L', t.id('owner'))) = '0',
+    'снятые объявления пропали и из витрины анонима');
+
+  perform t.assert(
+    (select count(*)::text from items where owner_id = t.id('stranger') and status = 'active') = '1',
+    'блокировка не задела чужие объявления');
 
   -- Разблокировка возвращает право сдавать, но не витрину.
   perform t.as(t.id('stranger'), format('select set_user_blocked(%L, false)', t.id('owner')));
@@ -642,6 +656,10 @@ begin
   -- Возвращаем витрину руками владельца — как это и задумано в продукте.
   perform t.as(t.id('owner'),
     format('update items set status = ''active'' where owner_id = %L', t.id('owner')));
+
+  -- Убираем чужое объявление: дальше идёт сценарий 4, и лишняя строка в
+  -- items сместила бы его подсчёты.
+  delete from items where owner_id = t.id('stranger');
 end $$;
 
 update users set is_moderator = false where id = t.id('stranger');
