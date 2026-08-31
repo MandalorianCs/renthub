@@ -49,6 +49,7 @@
     "update": "eas update --channel preview",
     "notify:test": "node scripts/notify-test.mjs",
     "notify:clear": "node scripts/notify-clear.mjs",
+    "bot": "python bot/bot.py",
     "whoami": "node scripts/whoami.mjs"
   },
   "private": true
