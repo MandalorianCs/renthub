@@ -236,6 +236,7 @@ function PersonRow({ person, onChanged }: { person: ModerationPerson; onChanged:
             <>
               <Field
                 label="Причина блокировки"
+                hint="Активные объявления этого человека будут сняты с публикации. Обратно они не вернутся сами — вернуть их сможет только он."
                 value={reason}
                 onChangeText={setReason}
                 placeholder="Что произошло — человек это увидит"
