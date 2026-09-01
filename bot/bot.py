@@ -55,6 +55,8 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (
     CallbackQuery,
+    BotCommand,
+    BotCommandScopeAllPrivateChats,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     KeyboardButton,
@@ -1394,8 +1396,42 @@ async def notifier(bot: Bot) -> None:
         await asyncio.sleep(POLL_SECONDS)
 
 
+# Меню команд Telegram — та самая синяя кнопка рядом с полем ввода.
+#
+# Команд у бота семь, и до сих пор их знал только тот, кто дочитал /help.
+# Это ровно то же, что кнопка без подписи: возможность есть, а увидеть её
+# нельзя. Меню чинит это одним вызовом.
+#
+# Латиница здесь не выбор, а ограничение Telegram: в имени команды
+# разрешены только строчные латинские буквы, цифры и подчёркивание.
+# Русские алиасы (/сдать, /каталог, /найти) продолжают работать вводом —
+# просто в меню их положить физически нельзя.
+#
+# /unlink в меню намеренно нет. Отвязка — редкое и неприятное действие
+# рядом с ежедневными: в списке из шести пунктов промахнуться легко, а
+# «отвязать» промахом читается как «бот сломался». В /help она осталась,
+# и кто ищет — найдёт.
+MENU = [
+    BotCommand(command="deals", description="Мои сделки: что сдаю, что арендую"),
+    BotCommand(command="catalog", description="Свежие объявления"),
+    BotCommand(command="find", description="Поиск: /find перфоратор"),
+    BotCommand(command="publish", description="Сдать свою вещь"),
+    BotCommand(command="help", description="Что я умею"),
+    BotCommand(command="start", description="Связать Telegram с аккаунтом"),
+]
+
+
 async def main() -> None:
     bot = Bot(BOT_TOKEN)
+
+    # Меню живёт на серверах Telegram, а не в коде: поставили один раз — и
+    # оно на месте, даже пока бот лежит. Падение здесь не повод не
+    # запускаться: без меню бот работает, просто команды приходится знать.
+    try:
+        await bot.set_my_commands(MENU, scope=BotCommandScopeAllPrivateChats())
+    except Exception as error:  # noqa: BLE001
+        log.warning("меню команд не обновилось: %s", error)
+
     asyncio.create_task(notifier(bot))
     log.info("бот запущен, опрос уведомлений раз в %s секунд", POLL_SECONDS)
     await dp.start_polling(bot)
