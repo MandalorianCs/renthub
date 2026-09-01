@@ -113,7 +113,10 @@ header {
   border-bottom: 1px solid var(--border);
 }
 .nav { display: flex; align-items: center; gap: 28px; height: 64px; }
-.logo { font-weight: 800; font-size: 21px; letter-spacing: -0.03em; }
+/* Логотип здесь ссылка на клиентский сайт — судье логично ткнуть в него,
+   чтобы увидеть продукт глазами пользователя. Но подчёркнутый знак в
+   шапке читается как опечатка вёрстки, а это первое, что видят. */
+.logo { font-weight: 800; font-size: 21px; letter-spacing: -0.03em; text-decoration: none; }
 .logo span { color: var(--accent); }
 .nav-links { display: flex; gap: 24px; margin-left: auto; font-size: 15px; font-weight: 500; }
 .nav-links a { color: var(--muted); text-decoration: none; }
