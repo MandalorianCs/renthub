@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   FlatList,
   Pressable,
   RefreshControl,
@@ -99,8 +100,56 @@ export default function Catalog() {
 
   const { refreshing, onRefresh } = useRefresh(load);
 
+  /**
+   * Кнопка «Сдать вещь» уходит вниз, пока листают вниз, и возвращается на
+   * движение вверх.
+   *
+   * Она висит поверх витрины и накрывает угол карточки вместе с сердечком.
+   * Мириться с этим не обязательно: тот, кто листает каталог вниз, ищет
+   * вещь в аренду — сдавать он не собирается, и в этот момент кнопка
+   * мешает ровно тому, зачем человек пришёл. Движение вверх означает
+   * обратное: он вернулся к управлению, и кнопка нужна снова.
+   *
+   * Порог в 12 точек — против дрожания: без него кнопка мигала бы на
+   * каждом микродвижении пальца.
+   */
+  const fabHidden = useRef(new Animated.Value(0)).current;
+  const lastY = useRef(0);
+  const hiddenNow = useRef(false);
+
+  const onScroll = useCallback(
+    (e: { nativeEvent: { contentOffset: { y: number } } }) => {
+      const y = e.nativeEvent.contentOffset.y;
+      const dy = y - lastY.current;
+      if (Math.abs(dy) < 12) return;
+      lastY.current = y;
+
+      // У самого верха кнопка обязана быть на месте: там её и ищут.
+      const hide = dy > 0 && y > 80;
+      if (hide === hiddenNow.current) return;
+      hiddenNow.current = hide;
+
+      Animated.timing(fabHidden, {
+        toValue: hide ? 1 : 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start();
+    },
+    [fabHidden],
+  );
+
   useEffect(() => {
-    fetchCategories().then(setCategories).catch(() => setCategories([]));
+    fetchCategories()
+      .then((rows) => {
+        setCategories(rows);
+
+        // Категория из адреса проверяется по справочнику. Ссылку в рекламе
+        // пишет человек, а не приложение: опечатка или переименованная
+        // категория дала бы пустую витрину, где ничего не найдено и
+        // непонятно почему. Лучше показать всё, чем ничего.
+        setActive((cur) => (cur && !rows.some((r) => r.slug === cur) ? null : cur));
+      })
+      .catch(() => setCategories([]));
   }, []);
 
   useEffect(() => {
@@ -293,15 +342,37 @@ export default function Catalog() {
               onFavorite={() => flipFavorite(item.id)}
             />
           )}
+          onScroll={onScroll}
+          scrollEventThrottle={32}
         />
       )}
 
-      <Link href="/item/new" asChild>
-        <Pressable style={s.fab}>
-          <Ionicons name="add" size={20} color={colors.onFill} />
-          <Text style={s.fabText}>Сдать вещь</Text>
-        </Pressable>
-      </Link>
+      <Animated.View
+        style={[
+          s.fabWrap,
+          {
+            opacity: fabHidden.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+            transform: [
+              {
+                translateY: fabHidden.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 96],
+                }),
+              },
+            ],
+          },
+        ]}
+        // Спрятанную кнопку читалка не предлагает: иначе она называет
+        // действие, которого на экране в этот момент нет.
+        pointerEvents="box-none"
+      >
+        <Link href="/item/new" asChild>
+          <Pressable style={s.fab} accessibilityRole="button" accessibilityLabel="Сдать вещь">
+            <Ionicons name="add" size={20} color={colors.onFill} />
+            <Text style={s.fabText}>Сдать вещь</Text>
+          </Pressable>
+        </Link>
+      </Animated.View>
     </View>
   );
 }
@@ -558,10 +629,12 @@ const s = StyleSheet.create({
   trustText: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
   deposit: { fontSize: 11, fontFamily: typeface[400], color: colors.textMuted },
 
-  fab: {
+  fabWrap: {
     position: 'absolute',
     right: spacing.lg,
     bottom: spacing.lg,
+  },
+  fab: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
