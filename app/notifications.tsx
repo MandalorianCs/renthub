@@ -52,6 +52,9 @@ const LOOKS: Record<string, Look> = {
   blocked: { icon: 'lock-closed-outline', color: colors.danger },
   unblocked: { icon: 'lock-open-outline', color: colors.green },
   item_hidden: { icon: 'eye-off-outline', color: colors.warn },
+  // Пара к item_hidden, как unblocked к blocked: снятие ограничения —
+  // хорошая новость, и зелёный здесь несёт смысл, а не украшает.
+  item_restored: { icon: 'eye-outline', color: colors.green },
   moderator_message: { icon: 'chatbubble-ellipses-outline', color: colors.accent },
   connection_test: { icon: 'wifi-outline', color: colors.textMuted },
 };
