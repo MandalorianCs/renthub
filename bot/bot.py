@@ -534,7 +534,10 @@ async def on_deals(message: Message) -> None:
                     # связь с items, и PostgREST разрешает её однозначно.
                     # Так же записано в приложении — расходиться незачем.
                     "select": "id,status,start_date,end_date,rent_total,renter_total,"
-                    "item:items(title)",
+                    # Ориентир вместе с названием: человеку, которому пора
+                    # ехать, «куда» нужнее, чем «что» — а открывать ради этого
+                    # приложение значит обесценить кнопки в чате.
+                    "item:items(title,pickup_area)",
                     "order": "start_date.asc",
                     "limit": "20",
                 },
@@ -571,7 +574,9 @@ async def on_deals(message: Message) -> None:
             # одна и та же сделка выглядит по-разному с двух сторон, и общая
             # сумма запутала бы обоих.
             amount = money(row.get("rent_total") if mine else row.get("renter_total"))
-            lines.append(f"• {item} — {status}")
+            area = (row.get("item") or {}).get("pickup_area")
+            place = f"\n  \U0001F4CD {esc(area)}" if area else ""
+            lines.append(f"• {item} — {status}{place}")
             lines.append(f"  {row['start_date']} → {row['end_date']} · {amount}"
                          + contact_line(contacts.get(row["id"])))
         lines.append("")

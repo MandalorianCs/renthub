@@ -248,6 +248,12 @@ export default function BookingScreen() {
 
           <Row left="Имя" right={contact.full_name ?? 'Без имени'} />
 
+          {/* Ориентир повторяется здесь, хотя он есть в объявлении: человек,
+              которому пора ехать, открывает сделку, а не карточку вещи.
+              Отправлять его за адресом на другой экран — то же самое, что
+              не показать вовсе. */}
+          {item?.pickup_area ? <Row left="Забирать" right={item.pickup_area} /> : null}
+
           <Pressable
             style={({ pressed }) => [s.contactRow, tap({ pressed })]}
             onPress={() => Linking.openURL(`tel:${contact.phone}`)}
