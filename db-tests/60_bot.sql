@@ -338,6 +338,91 @@ begin
     'блокировка действует и через бота — отказ пришёл из assert_verified');
 end $$;
 
+-- ── Пауза объявления из чата ──────────────────────────────────
+--
+-- Инструмент ломается не тогда, когда владелец сидит в приложении.
+-- Проверяем главное: правило владения не потерялось по дороге. Обёртка
+-- работает через security definer, и RLS к её запросам не применяется —
+-- значит владельца должна проверять сама функция.
+
+do $$
+begin
+  perform bot_set_item_status(t.id('owner'), t.id('item'), 'hidden');
+
+  perform t.assert(
+    (select status = 'hidden' from items where id = t.id('item')),
+    'владелец снял вещь с публикации из Telegram');
+
+  perform bot_set_item_status(t.id('owner'), t.id('item'), 'active');
+
+  perform t.assert(
+    (select status = 'active' from items where id = t.id('item')),
+    'и вернул обратно — пауза обратима');
+end $$;
+
+-- Чужое объявление боту недоступно. Это ровно та проверка, которая
+-- исчезла бы, скопируй мы update прямо в обёртку.
+do $$
+declare v_err text;
+begin
+  begin
+    perform bot_set_item_status(t.id('renter'), t.id('item'), 'hidden');
+    v_err := 'без ошибки';
+  exception when others then
+    v_err := sqlerrm;
+  end;
+
+  perform t.assert(v_err like '%принадлежит другому участнику%',
+    'чужую вещь из чата не снять — правило владения пережило обёртку');
+end $$;
+
+-- Ограничение модератора действует и через бота: сторожит его триггер,
+-- а триггер стоит перед любой записью в items, чей бы ни был вход.
+do $$
+declare v_err text;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  update users set is_moderator = true where id = t.id('stranger');
+
+  perform t.as(t.id('stranger'), format(
+    'select moderator_hide_item(%L, ''Проверка ограничения'')', t.id('item')));
+  perform set_config('request.jwt.claims', '', true);
+
+  begin
+    perform bot_set_item_status(t.id('owner'), t.id('item'), 'active');
+    v_err := 'без ошибки';
+  exception when others then
+    v_err := sqlerrm;
+  end;
+
+  perform t.assert(v_err like '%только модератор%',
+    'снятое модератором не вернуть и из Telegram — правило одно на оба входа');
+
+  perform t.as(t.id('stranger'), format('select moderator_restore_item(%L)', t.id('item')));
+  perform set_config('request.jwt.claims', '', true);
+  update users set is_moderator = false where id = t.id('stranger');
+
+  perform bot_set_item_status(t.id('owner'), t.id('item'), 'active');
+end $$;
+
+-- Список вещей для чата: своё видно, чужого нет.
+do $$
+declare
+  v_mine  integer;
+  v_alien integer;
+begin
+  select count(*) into v_mine from bot_my_items(t.id('owner'));
+
+  select count(*) into v_alien
+    from bot_my_items(t.id('owner')) b
+    join items i on i.id = b.id
+   where i.owner_id <> t.id('owner');
+
+  perform t.assert(v_mine > 0, 'владелец видит свои вещи в чате');
+  perform t.assert(v_alien = 0,
+    'чужие в список не попали — граница проходит по типу возврата');
+end $$;
+
 select t.expect_fail(t.id('renter'),
   format('select bot_create_item(%L, ''saws'', ''Чужая пила'', 1000, 2000, array[''x''])',
     t.id('owner')),

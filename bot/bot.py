@@ -735,7 +735,8 @@ async def on_help(message: Message) -> None:
         "подтвердить бронь, отметить получение и возврат, закрыть сделку, "
         "отменить заявку, поставить оценку.\n\n"
         "/каталог — свежие объявления, /найти перфоратор — поиск\n"
-        "/сдать — опубликовать свою вещь, не открывая приложение\n\n"
+        "/сдать — опубликовать свою вещь, не открывая приложение\n"
+        "/вещи — ваши объявления: снять с публикации или вернуть\n\n"
         "В меню рядом с полем ввода те же команды латиницей — "
         "/catalog, /find, /publish: Telegram не пускает в меню кириллицу. "
         "Работают оба написания.\n\n"
@@ -1158,6 +1159,129 @@ async def show_catalog(message: Message, search: str | None) -> None:
     )
 
 
+# ── Свои вещи и пауза ─────────────────────────────────────────
+#
+# Зачем это в чате. Инструмент ломается не тогда, когда владелец сидит с
+# телефоном в приложении, — он ломается на объекте. До сих пор в этот
+# момент сделать было нечего: пауза жила только в «Моих вещах». Бронь
+# тем временем оформляет кто-то ещё, и разбирать это придётся отменой
+# уже подтверждённой сделки.
+#
+# Правил бот тут не знает: владельца проверяет item_set_status, а
+# ограничение модератора — триггер items_verify_owner. Одно и то же на
+# оба входа.
+
+
+def item_line(row: dict) -> str:
+    price = f"{row['daily_price']:,}".replace(",", " ")
+
+    if row["moderated"]:
+        state = "снято модератором"
+    elif row["status"] == "hidden":
+        state = "на паузе"
+    else:
+        state = "в каталоге"
+
+    line = f"<b>{esc(row['title'])}</b>\n{price} ₸ / сутки · {state}"
+
+    # Причина показывается прямо здесь: в чате нет карточки объявления,
+    # куда можно было бы отправить человека посмотреть, что исправлять.
+    if row["moderated"] and row.get("moderated_why"):
+        line += f"\n<i>{esc(row['moderated_why'])}</i>"
+
+    return line
+
+
+def item_keyboard(row: dict) -> InlineKeyboardMarkup | None:
+    # У снятого модератором кнопки нет вовсе, а не кнопка с отказом:
+    # нажатие всё равно упрётся в триггер, а кнопка, которая всегда
+    # ошибается, хуже её отсутствия. Что делать, сказано строкой выше.
+    if row["moderated"]:
+        return None
+
+    hidden = row["status"] == "hidden"
+    label = "👁 Вернуть в каталог" if hidden else "⏸ Снять с публикации"
+    action = "show" if hidden else "hide"
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=label, callback_data=f"i:{action}:{row['id']}")]
+        ]
+    )
+
+
+@dp.message(F.text.in_({"/items", "/вещи", "/мои"}))
+async def on_my_items(message: Message) -> None:
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, message.from_user.id)
+        if user is None:
+            await message.answer("Сначала свяжите Telegram — /start")
+            return
+
+        try:
+            rows = await rest_rpc(client, "bot_my_items", {"p_actor": user["id"]})
+        except RentHubError as error:
+            await message.answer(str(error))
+            return
+
+    if not rows:
+        await message.answer(
+            "Вы пока ничего не сдаёте.\n\n"
+            "Выложить вещь можно прямо здесь — /сдать."
+        )
+        return
+
+    await message.answer(f"Ваши вещи · {len(rows)}")
+
+    # Каждая вещь отдельным сообщением: кнопка относится к одной строке,
+    # и общий список с кнопками внизу заставлял бы гадать, к чему они.
+    for row in rows:
+        await message.answer(
+            item_line(row), parse_mode="HTML", reply_markup=item_keyboard(row)
+        )
+
+
+@dp.callback_query(F.data.startswith("i:"))
+async def on_item_action(query: CallbackQuery) -> None:
+    _, action, item_id = query.data.split(":", 2)
+    status = "hidden" if action == "hide" else "active"
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, query.from_user.id)
+        if user is None:
+            await query.answer("Сначала свяжите Telegram — /start", show_alert=True)
+            return
+
+        try:
+            await rest_rpc(
+                client,
+                "bot_set_item_status",
+                {"p_actor": user["id"], "p_item_id": item_id, "p_status": status},
+            )
+        except RentHubError as error:
+            await query.answer(str(error), show_alert=True)
+            return
+
+    await query.answer("Готово")
+
+    # Кнопка меняется на обратную, а не исчезает: пауза обратима, и
+    # человек чаще всего хочет вернуть вещь тем же движением.
+    back = "👁 Вернуть в каталог" if action == "hide" else "⏸ Снять с публикации"
+    back_action = "show" if action == "hide" else "hide"
+    await query.message.edit_reply_markup(
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text=back, callback_data=f"i:{back_action}:{item_id}")]
+            ]
+        )
+    )
+    await query.message.answer(
+        "Вещь снята с публикации. Новых броней не будет; уже подтверждённые остаются."
+        if action == "hide"
+        else "Вещь снова в каталоге."
+    )
+
+
 @dp.message(F.text.in_({"/catalog", "/каталог"}))
 async def on_catalog(message: Message) -> None:
     await show_catalog(message, None)
@@ -1419,6 +1543,7 @@ MENU = [
     BotCommand(command="catalog", description="Свежие объявления"),
     BotCommand(command="find", description="Поиск: /find перфоратор"),
     BotCommand(command="publish", description="Сдать свою вещь"),
+    BotCommand(command="items", description="Мои объявления: пауза и публикация"),
     BotCommand(command="help", description="Что я умею"),
     BotCommand(command="start", description="Связать Telegram с аккаунтом"),
 ]
