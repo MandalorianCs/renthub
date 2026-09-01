@@ -621,6 +621,91 @@ select t.expect_fail(t.id('renter'),
 
 update users set is_moderator = false where id = t.id('stranger');
 
+-- ── Отмена подтверждённой брони ───────────────────────────────
+--
+-- Раньше отменить можно было только pending, и только арендатору. Бронь
+-- в confirmed, которую не забрали, не трогал никто — а confirmed входит
+-- в bookings_no_overlap, и даты висели занятыми навсегда.
+--
+-- Брони здесь проходят настоящий путь: триггер принудительно ставит при
+-- вставке pending, и подсунуть готовый confirmed нельзя — это правило, а
+-- не мелочь. Значит подтверждаем через booking_confirm, как в жизни.
+
+-- Владелец отменяет подтверждённую: вещь сломалась до передачи.
+do $$
+declare
+  v_id uuid := 'eeeeeeee-0000-4000-8000-000000000001';
+begin
+  perform t.as(t.id('renter'), format(
+    'insert into bookings (id, item_id, renter_id, owner_id, start_date, end_date) '
+    || 'values (%L, %L, %L, %L, current_date + 40, current_date + 41)',
+    v_id, t.id('item'), t.id('renter'), t.id('owner')));
+
+  perform t.as(t.id('owner'), format('select booking_confirm(%L)', v_id));
+  perform t.as(t.id('owner'), format('select booking_cancel(%L)', v_id));
+
+  perform t.assert(
+    (select status = 'cancelled' from bookings where id = v_id),
+    'владелец может отменить подтверждённую бронь — встреча не всегда состоится');
+
+  perform t.assert(
+    t.as_value(t.id('renter'),
+      'select count(*)::text from notifications where type = ''booking_cancelled''')::int >= 1,
+    'арендатор узнал об отмене, а не обнаружил пропажу брони');
+end $$;
+
+-- После передачи вещи отмены нет: вещь на руках, путь один — вернуть.
+do $$
+declare
+  v_id uuid := 'eeeeeeee-0000-4000-8000-000000000002';
+  v_err text;
+begin
+  perform t.as(t.id('renter'), format(
+    'insert into bookings (id, item_id, renter_id, owner_id, start_date, end_date) '
+    || 'values (%L, %L, %L, %L, current_date + 50, current_date + 51)',
+    v_id, t.id('item'), t.id('renter'), t.id('owner')));
+
+  perform t.as(t.id('owner'), format('select booking_confirm(%L)', v_id));
+  perform t.as(t.id('renter'), format('select booking_mark_picked_up(%L)', v_id));
+
+  begin
+    perform t.as(t.id('renter'), format('select booking_cancel(%L)', v_id));
+    v_err := 'без ошибки';
+  exception when others then
+    v_err := sqlerrm;
+  end;
+
+  perform t.assert(v_err like '%до передачи вещи%',
+    'после передачи бронь не отменяется — вещь уже на руках');
+
+  delete from bookings where id = v_id;
+end $$;
+
+-- Неподтверждённую заявку отменяет тот, кто её подал: владельцу для
+-- отказа хватает того, что он её просто не подтвердит.
+do $$
+declare
+  v_id uuid := 'eeeeeeee-0000-4000-8000-000000000003';
+  v_err text;
+begin
+  perform t.as(t.id('renter'), format(
+    'insert into bookings (id, item_id, renter_id, owner_id, start_date, end_date) '
+    || 'values (%L, %L, %L, %L, current_date + 60, current_date + 61)',
+    v_id, t.id('item'), t.id('renter'), t.id('owner')));
+
+  begin
+    perform t.as(t.id('owner'), format('select booking_cancel(%L)', v_id));
+    v_err := 'без ошибки';
+  exception when others then
+    v_err := sqlerrm;
+  end;
+
+  perform t.assert(v_err like '%отменяет арендатор%',
+    'заявку отменяет арендатор — владелец её просто не подтверждает');
+
+  delete from bookings where id = v_id;
+end $$;
+
 -- ── Занятость: два списка статусов обязаны совпадать ──────────
 --
 -- «Живые» статусы перечислены дважды: в ограничении bookings_no_overlap,

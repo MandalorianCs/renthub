@@ -286,6 +286,19 @@ export default function BookingScreen() {
         <Button title="Отменить заявку" variant="ghost" loading={busy} onPress={() => act(() => cancelBooking(booking.id))} />
       ) : null}
 
+      {/* Отмена подтверждённой — обеим сторонам и до передачи вещи. Встреча
+          срывается: вещь ломается, человек заболевает. Пока кнопки не было,
+          такая бронь висела в confirmed навсегда и держала даты занятыми —
+          вещь оказывалась сдана в никуда. */}
+      {booking.status === 'confirmed' ? (
+        <Button
+          title={isOwner ? 'Отменить бронь' : 'Отказаться от брони'}
+          variant="ghost"
+          loading={busy}
+          onPress={() => act(() => cancelBooking(booking.id))}
+        />
+      ) : null}
+
       {isRenter && booking.status === 'confirmed' ? (
         <Button title="Я забрал вещь" loading={busy} onPress={() => act(() => markPickedUp(booking.id))} />
       ) : null}
