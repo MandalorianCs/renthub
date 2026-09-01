@@ -142,6 +142,47 @@ header {
 .btn-ghost { background: transparent; color: var(--text); border-color: var(--border); }
 .btn-ghost:hover { background: var(--surface); }
 
+/* Текстовые ссылки под кнопками героя: третий по важности путь не должен
+   выглядеть третьей кнопкой — три равных кнопки не выбирают вовсе. */
+.hero-links { margin-top: 18px; font-size: 15px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 10px; }
+.hero-links a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.hero-links a:hover { color: var(--text); }
+
+/* Плитки категорий. Имя cat-tile, а не tile: .tile на этой странице
+   уже занят карточками-объяснениями с h3 и p, и мои плитки унаследовали
+   бы их отступы и декоративный ::before. */
+.cat-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 28px; }
+.cat-tile { display: flex; flex-direction: column; gap: 2px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); transition: border-color .2s ease, transform .18s ease; }
+.cat-tile:hover { border-color: var(--accent); transform: translateY(-2px); }
+.cat-name { font-weight: 700; font-size: 16px; }
+.cat-sub { font-size: 13px; color: var(--muted); }
+
+/* Полоса-напоминание между разделами */
+/* Имя cta-band, а не band: .band на этой странице уже занят зелёной
+   полосой со статистикой, и её же селектор ищет анимация чисел. */
+.cta-band { padding: 0; }
+.cta-band-in { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 22px 28px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
+.cta-band-in strong { display: block; }
+
+/* Липкая панель на телефоне */
+.dock { display: none; }
+@media (max-width: 720px) {
+  .cat-tiles { grid-template-columns: repeat(2, 1fr); }
+  .cta-band-in { flex-direction: column; align-items: stretch; text-align: left; }
+  .dock {
+    display: flex; gap: 10px; position: fixed; left: 12px; right: 12px; bottom: 12px;
+    z-index: 40; padding: 10px; border-radius: 18px; background: rgba(255,255,255,.92);
+    backdrop-filter: blur(10px); border: 1px solid var(--border);
+    box-shadow: 0 12px 30px -18px rgba(26,25,23,.5);
+    opacity: 0; transform: translateY(12px); pointer-events: none;
+    transition: opacity .24s ease, transform .24s ease;
+  }
+  .dock.on { opacity: 1; transform: none; pointer-events: auto; }
+  .dock .btn { flex: 1; justify-content: center; text-align: center; padding: 13px 12px; font-size: 15px; }
+  .dock .btn-ghost { flex: 0 0 92px; }
+  footer { padding-bottom: 96px; }
+}
+
 @media (max-width: 760px) { .nav-links { display: none; } }
 
 /* ── Хиро ────────────────────────────────────────────────── */
@@ -659,8 +700,15 @@ h2 {
       </p>
       <div class="hero-cta">
         <a class="btn" href="app/">Сдать инструмент<span class="arr" aria-hidden="true">→</span></a>
-        <a class="btn btn-ghost" href="#trust">Как защищена вещь</a>
+        <a class="btn btn-ghost" href="app/">Взять инструмент</a>
       </div>
+      <p class="hero-links">
+        <a href="#trust">Как защищена вещь</a>
+        <span aria-hidden="true">·</span>
+        <a href="#econ">Сколько это стоит</a>
+        <span aria-hidden="true">·</span>
+        <a href="https://t.me/renthub_kokshetau_bot" target="_blank" rel="noopener">Бот в Telegram</a>
+      </p>
       <p class="hero-note"><span class="dot"></span> Пилот: одна категория, один город, живые сделки</p>
     </div>
 
@@ -844,6 +892,44 @@ h2 {
       иметь дело с незнакомцем.
     </p>
 
+    <!-- Ссылки, а не кнопки-фильтры: каждая ведёт на витрину, уже
+         суженную до категории. Их можно давать в рекламе по отдельности —
+         человек, кликнувший «аренда перфоратора», сразу видит перфораторы. -->
+    <div class="cat-tiles">
+      <a class="cat-tile" href="app/?category=rotary_hammers">
+        <span class="cat-name">Перфораторы</span>
+        <span class="cat-sub">и отбойники</span>
+      </a>
+      <a class="cat-tile" href="app/?category=grinders">
+        <span class="cat-name">Шлифмашины</span>
+        <span class="cat-sub">и УШМ</span>
+      </a>
+      <a class="cat-tile" href="app/?category=drills">
+        <span class="cat-name">Дрели</span>
+        <span class="cat-sub">и шуруповёрты</span>
+      </a>
+      <a class="cat-tile" href="app/?category=saws">
+        <span class="cat-name">Пилы</span>
+        <span class="cat-sub">и резаки</span>
+      </a>
+      <a class="cat-tile" href="app/?category=concrete">
+        <span class="cat-name">Бетономешалки</span>
+        <span class="cat-sub">и вибраторы</span>
+      </a>
+      <a class="cat-tile" href="app/?category=scaffolding">
+        <span class="cat-name">Леса и вышки</span>
+        <span class="cat-sub">стремянки</span>
+      </a>
+      <a class="cat-tile" href="app/?category=measuring">
+        <span class="cat-name">Измерительный</span>
+        <span class="cat-sub">инструмент</span>
+      </a>
+      <a class="cat-tile" href="app/?category=other_tools">
+        <span class="cat-name">Прочий</span>
+        <span class="cat-sub">инструмент</span>
+      </a>
+    </div>
+
     <div class="shelf">
       <article class="goods">
         <div class="goods-img">
@@ -897,6 +983,16 @@ h2 {
 </section>
 
 <!-- ── Trust Score ──────────────────────────────────────── -->
+<section class="cta-band">
+  <div class="wrap cta-band-in">
+    <div>
+      <strong>Витрина открыта без регистрации.</strong>
+      Посмотреть цены и занятость можно сразу — вход нужен только чтобы забронировать.
+    </div>
+    <a class="btn" href="app/">Открыть каталог<span class="arr" aria-hidden="true">→</span></a>
+  </div>
+</section>
+
 <section id="trust">
   <div class="wrap">
     <div class="eyebrow">Trust Score</div>
@@ -1333,6 +1429,13 @@ h2 {
   </div>
 </section>
 
+<!-- Панель появляется, только когда первый экран уже прокручен: пока
+     кнопки героя на виду, вторая пара тех же кнопок внизу — шум. -->
+<div class="dock" id="dock" aria-hidden="true">
+  <a class="btn btn-ghost" href="app/">Взять</a>
+  <a class="btn" href="app/">Сдать инструмент</a>
+</div>
+
 <footer>
   <div class="wrap foot">
     <div class="logo">RentHUB<span>.</span></div>
@@ -1355,7 +1458,7 @@ h2 {
   var targets = document.querySelectorAll(
     // .flow-op сюда не входит намеренно: на узком экране стрелки повёрнуты
     // на 90°, а появление заканчивается на transform: none — поворот бы слетел.
-    'section h2, section .lead, .tile, .goods, .step, .flow-box, .band, .table-wrap, .faq details, .person, figure.diagram, .disclaimer'
+    'section h2, section .lead, .tile, .cat-tile, .goods, .step, .flow-box, .band, .cta-band-in, .table-wrap, .faq details, .person, figure.diagram, .disclaimer'
   );
 
   if (!still && 'IntersectionObserver' in window) {
@@ -1393,7 +1496,11 @@ h2 {
   var numbers = document.querySelectorAll('.band .stat-v, .flow-box .v');
 
   function ruFormat(n) {
-    return n.toLocaleString('ru-RU').replace(/\u00A0/g, ' ');
+    // Неразрывный пробел остаётся неразрывным: раньше здесь стояла обратная
+    // замена на обычный, и анимированное число могло разорваться переносом
+    // — при том что на всей остальной странице это уже исправлено.
+    // Визуально символы неотличимы, так что менять было незачем.
+    return n.toLocaleString('ru-RU');
   }
 
   function run(el) {
@@ -1441,5 +1548,26 @@ h2 {
 })();
 </script>
 
+<script>
+  // Панель включается за первым экраном и гаснет на последнем блоке с
+  // теми же кнопками: две одинаковые пары рядом читаются как сбой.
+  (function () {
+    var dock = document.getElementById('dock');
+    var last = document.querySelector('footer');
+    if (!dock || !last) return;
+
+    function update() {
+      var past = window.scrollY > window.innerHeight * 0.9;
+      var atEnd = last.getBoundingClientRect().top < window.innerHeight + 120;
+      var on = past && !atEnd;
+      dock.classList.toggle('on', on);
+      dock.setAttribute('aria-hidden', on ? 'false' : 'true');
+    }
+
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+  })();
+</script>
 </body>
 </html>

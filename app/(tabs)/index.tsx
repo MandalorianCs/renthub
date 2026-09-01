@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Link, useRouter } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
@@ -50,9 +50,24 @@ export default function Catalog() {
   // Телефон — две колонки, планшет — три, широкий веб — четыре.
   const columns = width < 560 ? 2 : width < 940 ? 3 : 4;
 
+  /**
+   * Ссылка задаёт, с чего открыть витрину: ?category=drills, ?q=перфоратор.
+   *
+   * Нужно это не для красоты адреса. Реклама ведёт на конкретный запрос —
+   * человек, кликнувший «аренда перфоратора», должен увидеть перфораторы, а
+   * не весь каталог и поле поиска. Каждый лишний шаг между объявлением и
+   * товаром — это ушедшие люди.
+   *
+   * Значения только начальные: дальше экран живёт своим состоянием, и
+   * адрес за ним не тянется. Синхронизировать в обе стороны значило бы
+   * переписывать историю браузера на каждое нажатие фильтра — кнопка
+   * «назад» перестала бы возвращать на предыдущую страницу.
+   */
+  const params = useLocalSearchParams<{ category?: string; q?: string }>();
+
   const [categories, setCategories] = useState<Category[]>([]);
-  const [active, setActive] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+  const [active, setActive] = useState<string | null>(params.category ?? null);
+  const [search, setSearch] = useState(params.q ?? '');
   const [items, setItems] = useState<ItemWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
