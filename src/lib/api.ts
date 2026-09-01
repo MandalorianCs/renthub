@@ -207,9 +207,17 @@ export async function moderatorRestoreItem(itemId: string, note?: string) {
   await rpc('moderator_restore_item', { p_item_id: itemId, p_note: note ?? null });
 }
 
+/**
+ * Пауза и публикация объявления.
+ *
+ * Через RPC, а не update: тот же вход есть у бота, а под сервисным ключом
+ * RLS не применяется — значит правило владения должно жить в функции,
+ * иначе для чата его пришлось бы написать второй раз. Политика
+ * items_update_own остаётся вторым рубежом для всего, что ходит в таблицу
+ * напрямую.
+ */
 export async function setItemStatus(id: string, status: 'active' | 'hidden') {
-  const { error } = await supabase.from('items').update({ status }).eq('id', id);
-  if (error) throw error;
+  await rpc('item_set_status', { p_item_id: id, p_status: status });
 }
 
 // ── Публичный профиль владельца ───────────────────────────────
