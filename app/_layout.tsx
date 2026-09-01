@@ -7,12 +7,13 @@ import Manrope_600SemiBold from '@expo-google-fonts/manrope/600SemiBold/Manrope_
 import Manrope_700Bold from '@expo-google-fonts/manrope/700Bold/Manrope_700Bold.ttf';
 import Manrope_800ExtraBold from '@expo-google-fonts/manrope/800ExtraBold/Manrope_800ExtraBold.ttf';
 import { useFonts } from 'expo-font';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../src/lib/auth';
+import { rememberRoute, takeRoute } from '../src/lib/returnTo';
 import { colors, typeface } from '../src/theme';
 
 /**
@@ -23,6 +24,7 @@ import { colors, typeface } from '../src/theme';
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
   const segments = useSegments();
+  const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
@@ -42,9 +44,22 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const inOwnerCard = seg[0] === 'owner' && seg[1] === '[id]';
     const isPublic = inCatalog || inItemCard || inOwnerCard;
 
-    if (!session && !onAuthScreen && !isPublic) router.replace('/sign-in');
-    if (session && onAuthScreen) router.replace('/');
-  }, [session, loading, segments, router]);
+    // Адрес запоминается до ухода на вход. Ссылку на сделку бот шлёт в
+    // Telegram, и открывают её где угодно: без этого человек входил и
+    // оказывался в каталоге, а сделку искал заново.
+    //
+    // pathname, а не segments: последние дают шаблон маршрута
+    // (['booking', '[id]']), а вернуться надо по настоящему адресу.
+    if (!session && !onAuthScreen && !isPublic) {
+      rememberRoute(pathname);
+      router.replace('/sign-in');
+    }
+
+    if (session && onAuthScreen) {
+      const back = takeRoute();
+      router.replace((back ?? '/') as Parameters<typeof router.replace>[0]);
+    }
+  }, [session, loading, segments, pathname, router]);
 
   if (loading) {
     return (
