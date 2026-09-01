@@ -39,6 +39,7 @@
     "seed:users": "node scripts/seed-test-users.mjs",
     "build:pages": "node scripts/build-pages.mjs",
     "icons": "node scripts/make-icons.mjs",
+    "queue": "node scripts/queue.mjs",
     "invite": "node scripts/invite.mjs",
     "moderator": "node scripts/moderator.mjs",
     "email": "node scripts/email.mjs",
