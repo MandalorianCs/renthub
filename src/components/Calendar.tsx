@@ -123,6 +123,8 @@ export function Calendar({
           disabled={!canGoBack}
           hitSlop={8}
           style={s.nav}
+          accessibilityRole="button"
+          accessibilityLabel="Предыдущий месяц"
         >
           <Ionicons
             name="chevron-back"
@@ -135,6 +137,8 @@ export function Calendar({
           onPress={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
           hitSlop={8}
           style={s.nav}
+          accessibilityRole="button"
+          accessibilityLabel="Следующий месяц"
         >
           <Ionicons name="chevron-forward" size={20} color={colors.text} />
         </Pressable>

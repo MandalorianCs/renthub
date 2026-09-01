@@ -144,7 +144,12 @@ export default function Catalog() {
             style={s.searchInput}
           />
           {search.length > 0 ? (
-            <Pressable onPress={() => setSearch('')} hitSlop={10}>
+            <Pressable
+              onPress={() => setSearch('')}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Очистить поиск"
+            >
               <Ionicons name="close-circle" size={18} color={colors.textMuted} />
             </Pressable>
           ) : null}

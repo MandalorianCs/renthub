@@ -218,13 +218,21 @@ export function ItemForm({
                 style={s.photoRemove}
                 hitSlop={8}
                 onPress={() => setPhotos((p) => p.filter((x) => x !== uri))}
+                accessibilityRole="button"
+                accessibilityLabel="Удалить фото"
               >
                 <Ionicons name="close" size={14} color={colors.onFill} />
               </Pressable>
             </View>
           ))}
           {photos.length < 6 ? (
-            <Pressable style={[s.photo, s.photoAdd]} onPress={pickPhoto} disabled={uploading}>
+            <Pressable
+              style={[s.photo, s.photoAdd]}
+              onPress={pickPhoto}
+              disabled={uploading}
+              accessibilityRole="button"
+              accessibilityLabel={uploading ? 'Фото загружается' : 'Добавить фото'}
+            >
               <Ionicons
                 name={uploading ? 'hourglass-outline' : 'add'}
                 size={24}

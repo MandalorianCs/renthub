@@ -180,6 +180,8 @@ export default function ItemScreen() {
           <Pressable
             style={({ pressed }) => [s.share, { opacity: pressed ? 0.6 : 1 }]}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Поделиться объявлением"
             onPress={async () => {
               const result = await shareItem(item.id, item.title);
               // «Скопировано» без подтверждения читается как несработавшая

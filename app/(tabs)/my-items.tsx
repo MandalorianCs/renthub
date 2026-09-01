@@ -267,6 +267,10 @@ export default function MyItems() {
                 <Pressable
                   hitSlop={8}
                   style={s.iconBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    copied === item.id ? 'Ссылка скопирована' : 'Поделиться объявлением'
+                  }
                   onPress={async () => {
                     const result = await shareItem(item.id, item.title);
                     if (result === 'copied') setCopied(item.id);
@@ -282,6 +286,8 @@ export default function MyItems() {
                 <Pressable
                   hitSlop={8}
                   style={s.iconBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Изменить объявление"
                   onPress={() => router.push(`/item/edit/${item.id}`)}
                 >
                   <Ionicons name="create-outline" size={18} color={colors.textMuted} />
@@ -292,13 +298,21 @@ export default function MyItems() {
                     ошибкой, хуже её отсутствия: она обещает действие,
                     которого нет. Что делать дальше, сказано текстом выше. */}
                 {item.moderated_at ? (
-                  <View style={s.iconBtn}>
+                  <View
+                    style={s.iconBtn}
+                    accessibilityRole="image"
+                    accessibilityLabel="Снято модератором"
+                  >
                     <Ionicons name="lock-closed-outline" size={18} color={colors.danger} />
                   </View>
                 ) : (
                   <Pressable
                     hitSlop={8}
                     style={s.iconBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      item.status === 'hidden' ? 'Вернуть в каталог' : 'Снять с публикации'
+                    }
                     onPress={async () => {
                       try {
                         await setItemStatus(item.id, item.status === 'hidden' ? 'active' : 'hidden');

@@ -61,7 +61,13 @@ export function PhotoViewer({
           ))}
         </ScrollView>
 
-        <Pressable style={s.close} onPress={onClose} hitSlop={10}>
+        <Pressable
+          style={s.close}
+          onPress={onClose}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Закрыть просмотр"
+        >
           <Ionicons name="close" size={22} color={colors.onScrim} />
         </Pressable>
 
