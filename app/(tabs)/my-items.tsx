@@ -241,8 +241,21 @@ export default function MyItems() {
                         : 'свободно'}
                     </Text>
                   </View>
+
+                  {/* Причина показывается здесь, а не только в уведомлении:
+                      уведомление пролистывается и теряется, а объявление
+                      лежит скрытым дальше, и владелец должен видеть, что
+                      именно исправить. */}
+                  {item.moderated_at ? (
+                    <Text style={s.moderated} numberOfLines={2}>
+                      {item.moderated_reason ?? 'Решение модератора RentHUB.'}
+                      {' Исправьте объявление — модератор снимет ограничение.'}
+                    </Text>
+                  ) : null}
                 </View>
-                {item.status === 'hidden' ? (
+                {item.moderated_at ? (
+                  <Badge label="Снято" fg={colors.danger} bg={colors.dangerSoft} />
+                ) : item.status === 'hidden' ? (
                   <Badge label="Скрыто" fg={colors.textMuted} bg={colors.border} />
                 ) : null}
 
@@ -273,24 +286,35 @@ export default function MyItems() {
                 >
                   <Ionicons name="create-outline" size={18} color={colors.textMuted} />
                 </Pressable>
-                <Pressable
-                  hitSlop={8}
-                  style={s.iconBtn}
-                  onPress={async () => {
-                    try {
-                      await setItemStatus(item.id, item.status === 'hidden' ? 'active' : 'hidden');
-                      await load();
-                    } catch (e) {
-                      setError(humanizeError(e));
-                    }
-                  }}
-                >
-                  <Ionicons
-                    name={item.status === 'hidden' ? 'eye-outline' : 'eye-off-outline'}
-                    size={18}
-                    color={colors.textMuted}
-                  />
-                </Pressable>
+                {/* Пока стоит ограничение модератора, кнопки нет вовсе —
+                    вместо замка, который ничего не делает. Нажатие всё
+                    равно упёрлось бы в отказ базы, а кнопка, отвечающая
+                    ошибкой, хуже её отсутствия: она обещает действие,
+                    которого нет. Что делать дальше, сказано текстом выше. */}
+                {item.moderated_at ? (
+                  <View style={s.iconBtn}>
+                    <Ionicons name="lock-closed-outline" size={18} color={colors.danger} />
+                  </View>
+                ) : (
+                  <Pressable
+                    hitSlop={8}
+                    style={s.iconBtn}
+                    onPress={async () => {
+                      try {
+                        await setItemStatus(item.id, item.status === 'hidden' ? 'active' : 'hidden');
+                        await load();
+                      } catch (e) {
+                        setError(humanizeError(e));
+                      }
+                    }}
+                  >
+                    <Ionicons
+                      name={item.status === 'hidden' ? 'eye-outline' : 'eye-off-outline'}
+                      size={18}
+                      color={colors.textMuted}
+                    />
+                  </Pressable>
+                )}
               </Pressable>
             );
           })
@@ -322,6 +346,12 @@ const s = StyleSheet.create({
   thumbEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },
   stateRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 1 },
   stateDot: { width: 6, height: 6, borderRadius: 3 },
+  moderated: {
+    fontSize: 12,
+    fontFamily: typeface[400],
+    color: colors.danger,
+    lineHeight: 16,
+  },
   stateText: { fontSize: 12, fontFamily: typeface[600], color: colors.textMuted },
   note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
   error: { fontSize: 14, fontFamily: typeface[400], color: colors.danger },

@@ -103,6 +103,13 @@ export type Item = {
   /** Район или ориентир, где забирать. Необязательный: у части вещей его нет. */
   pickup_area: string | null;
   status: ItemStatus;
+  /**
+   * Снято модератором. Отличается от status: hidden означало сразу и паузу
+   * владельца, и решение модератора, а права на выход из них разные —
+   * вернуть в каталог снятое модератором владелец не может.
+   */
+  moderated_at: string | null;
+  moderated_reason: string | null;
   created_at: string;
   updated_at: string;
 };

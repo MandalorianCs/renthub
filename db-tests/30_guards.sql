@@ -593,7 +593,80 @@ begin
     'сообщение модератора легло в уведомления — бот доставит его в Telegram');
 end $$;
 
-select t.as(t.id('owner'), format('update items set status = ''active'' where id = %L', t.id('item')));
+-- Снятое модератором владелец не возвращает.
+--
+-- Раньше на этом месте стоял ровно один запрос — тот самый, что ниже
+-- помечен как обход, — и стенд считал его уборкой. Он и был дырой:
+-- status hidden означал сразу «владелец поставил на паузу» и «модератор
+-- снял с публикации», а раз состояния неразличимы, неразличимы и права
+-- на выход из них.
+
+select t.expect_fail(t.id('owner'), format(
+  'update items set status = ''active'' where id = %L', t.id('item')),
+  'вернуть его в каталог может только модератор');
+
+-- Обход через обнуление отметки. Без этой проверки защита была бы
+-- декоративной: политика разрешает менять строку целиком, и снять
+-- запрет можно было бы тем же update, что его нарушает.
+select t.expect_fail(t.id('owner'), format(
+  'update items set moderated_at = null, status = ''active'' where id = %L',
+  t.id('item')),
+  'отметку модератора снимает только модератор');
+
+-- А вот исправлять объявление владелец обязан мочь: этим он и
+-- отвечает на замечание. Запрет на правку превратил бы снятие с
+-- публикации в приговор без обжалования.
+do $$
+begin
+  perform t.as(t.id('owner'), format(
+    'update items set description = ''Добавил фото шильдика'' where id = %L',
+    t.id('item')));
+
+  perform t.assert(
+    (select description = 'Добавил фото шильдика' from items where id = t.id('item')),
+    'снятое объявление владелец может править — иначе замечание не исправить');
+end $$;
+
+-- Не-модератору снятие ограничения недоступно: иначе владелец снимал бы
+-- его сам, и весь разбор выше не стоил бы ничего.
+select t.expect_fail(t.id('owner'), format(
+  'select moderator_restore_item(%L)', t.id('item')),
+  'только модератор');
+
+-- Модератор снимает ограничение — и объявление остаётся скрытым.
+-- Публикация чужой вещи от лица модератора была бы действием за
+-- человека: «теперь можно» и «публикую» решают разные люди.
+do $$
+begin
+  perform t.as(t.id('stranger'), format(
+    'select moderator_restore_item(%L, ''Фото поправлены'')', t.id('item')));
+
+  perform t.assert(
+    (select moderated_at is null and status = 'hidden' from items where id = t.id('item')),
+    'ограничение снято, объявление осталось скрытым — публикует владелец');
+
+  perform t.assert(
+    t.as_value(t.id('owner'),
+      'select count(*)::text from notifications where type = ''item_restored''')::int = 1,
+    'владелец узнал, что ограничение снято, — иначе объявление лежало бы молча');
+end $$;
+
+-- Снять то, чего нет, — внятный отказ, а не тишина. Модератор нажал
+-- кнопку, и «ничего не произошло» он прочитает как сбой.
+select t.expect_fail(t.id('stranger'), format(
+  'select moderator_restore_item(%L)', t.id('item')),
+  'нет ограничения');
+
+-- И только теперь владелец возвращает вещь в каталог сам.
+do $$
+begin
+  perform t.as(t.id('owner'), format(
+    'update items set status = ''active'' where id = %L', t.id('item')));
+
+  perform t.assert(
+    (select status = 'active' from items where id = t.id('item')),
+    'после снятия ограничения владелец публикует вещь обычной кнопкой');
+end $$;
 
 -- Роль модератора из приложения по-прежнему не выдаётся. Защищают её два
 -- разных механизма, и проверять их надо порознь.

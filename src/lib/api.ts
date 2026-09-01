@@ -179,6 +179,34 @@ export async function updateItem(
   if (error) throw error;
 }
 
+/**
+ * Объявления, снятые модератором.
+ *
+ * Обычным запросом, а не функцией: политика items_read_moderator уже
+ * открывает модератору все объявления, и заводить ради выборки
+ * security definer значило бы городить второе выражение того же права.
+ */
+export async function fetchHeldItems(): Promise<ItemWithOwner[]> {
+  const { data, error } = await supabase
+    .from('items')
+    .select('*, owner:users!items_owner_id_fkey(id, full_name, rating, ratings_count)')
+    .not('moderated_at', 'is', null)
+    .order('moderated_at', { ascending: false });
+  if (error) throw error;
+  return (data as unknown as ItemWithOwner[]) ?? [];
+}
+
+/**
+ * Снять ограничение модератора.
+ *
+ * Объявление остаётся скрытым: «теперь можно» и «публикую» — разные
+ * решения, и второе принимает владелец. Публикация чужой вещи от лица
+ * модератора была бы действием за человека.
+ */
+export async function moderatorRestoreItem(itemId: string, note?: string) {
+  await rpc('moderator_restore_item', { p_item_id: itemId, p_note: note ?? null });
+}
+
 export async function setItemStatus(id: string, status: 'active' | 'hidden') {
   const { error } = await supabase.from('items').update({ status }).eq('id', id);
   if (error) throw error;

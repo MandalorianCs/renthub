@@ -3,11 +3,13 @@ import { Image } from 'expo-image';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ListSkeleton } from '../../src/components/Skeleton';
-import { Button, Card, Empty, ErrorState, Field, Row } from '../../src/components/ui';
+import { Button, Card, Empty, ErrorState, Field, Row, tap } from '../../src/components/ui';
 import {
   fetchDisputesForReview,
+  fetchHeldItems,
   fetchModerationOverview,
   fetchModerationPeople,
+  moderatorRestoreItem,
   moderatorHideItem,
   moderatorNotify,
   resolveDispute,
@@ -15,7 +17,12 @@ import {
 } from '../../src/lib/api';
 import { formatDate, formatDateRange, formatTenge, plural } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
-import type { DisputeForReview, ModerationOverview, ModerationPerson } from '../../src/lib/types';
+import type {
+  DisputeForReview,
+  ItemWithOwner,
+  ModerationOverview,
+  ModerationPerson,
+} from '../../src/lib/types';
 import { useRefresh } from '../../src/lib/useRefresh';
 import { colors, radius, spacing, typeface } from '../../src/theme';
 
@@ -35,19 +42,22 @@ export default function Moderation() {
   const [disputes, setDisputes] = useState<DisputeForReview[]>([]);
   const [stats, setStats] = useState<ModerationOverview | null>(null);
   const [people, setPeople] = useState<ModerationPerson[]>([]);
+  const [held, setHeld] = useState<ItemWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [d, s, p] = await Promise.all([
+      const [d, s, p, h] = await Promise.all([
         fetchDisputesForReview(),
         fetchModerationOverview(),
         fetchModerationPeople(),
+        fetchHeldItems(),
       ]);
       setDisputes(d);
       setStats(s);
       setPeople(p);
+      setHeld(h);
       setError(null);
     } catch (e) {
       setError(humanizeError(e));
@@ -105,6 +115,19 @@ export default function Moderation() {
               {plural(stats.bookings.week, 'бронь', 'брони', 'броней')}.
             </Text>
           </Card>
+
+          {/* Снятые объявления выше участников: это единственное место,
+              откуда ограничение можно снять обратно. Без списка функция
+              восстановления была бы дверью без ручки — модератор снял
+              объявление и потерял его из виду навсегда. */}
+          {held.length > 0 ? (
+            <Card>
+              <Text style={s.section}>Снято с публикации · {held.length}</Text>
+              {held.map((item) => (
+                <HeldRow key={item.id} item={item} onChanged={load} />
+              ))}
+            </Card>
+          ) : null}
 
           {people.length > 0 ? (
             <Card>
@@ -281,6 +304,83 @@ function PersonRow({ person, onChanged }: { person: ModerationPerson; onChanged:
           ) : null}
 
           {error ? <Text style={s.personError}>{error}</Text> : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * Объявление, снятое модератором, и единственный способ это отменить.
+ *
+ * Причина показывается вместе с именем владельца не для отчётности:
+ * снимает ограничение чаще не тот, кто ставил, и без причины ему
+ * остаётся решать вслепую — «почему-то снято, наверное можно вернуть».
+ */
+function HeldRow({ item, onChanged }: { item: ItemWithOwner; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <View style={s.heldRow}>
+      <Pressable
+        style={({ pressed }) => [s.heldHead, tap({ pressed })]}
+        onPress={() => setOpen((v) => !v)}
+      >
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={s.heldTitle} numberOfLines={1}>{item.title}</Text>
+          <Text style={s.heldMeta} numberOfLines={1}>
+            {item.owner?.full_name ?? 'Без имени'} · {formatDate(item.moderated_at!)}
+          </Text>
+          <Text style={s.heldReason} numberOfLines={2}>
+            {item.moderated_reason ?? 'Причина не записана'}
+          </Text>
+        </View>
+        <Ionicons
+          name={open ? 'chevron-up' : 'chevron-down'}
+          size={18}
+          color={colors.textMuted}
+        />
+      </Pressable>
+
+      {open ? (
+        <View style={{ gap: spacing.xs }}>
+          <Field
+            label="Что передать владельцу"
+            value={note}
+            onChangeText={setNote}
+            placeholder="Фото поправлены, ограничение снимаю"
+            multiline
+          />
+
+          {/* Объявление останется скрытым — это надо сказать до нажатия,
+              иначе модератор ждёт, что вещь вернётся на витрину, и решит,
+              что кнопка не сработала. */}
+          <Text style={s.heldNote}>
+            Объявление останется скрытым: вернуть его в каталог решает владелец.
+          </Text>
+
+          <Button
+            title="Снять ограничение"
+            variant="secondary"
+            loading={busy}
+            onPress={async () => {
+              setBusy(true);
+              setError(null);
+              try {
+                await moderatorRestoreItem(item.id, note.trim() || undefined);
+                onChanged();
+              } catch (e) {
+                setError(humanizeError(e));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+
+          {error ? <Text style={s.error}>{error}</Text> : null}
         </View>
       ) : null}
     </View>
@@ -528,6 +628,17 @@ function PhotoStrip({ photos }: { photos: string[] }) {
 }
 
 const s = StyleSheet.create({
+  heldRow: {
+    gap: 8,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  heldHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  heldTitle: { fontSize: 15, fontFamily: typeface[600], color: colors.text },
+  heldMeta: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
+  heldReason: { fontSize: 13, fontFamily: typeface[400], color: colors.danger, lineHeight: 17 },
+  heldNote: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 16 },
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   stats: { flexDirection: 'row', gap: spacing.sm },
   stat: {
