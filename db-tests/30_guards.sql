@@ -789,6 +789,60 @@ select t.anon_fails(
   format('select * from booking_contact(%L)', t.id('booking')),
   'permission denied');
 
+-- ── Уведомления: только отметка о прочтении ───────────────────
+--
+-- Политика пускает к своей строке целиком — RLS фильтрует строки, а не
+-- колонки. Из клиента можно было обнулить sent_at и заставить бота
+-- доставить уведомление заново, сколько угодно раз.
+
+do $$
+declare
+  v_id uuid;
+begin
+  select id into v_id from notifications where user_id = t.id('owner') limit 1;
+
+  perform t.assert(v_id is not null,
+    'уведомление для проверки есть — иначе проверять нечего');
+
+  -- Отметить прочитанным можно: ради этого политика и существует.
+  perform t.as(t.id('owner'), format(
+    'update notifications set read_at = now() where id = %L', v_id));
+
+  perform t.assert(
+    (select read_at is not null from notifications where id = v_id),
+    'своё уведомление отмечается прочитанным');
+end $$;
+
+do $$
+declare
+  v_id uuid;
+  v_err text;
+begin
+  select id into v_id from notifications where user_id = t.id('owner') limit 1;
+
+  begin
+    perform t.as(t.id('owner'), format(
+      'update notifications set sent_at = null where id = %L', v_id));
+    v_err := 'без ошибки';
+  exception when others then
+    v_err := sqlerrm;
+  end;
+
+  perform t.assert(v_err like '%permission denied%',
+    'sent_at не сбросить — иначе бот слал бы одно и то же заново');
+
+  begin
+    perform t.as(t.id('owner'), format(
+      'update notifications set title = ''Подделка'' where id = %L', v_id));
+    v_err := 'без ошибки';
+  exception when others then
+    v_err := sqlerrm;
+  end;
+
+  perform t.assert(v_err like '%permission denied%',
+    'текст уведомления переписать нельзя — его пишет система');
+end $$;
+
 -- ── Профиль: белый список полей ───────────────────────────────
 --
 -- Политика users_update_own разрешает менять свою строку целиком, а
