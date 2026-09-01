@@ -621,6 +621,49 @@ select t.expect_fail(t.id('renter'),
 
 update users set is_moderator = false where id = t.id('stranger');
 
+-- ── Занятость: два списка статусов обязаны совпадать ──────────
+--
+-- «Живые» статусы перечислены дважды: в ограничении bookings_no_overlap,
+-- которое реально запрещает пересечение, и в item_busy_dates(), по
+-- которой рисуется календарь. DESIGN.md требует их совпадения, но до сих
+-- пор это держалось на внимательности.
+--
+-- Разойдутся — календарь начнёт врать в одну из двух сторон: покажет
+-- занятым то, что забронировать можно, или свободным то, на чём бронь
+-- упрётся в ограничение уже после нажатия «Забронировать». Второе хуже:
+-- человек выбирает даты, доходит до конца и получает отказ.
+
+do $$
+declare
+  v_con text;
+  v_fun text;
+  v_con_st text[];
+  v_fun_st text[];
+begin
+  select pg_get_constraintdef(oid) into v_con
+    from pg_constraint where conname = 'bookings_no_overlap';
+
+  select pg_get_functiondef(oid) into v_fun
+    from pg_proc
+   where proname = 'item_busy_dates' and pronamespace = 'public'::regnamespace;
+
+  perform t.assert(v_con is not null and v_fun is not null,
+    'ограничение и функция занятости на месте — иначе сравнивать нечего');
+
+  -- Ищем не любые слова в кавычках, а только те, что действительно
+  -- являются статусами брони: в тексте функции есть и другие строки.
+  select array_agg(v order by v) into v_con_st
+    from unnest(enum_range(null::booking_status)) v
+   where position('''' || v::text || '''' in v_con) > 0;
+
+  select array_agg(v order by v) into v_fun_st
+    from unnest(enum_range(null::booking_status)) v
+   where position('''' || v::text || '''' in v_fun) > 0;
+
+  perform t.assert(v_con_st = v_fun_st,
+    'списки живых статусов совпадают: календарь обещает ровно то, что запретит база');
+end $$;
+
 -- ── Контакт второй стороны ────────────────────────────────────
 --
 -- Телефон закрыт грантом на колонки даже вошедшему, поэтому связаться
