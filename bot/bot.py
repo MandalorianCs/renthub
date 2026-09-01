@@ -124,6 +124,23 @@ PILOT_CITY = os.environ.get("EXPO_PUBLIC_PILOT_CITY", "kokshetau").strip() or "k
 
 APP_URL = "https://mandaloriancs.github.io/renthub/app/"
 
+
+def item_url(item_id: str) -> str:
+    """
+    Ссылка на объявление.
+
+    Собирается здесь одним местом, потому что раньше собиралась двумя — и
+    обе были неверны. Бот писал `app/#/item/<id>`, приложение в
+    src/lib/share.ts — `app/item/<id>`. Маршрутизация у приложения по пути,
+    а не по хэшу: адрес с решёткой открывает каталог, и все ссылки бота на
+    вещи вели мимо. Проверено на живом сайте.
+
+    Правило обязано совпадать с itemUrl() в src/lib/share.ts. Общего кода у
+    Python и TypeScript тут нет, поэтому связь держится комментарием — но
+    сама строка теперь одна на весь модуль.
+    """
+    return f"{APP_URL}item/{item_id}"
+
 REST = f"{SUPABASE_URL}/rest/v1"
 HEADERS = {
     "apikey": SECRET_KEY,
@@ -1054,7 +1071,7 @@ async def on_item_publish(query: CallbackQuery, state: FSMContext) -> None:
     await query.answer("Опубликовано")
     await query.message.edit_reply_markup(reply_markup=None)
     await query.message.answer(
-        f"Готово, объявление на витрине.\n{APP_URL}#/item/{item_id}\n\n"
+        f"Готово, объявление на витрине.\n{item_url(item_id)}\n\n"
         "Когда его забронируют, я напишу — подтвердить можно будет кнопкой отсюда."
     )
 
@@ -1150,7 +1167,7 @@ def item_line(row: dict) -> str:
     return (
         f"• <b>{esc(row['title'])}</b> — {money(row.get('daily_price'))} / сутки\n"
         f"  депозит {money(row.get('deposit_amount'))}{mark}{area}\n"
-        f"  {APP_URL}#/item/{row['id']}"
+        f"  {item_url(row['id'])}"
     )
 
 
