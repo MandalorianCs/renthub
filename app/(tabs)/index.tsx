@@ -126,16 +126,32 @@ export default function Catalog() {
    */
   const chipsRef = useRef<ScrollView>(null);
   const chipX = useRef<Record<string, number>>({});
+  const chipsWidth = useRef(0);
   const chipsAligned = useRef(!params.category);
 
+  /**
+   * Выравнивание срабатывает по выполнению двух условий, а не по одному
+   * событию. Порядок, в котором приходят onLayout плашек и
+   * onContentSizeChange ряда, не гарантирован — обе прошлые попытки
+   * упирались именно в это: прокрутка на 909 точек при ширине содержимого
+   * 375 упирается в границу, то есть в ноль, и «выровнено» отмечалось
+   * впустую.
+   *
+   * Теперь функция зовётся из обоих мест и ничего не делает, пока ряд не
+   * стал шире того места, куда надо встать. Ждать по таймеру не нужно:
+   * условие проверяемое, а не вероятностное.
+   */
   const alignChips = useCallback(() => {
-    if (chipsAligned.current) return;
-    const x = active ? chipX.current[active] : undefined;
+    if (chipsAligned.current || !active) return;
+
+    const x = chipX.current[active];
     if (x === undefined) return;
+
+    const target = Math.max(0, x - 16);
+    if (chipsWidth.current <= target) return;
+
     chipsAligned.current = true;
-    // Небольшой отступ слева: плашка, прижатая к самому краю, читается как
-    // обрезанная, а не как первая.
-    chipsRef.current?.scrollTo({ x: Math.max(0, x - 16), animated: false });
+    chipsRef.current?.scrollTo({ x: target, animated: false });
   }, [active]);
 
   const fabHidden = useRef(new Animated.Value(0)).current;
@@ -252,11 +268,10 @@ export default function Catalog() {
         showsHorizontalScrollIndicator={false}
         style={s.chipsRow}
         contentContainerStyle={s.chips}
-        // Не в onLayout плашки: там ширина содержимого ещё набирается, и
-        // прокрутка на 909 точек упирается в тогдашние 375 — то есть в
-        // ноль. onContentSizeChange срабатывает, когда ряд уже целиком
-        // разложен, и это единственный момент, когда прокрутка возможна.
-        onContentSizeChange={alignChips}
+        onContentSizeChange={(w) => {
+          chipsWidth.current = w;
+          alignChips();
+        }}
       >
         <Chip label="Все" selected={active === null} onPress={() => setActive(null)} />
         {categories.map((c) => (
@@ -264,6 +279,7 @@ export default function Catalog() {
             key={c.slug}
             onLayout={(e) => {
               chipX.current[c.slug] = e.nativeEvent.layout.x;
+              alignChips();
             }}
           >
             <Chip
