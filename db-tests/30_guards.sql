@@ -707,6 +707,90 @@ begin
 end $$;
 
 
+-- ── Заявка встречается со своим аккаунтом ─────────────────────
+--
+-- Бот обещает: «организатор заведёт аккаунт, и вы получите сообщение
+-- сюда же». Проверяем, что обещание выполняется, а не просто написано.
+
+do $$
+declare
+  v_id    uuid := gen_random_uuid();
+  v_phone text := '+77015550001';
+begin
+  perform set_config('request.jwt.claims', '', true);
+  perform submit_join_request(v_phone, 'Марат', 987654, 'marat');
+
+  -- Так участника заводит invite.mjs: строку в public.users создаёт
+  -- триггер на auth.users.
+  insert into auth.users (id) values (v_id);
+  update users set phone = v_phone where id = v_id;
+  -- Обновление номера не создаёт участника заново, поэтому повторяем
+  -- путь скрипта: строка появляется сразу с номером.
+  delete from users where id = v_id;
+  insert into users (id, phone, full_name) values (v_id, v_phone, 'Марат');
+
+  perform t.assert(
+    (select telegram_id = 987654 from users where id = v_id),
+    'привязка Telegram перенесена из заявки — второй раз номер не спрашивают');
+
+  perform t.assert(
+    (select telegram_username = 'marat' from users where id = v_id),
+    'ник тоже перенесён — боту есть чем подписать сообщения');
+
+  perform t.assert(
+    (select handled_at is not null from join_requests where phone = v_phone),
+    'заявка закрылась сама — очередь не показывает сделанное');
+
+  perform t.assert(
+    (select count(*) from notifications where user_id = v_id and type = 'invite_ready') = 1,
+    'человек получил сообщение в тот же чат, где оставлял заявку');
+end $$;
+
+-- Занятый чат не переносится: telegram_id уникален, и слепой перенос
+-- уронил бы создание участника ошибкой базы вместо понятного отказа.
+do $$
+declare
+  v_id    uuid := gen_random_uuid();
+  v_phone text := '+77015550002';
+  v_busy  bigint;
+begin
+  perform set_config('request.jwt.claims', '', true);
+
+  select telegram_id into v_busy from users
+   where telegram_id is not null limit 1;
+  perform t.assert(v_busy is not null, 'для проверки нужен занятый чат');
+
+  perform submit_join_request(v_phone, 'Двойник', v_busy, 'dup');
+  insert into auth.users (id) values (v_id);
+  delete from users where id = v_id;
+  insert into users (id, phone) values (v_id, v_phone);
+
+  perform t.assert(
+    (select telegram_id is null from users where id = v_id),
+    'чужой чат не привязался — участник создан без ошибки базы');
+
+  perform t.assert(
+    (select handled_at is not null from join_requests where phone = v_phone),
+    'заявка всё равно закрыта — организатор своё дело сделал');
+end $$;
+
+-- Обычный участник без заявки создаётся как раньше: триггер не должен
+-- вмешиваться туда, где заявки не было.
+do $$
+declare v_id uuid := gen_random_uuid();
+begin
+  perform set_config('request.jwt.claims', '', true);
+  insert into auth.users (id) values (v_id);
+  delete from users where id = v_id;
+  insert into users (id, phone) values (v_id, '+77015559999');
+
+  perform t.assert(
+    (select count(*) from notifications
+      where user_id = v_id and type = 'invite_ready') = 0,
+    'без заявки сообщения нет — триггер не выдумывает событий');
+end $$;
+
+
 -- Разрешение системной записи гаснет сразу.
 --
 -- Флаг renthub.system_write говорит сторожам «пропусти, это система».
