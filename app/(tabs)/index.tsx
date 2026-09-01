@@ -113,6 +113,31 @@ export default function Catalog() {
    * Порог в 12 точек — против дрожания: без него кнопка мигала бы на
    * каждом микродвижении пальца.
    */
+  /**
+   * Ряд категорий подкручивается к выбранной, если её задала ссылка.
+   *
+   * Без этого переход по рекламной ссылке выглядит поломкой: витрина
+   * отфильтрована, а выбранная плашка уехала за правый край, и человек
+   * видит «1 объявление» при, на его взгляд, невыбранном фильтре. Первое
+   * объяснение, которое приходит в голову, — «здесь ничего нет».
+   *
+   * Только для категории из адреса: когда человек нажимает плашку сам, он
+   * её видит, и уводить ряд под пальцем незачем.
+   */
+  const chipsRef = useRef<ScrollView>(null);
+  const chipX = useRef<Record<string, number>>({});
+  const chipsAligned = useRef(!params.category);
+
+  const alignChips = useCallback((slug: string) => {
+    if (chipsAligned.current) return;
+    const x = chipX.current[slug];
+    if (x === undefined) return;
+    chipsAligned.current = true;
+    // Небольшой отступ слева: плашка, прижатая к самому краю, читается как
+    // обрезанная, а не как первая.
+    chipsRef.current?.scrollTo({ x: Math.max(0, x - 16), animated: false });
+  }, []);
+
   const fabHidden = useRef(new Animated.Value(0)).current;
   const lastY = useRef(0);
   const hiddenNow = useRef(false);
@@ -222,6 +247,7 @@ export default function Catalog() {
 
       {/* ── Категории ─────────────────────────────────────── */}
       <ScrollView
+        ref={chipsRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         style={s.chipsRow}
@@ -229,12 +255,19 @@ export default function Catalog() {
       >
         <Chip label="Все" selected={active === null} onPress={() => setActive(null)} />
         {categories.map((c) => (
-          <Chip
+          <View
             key={c.slug}
-            label={c.title_ru}
-            selected={active === c.slug}
-            onPress={() => setActive(active === c.slug ? null : c.slug)}
-          />
+            onLayout={(e) => {
+              chipX.current[c.slug] = e.nativeEvent.layout.x;
+              if (active === c.slug) alignChips(c.slug);
+            }}
+          >
+            <Chip
+              label={c.title_ru}
+              selected={active === c.slug}
+              onPress={() => setActive(active === c.slug ? null : c.slug)}
+            />
+          </View>
         ))}
       </ScrollView>
 
