@@ -789,6 +789,27 @@ select t.anon_fails(
   format('select * from booking_contact(%L)', t.id('booking')),
   'permission denied');
 
+-- ── Фото: от одного до шести, и это правило базы ──────────────
+--
+-- Границы были в форме, в боте и в create_item(), но не в таблице — а
+-- политика items_insert_own разрешает и прямой insert мимо всех троих.
+--
+-- Ноль фото ломает ПРАВИЛО 6: спор о порче сверяет фото «после» с фото
+-- «до», и без вторых сверять не с чем. Первая версия ограничения этот
+-- случай пропускала: array_length пустого массива — NULL, а CHECK
+-- отклоняет только при false.
+
+select t.expect_fail(t.id('owner'), format(
+  'insert into items (owner_id, category, title, daily_price, deposit_amount) '
+  || 'values (%L, ''drills'', ''Совсем без фото'', 1000, 5000)', t.id('owner')),
+  'items_photos_count');
+
+select t.expect_fail(t.id('owner'), format(
+  'insert into items (owner_id, category, title, daily_price, deposit_amount, condition_photos) '
+  || 'values (%L, ''drills'', ''Семь снимков'', 1000, 5000, '
+  || 'array[''a'',''b'',''c'',''d'',''e'',''f'',''g''])', t.id('owner')),
+  'items_photos_count');
+
 -- ── Ориентир: свободный, но не любой ──────────────────────────
 --
 -- Поле необязательное — у части владельцев вещь лежит там, где ориентира

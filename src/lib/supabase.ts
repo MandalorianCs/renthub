@@ -59,6 +59,8 @@ export function humanizeError(error: unknown): string {
     [/disputes_booking_id_type_key/, 'Претензия по этой сделке уже подана'],
     [/bookings_check|end_date/, 'Проверьте даты: конец не может быть раньше начала'],
     [/items_title_check/, 'Название слишком короткое'],
+    [/items_photos_count/, 'Нужно от одного до шести фото вещи'],
+    [/items_pickup_area_check/, 'Ориентир: от 2 до 80 символов, или оставьте пустым'],
     [/daily_price_check/, 'Цена должна быть больше нуля'],
     [/Failed to fetch|NetworkError|Load failed/i, 'Нет связи с сервером — проверьте интернет'],
     // Ошибки хранилища приходят по-английски и звучат как сбой платформы,
