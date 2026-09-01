@@ -154,18 +154,6 @@ export default function Catalog() {
     chipsRef.current?.scrollTo({ x: target, animated: false });
   }, [active]);
 
-  // ВРЕМЕННО: диагностика выравнивания, снять после разбора.
-  if (typeof window !== 'undefined') {
-    (window as unknown as Record<string, unknown>).__chip = {
-      active,
-      paramCategory: params.category ?? null,
-      aligned: chipsAligned.current,
-      width: chipsWidth.current,
-      x: JSON.stringify(chipX.current),
-      refReady: !!chipsRef.current,
-    };
-  }
-
   const fabHidden = useRef(new Animated.Value(0)).current;
   const lastY = useRef(0);
   const hiddenNow = useRef(false);
