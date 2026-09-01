@@ -216,6 +216,8 @@ CONSTRAINT_MESSAGES = (
     ("bookings_no_overlap", "Эти даты уже заняты — выберите другие"),
     ("reviews_booking_id_from_user_id_key", "Вы уже оставили отзыв по этой сделке"),
     ("disputes_booking_id_type_key", "Претензия по этой сделке уже подана"),
+    ("items_photos_count", "Нужно от одного до шести фото вещи"),
+    ("items_pickup_area_check", "Ориентир: от 2 до 80 символов, или пропустите шаг"),
 )
 
 
