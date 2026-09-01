@@ -1214,7 +1214,7 @@ async def show_catalog(message: Message, search: str | None) -> None:
 # оба входа.
 
 
-def item_line(row: dict) -> str:
+def my_item_line(row: dict) -> str:
     price = f"{row['daily_price']:,}".replace(",", " ")
 
     if row["moderated"]:
@@ -1279,7 +1279,7 @@ async def on_my_items(message: Message) -> None:
     # и общий список с кнопками внизу заставлял бы гадать, к чему они.
     for row in rows:
         await message.answer(
-            item_line(row), parse_mode="HTML", reply_markup=item_keyboard(row)
+            my_item_line(row), parse_mode="HTML", reply_markup=item_keyboard(row)
         )
 
 
