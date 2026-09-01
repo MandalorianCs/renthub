@@ -6,7 +6,9 @@ import { ListSkeleton } from '../../src/components/Skeleton';
 import { Button, Card, Empty, ErrorState, Field, Row, tap } from '../../src/components/ui';
 import {
   fetchDisputesForReview,
+  closeJoinRequest,
   fetchHeldItems,
+  fetchJoinRequests,
   fetchModerationOverview,
   fetchModerationPeople,
   moderatorRestoreItem,
@@ -16,10 +18,12 @@ import {
   setUserBlocked,
 } from '../../src/lib/api';
 import { formatDate, formatDateRange, formatTenge, plural } from '../../src/lib/format';
+import { copyText } from '../../src/lib/share';
 import { humanizeError } from '../../src/lib/supabase';
 import type {
   DisputeForReview,
   ItemWithOwner,
+  JoinRequest,
   ModerationOverview,
   ModerationPerson,
 } from '../../src/lib/types';
@@ -43,21 +47,24 @@ export default function Moderation() {
   const [stats, setStats] = useState<ModerationOverview | null>(null);
   const [people, setPeople] = useState<ModerationPerson[]>([]);
   const [held, setHeld] = useState<ItemWithOwner[]>([]);
+  const [joins, setJoins] = useState<JoinRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [d, s, p, h] = await Promise.all([
+      const [d, s, p, h, j] = await Promise.all([
         fetchDisputesForReview(),
         fetchModerationOverview(),
         fetchModerationPeople(),
         fetchHeldItems(),
+        fetchJoinRequests(),
       ]);
       setDisputes(d);
       setStats(s);
       setPeople(p);
       setHeld(h);
+      setJoins(j);
       setError(null);
     } catch (e) {
       setError(humanizeError(e));
@@ -115,6 +122,18 @@ export default function Moderation() {
               {plural(stats.bookings.week, 'бронь', 'брони', 'броней')}.
             </Text>
           </Card>
+
+          {/* Заявки первыми: это люди, которые уже постучались и ждут.
+              Спор можно разобрать завтра, а человек, оставивший заявку,
+              каждый день ожидания решает, что здесь никого нет. */}
+          {joins.length > 0 ? (
+            <Card>
+              <Text style={s.section}>Заявки на участие · {joins.length}</Text>
+              {joins.map((r) => (
+                <JoinRow key={r.id} request={r} onChanged={load} />
+              ))}
+            </Card>
+          ) : null}
 
           {/* Снятые объявления выше участников: это единственное место,
               откуда ограничение можно снять обратно. Без списка функция
@@ -387,6 +406,77 @@ function HeldRow({ item, onChanged }: { item: ItemWithOwner; onChanged: () => vo
   );
 }
 
+/**
+ * Заявка на участие.
+ *
+ * Номер показан целиком и рядом с кнопкой копирования: следующий шаг
+ * модератора — завести аккаунт скриптом invite.mjs, и туда нужен именно
+ * номер. Заставлять переписывать его с экрана — это способ получить
+ * приглашение не тому человеку.
+ */
+function JoinRow({ request, onChanged }: { request: JoinRequest; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <View style={s.joinRow}>
+      <View style={{ flex: 1, gap: 3 }}>
+        <Pressable
+          onPress={async () => {
+            setCopied(await copyText(request.phone));
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={copied ? 'Номер скопирован' : 'Скопировать номер'}
+          style={({ pressed }) => [s.joinPhoneRow, tap({ pressed })]}
+        >
+          <Text style={s.joinPhone}>{request.phone}</Text>
+          <Ionicons
+            name={copied ? 'checkmark' : 'copy-outline'}
+            size={15}
+            color={copied ? colors.green : colors.textMuted}
+          />
+        </Pressable>
+
+        <Text style={s.joinMeta} numberOfLines={1}>
+          {request.full_name ?? 'Без имени'}
+          {request.telegram_username ? ` · @${request.telegram_username}` : ''}
+          {' · '}
+          {formatDate(request.created_at)}
+        </Text>
+
+        {request.note ? (
+          <Text style={s.joinNote} numberOfLines={3}>{request.note}</Text>
+        ) : null}
+
+        {error ? <Text style={s.error}>{error}</Text> : null}
+      </View>
+
+      {/* «Закрыть» не заводит аккаунт: приглашение выдаётся скриптом с
+          сервисным ключом. Кнопка означает ровно «этим я занялся» — и
+          обещать больше, чем делает, она не должна. */}
+      <Button
+        title="Закрыть"
+        variant="secondary"
+        loading={busy}
+        onPress={async () => {
+          setBusy(true);
+          setError(null);
+          try {
+            await closeJoinRequest(request.id);
+            onChanged();
+          } catch (e) {
+            setError(humanizeError(e));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+    </View>
+  );
+}
+
+
 function Stat({ value, label, accent }: { value: number; label: string; accent?: boolean }) {
   return (
     <View style={s.stat}>
@@ -628,6 +718,18 @@ function PhotoStrip({ photos }: { photos: string[] }) {
 }
 
 const s = StyleSheet.create({
+  joinRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  joinPhoneRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  joinPhone: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
+  joinMeta: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
+  joinNote: { fontSize: 13, fontFamily: typeface[400], color: colors.text, lineHeight: 17 },
   heldRow: {
     gap: 8,
     paddingVertical: spacing.sm,

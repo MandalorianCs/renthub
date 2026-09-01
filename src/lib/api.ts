@@ -11,6 +11,7 @@ import type {
   DisputeForReview,
   Item,
   ItemWithOwner,
+  JoinRequest,
   ModerationOverview,
   ModerationPerson,
   Notification,
@@ -177,6 +178,22 @@ export async function updateItem(
     })
     .eq('id', id);
   if (error) throw error;
+}
+
+/**
+ * Очередь заявок на участие.
+ *
+ * Через функцию, а не выборкой: список заявок — это список чужих
+ * телефонов, и право на него проверяется в одном месте, а не политикой на
+ * таблицу и грантом порознь.
+ */
+export async function fetchJoinRequests(): Promise<JoinRequest[]> {
+  const rows = await rpc<JoinRequest[]>('join_requests_open', {});
+  return rows ?? [];
+}
+
+export async function closeJoinRequest(id: string) {
+  await rpc('join_request_close', { p_id: id });
 }
 
 /**

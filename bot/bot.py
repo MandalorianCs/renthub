@@ -421,12 +421,54 @@ async def on_contact(message: Message) -> None:
         )
 
         if not found:
-            await message.answer(
-                f"Номер {phone} не найден среди участников пилота.\n\n"
-                "Пилот идёт по приглашениям: напишите организатору, он заведёт "
-                "аккаунт и выдаст пароль. После этого вернитесь сюда.",
-                reply_markup=ReplyKeyboardRemove(),
-            )
+            # Раньше здесь стояло «напишите организатору» — без имени, без
+            # ссылки, без способа. Человек, пришедший по рекламе, упирался в
+            # тупик ровно на том шаге, ради которого его и звали.
+            #
+            # Заявка подаётся прямо сейчас и без единого вопроса: номер уже
+            # подтверждён самим Telegram кнопкой «Поделиться номером», имя и
+            # ник тоже пришли вместе с контактом. Спрашивать что-то ещё —
+            # значит терять людей на пустом месте.
+            try:
+                result = await rest_rpc(
+                    client,
+                    "submit_join_request",
+                    {
+                        "p_phone": phone,
+                        "p_full_name": (contact.first_name or "") + (
+                            " " + contact.last_name if contact.last_name else ""
+                        ),
+                        "p_telegram_id": message.from_user.id,
+                        "p_telegram_username": message.from_user.username,
+                    },
+                )
+            except RentHubError as error:
+                await message.answer(str(error), reply_markup=ReplyKeyboardRemove())
+                return
+
+            if result == "already_member":
+                # Такого быть не должно: номер только что не нашёлся. Но если
+                # база говорит иначе, врать ей поверх нельзя.
+                await message.answer(
+                    "Аккаунт с этим номером уже есть. Попробуйте /start ещё раз.",
+                    reply_markup=SHARE_KEYBOARD,
+                )
+            elif result == "already_waiting":
+                await message.answer(
+                    f"Заявка с номером {phone} уже в очереди — второй раз "
+                    "подавать не нужно.\n\n"
+                    "Организатор заведёт аккаунт и выдаст пароль. Пока можно "
+                    "посмотреть, что уже сдают: /каталог.",
+                    reply_markup=ReplyKeyboardRemove(),
+                )
+            else:
+                await message.answer(
+                    f"Заявка принята: {phone}.\n\n"
+                    "Пилот идёт по приглашениям — организатор заведёт аккаунт и "
+                    "выдаст пароль, и вы получите сообщение сюда же.\n\n"
+                    "Пока можно посмотреть витрину: /каталог или /найти перфоратор.",
+                    reply_markup=ReplyKeyboardRemove(),
+                )
             return
 
         user = found[0]

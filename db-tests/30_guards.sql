@@ -593,6 +593,120 @@ begin
     'сообщение модератора легло в уведомления — бот доставит его в Telegram');
 end $$;
 
+-- ── Заявки на участие ─────────────────────────────────────────
+--
+-- Реклама приводит незнакомого человека: витрина открыта всем, но
+-- забронировать он не может, а пути «у меня нет приглашения» до сих пор
+-- не было ни на экране входа, ни в боте. Заявка — этот путь.
+
+do $$
+declare v_res text;
+begin
+  perform set_config('request.jwt.claims', '', true);
+
+  v_res := submit_join_request('+77011112233', 'Асхат', 555, 'ashat', 'есть леса');
+  perform t.assert(v_res = 'accepted', 'заявка от незнакомого номера принята');
+
+  -- Повтор не плодит строки: человек, нажавший кнопку трижды, не должен
+  -- превращаться в три заявки — список модерации станет списком
+  -- нетерпеливых, а не списком людей.
+  v_res := submit_join_request('+77011112233', null, null, null, 'и ещё бетономешалка');
+  perform t.assert(v_res = 'already_waiting', 'повторная заявка не создаёт вторую строку');
+
+  perform t.assert(
+    (select count(*) from join_requests where phone = '+77011112233') = 1,
+    'в очереди по-прежнему одна строка на номер');
+
+  -- Но дописывает то, что человек добавил со второго раза.
+  perform t.assert(
+    (select note = 'и ещё бетономешалка' from join_requests where phone = '+77011112233'),
+    'пояснение со второго раза сохранилось, имя из первого не затёрлось');
+
+  perform t.assert(
+    (select full_name = 'Асхат' from join_requests where phone = '+77011112233'),
+    'имя из первой заявки на месте — coalesce, а не перезапись пустым');
+end $$;
+
+-- Участнику заявка не нужна, и сказать об этом надо прямо: «принято»
+-- отправило бы человека ждать того, что у него уже есть.
+do $$
+declare v_res text;
+begin
+  v_res := submit_join_request((select phone from users where id = t.id('owner')));
+  perform t.assert(v_res = 'already_member', 'участнику отвечают, что аккаунт уже есть');
+end $$;
+
+-- Кривой номер не попадает в очередь: организатор звонит по этим
+-- номерам, и «+7701» в списке — это потраченное время.
+do $$
+declare v_err text;
+begin
+  begin
+    perform submit_join_request('+7701');
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+  perform t.assert(v_err like '%формате%', 'короткий номер отклонён');
+end $$;
+
+-- Список заявок — это список чужих телефонов. Вошедшему он закрыт и
+-- политикой на таблицу, и правом на функцию.
+select t.expect_fail(t.id('renter'),
+  'select * from join_requests_open()',
+  'только модератор');
+
+do $$
+begin
+  perform t.assert(
+    t.as_value(t.id('renter'), 'select count(*)::text from join_requests')::int = 0,
+    'вошедший не видит ни одной заявки — политика фильтрует строки');
+end $$;
+
+-- Модератор видит очередь и закрывает заявку.
+do $$
+declare
+  v_id  uuid;
+  v_err text;
+  v_was boolean;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  -- Прежнее значение возвращается в конце: соседние блоки тоже полагаются
+  -- на роль модератора, и жёсткий false здесь ломал бы их через один.
+  select is_moderator into v_was from users where id = t.id('stranger');
+  update users set is_moderator = true where id = t.id('stranger');
+
+  perform t.assert(
+    t.as_value(t.id('stranger'), 'select count(*)::text from join_requests_open()')::int = 1,
+    'модератор видит открытую заявку');
+
+  select id into v_id from join_requests where phone = '+77011112233';
+  perform t.as(t.id('stranger'), format('select join_request_close(%L)', v_id));
+
+  perform t.assert(
+    t.as_value(t.id('stranger'), 'select count(*)::text from join_requests_open()')::int = 0,
+    'закрытая заявка ушла из очереди');
+
+  -- Закрыть дважды нельзя: «готово» на второе нажатие означало бы, что
+  -- модератор закрыл что-то ещё, чего не видел.
+  begin
+    perform t.as(t.id('stranger'), format('select join_request_close(%L)', v_id));
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+  perform t.assert(v_err like '%уже закрыта%', 'повторное закрытие отклонено');
+
+  -- Освободившийся номер снова может подать заявку: частичный уникальный
+  -- индекс сторожит только открытые.
+  perform set_config('request.jwt.claims', '', true);
+  perform t.assert(
+    submit_join_request('+77011112233') = 'accepted',
+    'после закрытия человек может обратиться снова');
+
+  perform set_config('request.jwt.claims', '', true);
+  update users set is_moderator = v_was where id = t.id('stranger');
+end $$;
+
+
 -- Разрешение системной записи гаснет сразу.
 --
 -- Флаг renthub.system_write говорит сторожам «пропусти, это система».
