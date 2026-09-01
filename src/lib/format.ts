@@ -2,7 +2,11 @@ import type { BookingStatus, DepositStatus } from './types';
 import { colors } from '../theme';
 
 export function formatTenge(amount: number): string {
-  return `${amount.toLocaleString('ru-RU')} ₸`;
+  // Неразрывный пробел перед знаком: toLocaleString уже ставит такой между
+  // разрядами, а этот последний оставался обычным — и в узкой колонке
+  // «20 000» уезжало на одну строку, а «₸» на следующую. Сумма без валюты
+  // читается как другое число.
+  return `${amount.toLocaleString('ru-RU')} ₸`;
 }
 
 export function formatDate(iso: string): string {
