@@ -391,7 +391,7 @@ export default function Catalog() {
             <ItemCard
               item={item}
               favorite={favorites.includes(item.id)}
-              onPress={() => router.push(`/item/${item.id}`)}
+              href={`/item/${item.id}`}
               onFavorite={() => flipFavorite(item.id)}
             />
           )}
@@ -437,18 +437,30 @@ export default function Catalog() {
 function ItemCard({
   item,
   favorite,
-  onPress,
+  href,
   onFavorite,
 }: {
   item: ItemWithOwner;
   favorite: boolean;
-  onPress: () => void;
+  href: string;
   onFavorite: () => void;
 }) {
   const photo = item.condition_photos[0];
 
+  /**
+   * Карточка — настоящая ссылка, а не обработчик нажатия.
+   *
+   * На вебе Link отдаёт <a href>, и это меняет три вещи разом: объявление
+   * открывается в новой вкладке средней кнопкой, его адрес копируется правой
+   * кнопкой, и его видит поисковик. Витрина, которая растёт репостами, без
+   * этого теряет ровно те переходы, ради которых она и делается.
+   *
+   * На телефоне поведение прежнее: Link с asChild передаёт нажатие тому же
+   * Pressable, и router.push отрабатывает как раньше.
+   */
   return (
-    <Pressable style={({ pressed }) => [s.card, tap({ pressed })]} onPress={onPress}>
+    <Link href={href as Parameters<typeof Link>[0]['href']} asChild>
+      <Pressable style={({ pressed }) => [s.card, tap({ pressed })]}>
       <View style={s.photoWrap}>
         {photo ? (
           <Image
@@ -473,7 +485,20 @@ function ItemCard({
           </View>
         ) : null}
 
-        <Pressable style={s.heart} onPress={onFavorite} hitSlop={8}>
+        {/* Всплытие останавливается вручную: карточка теперь настоящая
+            ссылка, и на вебе нажатие на сердечко дошло бы до <a> и открыло
+            объявление. Человек хотел отложить вещь, а не уйти с витрины. */}
+        <Pressable
+          style={s.heart}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={favorite ? 'Убрать из отложенных' : 'Отложить'}
+          onPress={(event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            onFavorite();
+          }}
+        >
           <Ionicons
             name={favorite ? 'heart' : 'heart-outline'}
             size={17}
@@ -514,8 +539,9 @@ function ItemCard({
         ) : null}
 
         <Text style={s.deposit}>депозит {formatTenge(item.deposit_amount)}</Text>
-      </View>
-    </Pressable>
+        </View>
+      </Pressable>
+    </Link>
   );
 }
 
