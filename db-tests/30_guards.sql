@@ -789,6 +789,60 @@ select t.anon_fails(
   format('select * from booking_contact(%L)', t.id('booking')),
   'permission denied');
 
+-- ── Профиль: белый список полей ───────────────────────────────
+--
+-- Политика users_update_own разрешает менять свою строку целиком, а
+-- триггер сторожил одно поле — is_moderator. Два случая из открытых
+-- остальных были не мелочью, и оба проверены на стенде ДО правки:
+-- запросы проходили.
+--
+--   update users set verified_at = now()  — обход ПРАВИЛА 1: после него
+--   можно сдавать и арендовать, не подтверждая номер кодом;
+--   update users set rating = 5.00        — подделка Trust Score, по
+--   которому решают, отдать ли незнакомцу вещь за 90 000 ₸.
+
+select t.expect_fail(t.id('unverified'), format(
+  'update users set verified_at = now() where id = %L', t.id('unverified')),
+  'остальное проставляет система');
+
+select t.expect_fail(t.id('renter'), format(
+  'update users set rating = 5.00, ratings_count = 99 where id = %L', t.id('renter')),
+  'остальное проставляет система');
+
+-- Именно изменение, а не запись того же значения: blocked_at у арендатора
+-- и так null, и `set blocked_at = null` триггер пропустит правильно —
+-- is distinct from там false. Первая версия теста этого не учла и
+-- проверяла случай, которого защита касаться не должна.
+select t.expect_fail(t.id('renter'), format(
+  'update users set blocked_reason = ''снимаю с себя'' where id = %L', t.id('renter')),
+  'остальное проставляет система');
+
+select t.expect_fail(t.id('renter'), format(
+  'update users set telegram_id = 42 where id = %L', t.id('renter')),
+  'остальное проставляет система');
+
+-- Разрешённое остаётся разрешённым: иначе защита превратилась бы в
+-- запрет менять профиль вообще, а это другая поломка.
+do $$
+begin
+  perform t.as(t.id('renter'), format(
+    'update users set full_name = ''Асель Арендатор'', passive_mode = false where id = %L',
+    t.id('renter')));
+
+  perform t.assert(
+    (select not passive_mode from users where id = t.id('renter')),
+    'имя и пассивный режим человек меняет сам — это про него, а не о нём');
+end $$;
+
+-- Рейтинг по-прежнему считает триггер: белый список не должен мешать
+-- системе делать свою работу в сессии человека.
+do $$
+begin
+  perform t.assert(
+    (select rating is not null from users where id = t.id('owner')),
+    'рейтинг из отзывов на месте — пересчёт триггером не сломан');
+end $$;
+
 -- ── Фото: от одного до шести, и это правило базы ──────────────
 --
 -- Границы были в форме, в боте и в create_item(), но не в таблице — а

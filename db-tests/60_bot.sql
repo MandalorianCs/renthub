@@ -236,6 +236,12 @@ begin
   -- Постороннему нужен telegram_id, иначе bot_actor_ok откажет раньше — и
   -- проверялась бы привязка к Telegram, а не защита контакта. Первая
   -- версия теста целила именно в эту недостижимую ветку.
+  --
+  -- Сброс claims обязателен: t.as снимает роль, но оставляет
+  -- request.jwt.claims до конца транзакции, и прямой update внутри блока
+  -- пошёл бы «от имени» последнего пользователя. С белым списком полей
+  -- профиля такой update теперь запрещён — как и должен быть.
+  perform set_config('request.jwt.claims', '', true);
   update users set telegram_id = 100000003 where id = t.id('stranger');
 
   begin
@@ -245,6 +251,7 @@ begin
     v_err := sqlerrm;
   end;
 
+  perform set_config('request.jwt.claims', '', true);
   update users set telegram_id = null where id = t.id('stranger');
 
   perform t.assert(
