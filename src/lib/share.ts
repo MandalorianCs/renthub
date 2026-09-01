@@ -55,3 +55,29 @@ export async function shareItem(itemId: string, title: string): Promise<'shared'
   await nav?.clipboard?.writeText(url);
   return 'copied';
 }
+
+/**
+ * Скопировать короткую строку — номер, код, ссылку.
+ *
+ * Отдельно от shareItem: там системное окно «поделиться» уместно, а здесь
+ * человеку нужно ровно одно — положить номер в буфер, чтобы вставить его в
+ * приглашение. Системное окно на этом месте предлагало бы отправить чужой
+ * телефон в мессенджер.
+ *
+ * Возвращает false, если буфера нет: тогда вызывающий не должен показывать
+ * «скопировано», иначе он соврёт. Своей зависимости ради этого не заводим —
+ * expo-clipboard в проекте нет, а на вебе всё есть.
+ */
+export async function copyText(text: string): Promise<boolean> {
+  const nav = globalThis.navigator as (Navigator & { clipboard?: Clipboard }) | undefined;
+  if (!nav?.clipboard?.writeText) return false;
+
+  try {
+    await nav.clipboard.writeText(text);
+    return true;
+  } catch {
+    // Запрет доступа к буферу — это не сбой приложения. Скажем «не вышло»
+    // молчанием кнопки, а не красной ошибкой на весь экран.
+    return false;
+  }
+}

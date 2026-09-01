@@ -212,6 +212,16 @@ export type BookingContact = {
   telegram_username: string | null;
 };
 
+/** Заявка на участие от человека без приглашения. Номер подтверждён Telegram. */
+export type JoinRequest = {
+  id: string;
+  phone: string;
+  full_name: string | null;
+  telegram_username: string | null;
+  note: string | null;
+  created_at: string;
+};
+
 export type Review = {
   id: string;
   booking_id: string;
