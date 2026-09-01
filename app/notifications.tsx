@@ -55,6 +55,8 @@ const LOOKS: Record<string, Look> = {
   // Пара к item_hidden, как unblocked к blocked: снятие ограничения —
   // хорошая новость, и зелёный здесь несёт смысл, а не украшает.
   item_restored: { icon: 'eye-outline', color: colors.green },
+  // Первое, что человек видит в приложении: заявку одобрили.
+  invite_ready: { icon: 'key-outline', color: colors.green },
   moderator_message: { icon: 'chatbubble-ellipses-outline', color: colors.accent },
   connection_test: { icon: 'wifi-outline', color: colors.textMuted },
 };
