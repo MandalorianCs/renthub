@@ -43,7 +43,20 @@ export default function EditItem() {
   // Кнопка сюда ведёт только у владельца, но экран открывается и по прямой
   // ссылке — поэтому проверяем здесь тоже. Настоящая защита всё равно в базе:
   // политика items_update_own пропускает только своего.
-  if (item.owner_id !== session?.user.id) {
+  // Гостю говорим про вход, а не про чужое: он не знает, чьё это
+  // объявление, и «чужое» звучит как обвинение вместо подсказки.
+  if (!session) {
+    return (
+      <Empty
+        icon="lock-closed-outline"
+        title="Войдите, чтобы править объявление"
+        body="Менять объявление может только его владелец."
+        action={{ label: 'Войти', onPress: () => router.push('/sign-in') }}
+      />
+    );
+  }
+
+  if (item.owner_id !== session.user.id) {
     return <Empty icon="lock-closed-outline" title="Это чужое объявление" />;
   }
 

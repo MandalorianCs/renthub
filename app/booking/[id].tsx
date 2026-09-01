@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,6 +43,7 @@ import { colors, radius, spacing, typeface } from '../../src/theme';
  */
 export default function BookingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const { session } = useAuth();
 
   const [booking, setBooking] = useState<BookingWithItem | null>(null);
@@ -104,6 +105,21 @@ export default function BookingScreen() {
 
   if (loading) return <ListSkeleton rows={3} />;
   if (error && !booking) return <ErrorState message={error} onRetry={load} />;
+  // «Не найдена» и «вы не вошли» — разные вещи, и путать их нельзя.
+  // Ссылку на сделку человек получает в Telegram и открывает где угодно,
+  // в том числе там, где не входил. Политика тогда не отдаёт строку, и
+  // экран, говорящий «не найдена», отправляет искать пропажу, которой нет.
+  if (!booking && !session) {
+    return (
+      <Empty
+        icon="lock-closed-outline"
+        title="Войдите, чтобы открыть сделку"
+        body="Сделки видны только их сторонам. Ссылка рабочая — не хватает входа."
+        action={{ label: 'Войти', onPress: () => router.push('/sign-in') }}
+      />
+    );
+  }
+
   if (!booking) return <Empty icon="document-outline" title="Сделка не найдена" />;
 
   const me = session?.user.id;
