@@ -309,6 +309,13 @@ function DisputeCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Снятие объявления — отдельное состояние, а не общий busy: пока модератор
+  // печатает причину, кнопка «Решить спор» не должна выглядеть занятой.
+  const itemId = dispute.booking?.item?.id ?? null;
+  const [hideOpen, setHideOpen] = useState(false);
+  const [hideReason, setHideReason] = useState('');
+  const [hiding, setHiding] = useState(false);
+
   const value = Number(amount) || 0;
   const tooMuch = value > deposit;
 
@@ -355,6 +362,51 @@ function DisputeCard({
           <PhotoStrip photos={dispute.evidence_photos} />
         </View>
       </View>
+
+      {/* Снять объявление — второе действие модератора в этом же месте, и
+          оно не про деньги. Функция была в базе и в api с самого начала, а
+          нажать её было негде: спор разбирают по фото, и «фото не от этой
+          вещи» решается снятием, а не суммой. */}
+      {itemId ? (
+        hideOpen ? (
+          <View style={s.hideBox}>
+            <Field
+              label="Почему снимаем"
+              value={hideReason}
+              onChangeText={setHideReason}
+              placeholder="Фото не соответствуют вещи"
+              hint="Причина уйдёт владельцу в уведомление — без неё снятие читается как произвол"
+            />
+            <Button
+              title="Снять с публикации"
+              variant="danger"
+              loading={hiding}
+              disabled={hideReason.trim().length < 3}
+              onPress={async () => {
+                setHiding(true);
+                setError(null);
+                try {
+                  await moderatorHideItem(itemId, hideReason.trim());
+                  setHideOpen(false);
+                  setHideReason('');
+                  onResolved();
+                } catch (e) {
+                  setError(humanizeError(e));
+                } finally {
+                  setHiding(false);
+                }
+              }}
+            />
+            <Button title="Не снимать" variant="ghost" onPress={() => setHideOpen(false)} />
+          </View>
+        ) : (
+          <Button
+            title="Снять объявление с публикации"
+            variant="ghost"
+            onPress={() => setHideOpen(true)}
+          />
+        )
+      ) : null}
 
       <Field
         label="Удержать из депозита, ₸"
@@ -478,6 +530,7 @@ const s = StyleSheet.create({
   head: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
   title: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
   meta: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, marginTop: 2 },
+  hideBox: { gap: spacing.sm, paddingVertical: spacing.sm },
   quote: {
     borderLeftWidth: 3,
     borderLeftColor: colors.border,
