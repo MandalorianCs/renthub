@@ -128,15 +128,15 @@ export default function Catalog() {
   const chipX = useRef<Record<string, number>>({});
   const chipsAligned = useRef(!params.category);
 
-  const alignChips = useCallback((slug: string) => {
+  const alignChips = useCallback(() => {
     if (chipsAligned.current) return;
-    const x = chipX.current[slug];
+    const x = active ? chipX.current[active] : undefined;
     if (x === undefined) return;
     chipsAligned.current = true;
     // Небольшой отступ слева: плашка, прижатая к самому краю, читается как
     // обрезанная, а не как первая.
     chipsRef.current?.scrollTo({ x: Math.max(0, x - 16), animated: false });
-  }, []);
+  }, [active]);
 
   const fabHidden = useRef(new Animated.Value(0)).current;
   const lastY = useRef(0);
@@ -252,6 +252,11 @@ export default function Catalog() {
         showsHorizontalScrollIndicator={false}
         style={s.chipsRow}
         contentContainerStyle={s.chips}
+        // Не в onLayout плашки: там ширина содержимого ещё набирается, и
+        // прокрутка на 909 точек упирается в тогдашние 375 — то есть в
+        // ноль. onContentSizeChange срабатывает, когда ряд уже целиком
+        // разложен, и это единственный момент, когда прокрутка возможна.
+        onContentSizeChange={alignChips}
       >
         <Chip label="Все" selected={active === null} onPress={() => setActive(null)} />
         {categories.map((c) => (
@@ -259,7 +264,6 @@ export default function Catalog() {
             key={c.slug}
             onLayout={(e) => {
               chipX.current[c.slug] = e.nativeEvent.layout.x;
-              if (active === c.slug) alignChips(c.slug);
             }}
           >
             <Chip
