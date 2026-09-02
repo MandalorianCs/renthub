@@ -493,6 +493,140 @@ begin
 end $$;
 
 
+-- ── Претензия по порче из чата ────────────────────────────────
+--
+-- Единственная обёртка бота, которую стенд не трогал вовсе, — и та, где
+-- на кону деньги: заявление о порче удерживает депозит. Пробел нашёлся
+-- сверкой списка обёрток со списком того, что упоминается в тестах.
+
+do $$
+declare
+  v_id uuid := 'dddddddd-0000-4000-8000-000000000001';
+  v_d  disputes%rowtype;
+  v_b  bookings%rowtype;
+begin
+  -- Своя бронь на свободных датах: сценарий не должен зависеть от чужих.
+  perform t.as(t.id('renter'), format(
+    'insert into bookings (id, item_id, renter_id, owner_id, start_date, end_date) '
+    || 'values (%L, %L, %L, %L, current_date + 70, current_date + 71)',
+    v_id, t.id('item'), t.id('renter'), t.id('owner')));
+
+  perform bot_booking_confirm(t.id('owner'), v_id);
+  perform bot_booking_picked_up(t.id('renter'), v_id);
+  perform bot_booking_returned(t.id('owner'), v_id);
+
+  perform bot_open_damage_dispute(
+    t.id('owner'), v_id, 2000,
+    array['https://example.test/bot-after.jpg'], 'Скол на корпусе');
+
+  select * into v_d from disputes where booking_id = v_id;
+  select * into v_b from bookings where id = v_id;
+
+  perform t.assert(v_d.id is not null, 'претензия из чата создана');
+  perform t.assert(v_d.claim_amount = 2000, 'сумма ущерба записана как заявлена');
+  perform t.assert(v_d.opened_by = t.id('owner'),
+    'заявитель взят из контекста, а не из аргумента');
+
+  -- 2 000 ₸ ниже порога авторешения в 15 000, поэтому спор закрывается сам
+  -- и той же функцией закрывает сделку. Первая версия этого теста ждала
+  -- статус disputed — стенд поймал догадку: до ручного разбора дело здесь
+  -- не доходит вовсе, и это правило, а не мелочь.
+  perform t.assert(v_d.resolution_status = 'auto_resolved',
+    'спор ниже порога решён без модератора');
+  perform t.assert(v_d.payout_amount > 0,
+    'компенсация посчитана, а не оставлена нулём');
+  perform t.assert(v_b.status = 'completed',
+    'сделка закрыта тем же шлюзом — владельцу нечего нажимать');
+  perform t.assert(v_b.deposit_status = 'claimed',
+    'депозит удержан — за это и отвечает претензия');
+end $$;
+
+-- Без фото претензию не принимают и из чата: правило живёт в
+-- open_damage_dispute, обёртка его не знает и знать не должна.
+do $$
+declare
+  v_id  uuid := 'dddddddd-0000-4000-8000-000000000002';
+  v_err text;
+begin
+  perform t.as(t.id('renter'), format(
+    'insert into bookings (id, item_id, renter_id, owner_id, start_date, end_date) '
+    || 'values (%L, %L, %L, %L, current_date + 80, current_date + 81)',
+    v_id, t.id('item'), t.id('renter'), t.id('owner')));
+
+  perform bot_booking_confirm(t.id('owner'), v_id);
+  perform bot_booking_picked_up(t.id('renter'), v_id);
+  perform bot_booking_returned(t.id('owner'), v_id);
+
+  begin
+    perform bot_open_damage_dispute(t.id('owner'), v_id, 2000, array[]::text[], 'Без фото');
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+
+  perform t.assert(v_err like '%NO_EVIDENCE%',
+    'без фото претензию не приняли — отказ пришёл текстом самой функции');
+
+  -- Арендатор не заявляет о порче своей же аренды.
+  begin
+    perform bot_open_damage_dispute(
+      t.id('renter'), v_id, 2000,
+      array['https://example.test/x.jpg'], 'Само сломалось');
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+
+  perform t.assert(v_err like '%FORBIDDEN%',
+    'заявить о порче может только владелец — и через чат тоже');
+end $$;
+
+
+-- ── Приложение зовёт те же функции напрямую ───────────────────
+--
+-- Пробел нашёлся сверкой: item_set_status и item_set_price выданы
+-- вошедшему, то есть приложение зовёт их само, минуя обёртки бота. А
+-- стенд трогал только путь через бота — то есть проверял, что правило
+-- работает для чата, и молчал про экран.
+--
+-- Разница не косметическая: у обёртки контекст выставляет она сама, а
+-- здесь auth.uid() приходит из сессии. Проверка владельца одна на оба
+-- пути — assert_item_owner, — и убедиться в этом надо с обеих сторон.
+
+do $$
+declare v_price integer;
+begin
+  perform t.as(t.id('owner'), format('select item_set_status(%L, ''hidden'')', t.id('item')));
+  perform t.assert(
+    (select status = 'hidden' from items where id = t.id('item')),
+    'владелец снял вещь с публикации из приложения');
+
+  perform t.as(t.id('owner'), format('select item_set_status(%L, ''active'')', t.id('item')));
+
+  select daily_price into v_price from items where id = t.id('item');
+  perform t.as(t.id('owner'), format('select item_set_price(%L, %s)', t.id('item'), v_price + 100));
+  perform t.assert(
+    (select daily_price = v_price + 100 from items where id = t.id('item')),
+    'владелец изменил цену из приложения');
+
+  perform t.as(t.id('owner'), format('select item_set_price(%L, %s)', t.id('item'), v_price));
+end $$;
+
+-- Чужое объявление недоступно и отсюда. Это та же проверка, что и для
+-- бота, и в том и смысл: функция одна.
+select t.expect_fail(t.id('renter'), format(
+  'select item_set_status(%L, ''hidden'')', t.id('item')),
+  'принадлежит другому участнику');
+
+select t.expect_fail(t.id('renter'), format(
+  'select item_set_price(%L, 100)', t.id('item')),
+  'принадлежит другому участнику');
+
+-- Анониму — тем более: у него нет auth.uid(), и функция обязана сказать
+-- «нужно войти», а не молча ничего не сделать.
+select t.anon_fails(format(
+  'select item_set_status(%L, ''hidden'')', t.id('item')),
+  'нужно войти');
+
+
 -- ── Профиль в чате ────────────────────────────────────────────
 --
 -- Рейтинг и число сделок — первое, что спрашивает владелец, решая,
