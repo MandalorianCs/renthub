@@ -423,6 +423,57 @@ begin
     'чужие в список не попали — граница проходит по типу возврата');
 end $$;
 
+-- ── Профиль в чате ────────────────────────────────────────────
+--
+-- Рейтинг и число сделок — первое, что спрашивает владелец, решая,
+-- продолжать ли сдавать. Проверяем и содержимое, и границу: телефон
+-- сюда не попадает по построению, и это стоит закрепить тестом.
+
+do $$
+declare
+  v_name   text;
+  v_deals  integer;
+  v_verif  boolean;
+  v_active integer;
+begin
+  select full_name, deals, verified, items_active
+    into v_name, v_deals, v_verif, v_active
+    from bot_profile(t.id('owner'));
+
+  perform t.assert(v_name is not null, 'профиль владельца пришёл в чат');
+  perform t.assert(v_verif, 'номер подтверждён — так и написано');
+  perform t.assert(v_deals >= 1, 'сделки посчитаны обеими ролями');
+  perform t.assert(v_active >= 0, 'объявления посчитаны');
+end $$;
+
+-- Телефона в ответе нет и быть не может: границу держит тип возврата,
+-- а не аккуратность того, кто пишет запрос в боте.
+do $$
+declare v_cols integer;
+begin
+  select count(*) into v_cols
+    from information_schema.columns
+   where table_name = 'bot_profile' and column_name in ('phone', 'blocked_at');
+
+  perform t.assert(v_cols = 0,
+    'телефон и блокировка в профиль для чата не попадают');
+end $$;
+
+-- Без привязки к Telegram профиля нет: тот же пропуск, что у остальных
+-- обёрток.
+do $$
+declare v_err text;
+begin
+  begin
+    perform * from bot_profile(t.id('stranger'));
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+
+  perform t.assert(v_err like '%не привязан к Telegram%',
+    'без привязки профиль не отдаётся');
+end $$;
+
 select t.expect_fail(t.id('renter'),
   format('select bot_create_item(%L, ''saws'', ''Чужая пила'', 1000, 2000, array[''x''])',
     t.id('owner')),

@@ -795,7 +795,8 @@ async def on_help(message: Message) -> None:
         "отменить заявку, поставить оценку.\n\n"
         "/каталог — свежие объявления, /найти перфоратор — поиск\n"
         "/сдать — опубликовать свою вещь, не открывая приложение\n"
-        "/вещи — ваши объявления: снять с публикации или вернуть\n\n"
+        "/вещи — ваши объявления: снять с публикации или вернуть\n"
+        "/профиль — рейтинг, сделки и статус номера\n\n"
         "В меню рядом с полем ввода те же команды латиницей — "
         "/catalog, /find, /publish: Telegram не пускает в меню кириллицу. "
         "Работают оба написания.\n\n"
@@ -1269,6 +1270,93 @@ def item_keyboard(row: dict) -> InlineKeyboardMarkup | None:
     )
 
 
+def plural_ru(n: int, one: str, few: str, many: str) -> str:
+    """
+    Склонение существительного при числе.
+
+    Повторяет plural() из src/lib/format.ts. Общего кода у Python и
+    TypeScript тут нет, а «5 оценка» в чате читается как поломка ровно так
+    же, как на экране.
+    """
+    rest100 = n % 100
+    if 11 <= rest100 <= 14:
+        return many
+    rest10 = n % 10
+    if rest10 == 1:
+        return one
+    if 2 <= rest10 <= 4:
+        return few
+    return many
+
+
+# ── Профиль ───────────────────────────────────────────────────
+#
+# Рейтинг и число сделок — первое, что спрашивает владелец, решая,
+# продолжать ли сдавать. До сих пор ответ жил только на экране профиля, а
+# бот — единственное место, куда владелец в пассивном режиме вообще
+# заходит: сюда ему приходят уведомления.
+#
+# Телефона в ответе нет и быть не может: границу держит тип возврата
+# bot_profile(), а не аккуратность этого файла.
+
+
+@dp.message(F.text.in_({"/profile", "/профиль"}))
+async def on_profile(message: Message) -> None:
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, message.from_user.id)
+        if user is None:
+            await message.answer("Сначала свяжите Telegram — /start")
+            return
+
+        try:
+            rows = await rest_rpc(client, "bot_profile", {"p_actor": user["id"]})
+        except RentHubError as error:
+            await message.answer(str(error))
+            return
+
+    if not rows:
+        await message.answer("Профиль не найден. Попробуйте /start ещё раз.")
+        return
+
+    p = rows[0]
+
+    # «Пока нет отзывов» вместо «0.0» — ноль здесь читается как плохая
+    # оценка, хотя означает, что оценок ещё не было. То же правило, что в
+    # ratingLabel() приложения.
+    if p["ratings_count"]:
+        rating = f"★ {float(p['rating']):.1f}".replace(".", ",")
+        rating += f" · {p['ratings_count']} " + plural_ru(
+            p["ratings_count"], "оценка", "оценки", "оценок"
+        )
+    else:
+        rating = "Пока нет отзывов"
+
+    lines = [
+        f"<b>{esc(p['full_name'] or 'Без имени')}</b>",
+        rating,
+        f"Сделок завершено: {p['deals']}",
+    ]
+
+    if p["items_active"] or p["items_hidden"]:
+        part = f"Объявлений в каталоге: {p['items_active']}"
+        if p["items_hidden"]:
+            part += f", скрыто: {p['items_hidden']}"
+        lines.append(part)
+
+    # Про подтверждённый номер пишем, только если он НЕ подтверждён: иначе
+    # строка «номер подтверждён» висит у всех и ничего не сообщает.
+    if not p["verified"]:
+        lines.append("\n⚠️ Номер не подтверждён — сдавать и брать пока нельзя.")
+
+    if p["passive_mode"]:
+        lines.append(
+            "\nПассивный режим включён: подтверждения и напоминания приходят сюда, "
+            "следить за сделками самому не нужно."
+        )
+
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+
 @dp.message(F.text.in_({"/items", "/вещи", "/мои"}))
 async def on_my_items(message: Message) -> None:
     async with httpx.AsyncClient(timeout=20) as client:
@@ -1603,6 +1691,7 @@ MENU = [
     BotCommand(command="find", description="Поиск: /find перфоратор"),
     BotCommand(command="publish", description="Сдать свою вещь"),
     BotCommand(command="items", description="Мои объявления: пауза и публикация"),
+    BotCommand(command="profile", description="Рейтинг, сделки, статус номера"),
     BotCommand(command="help", description="Что я умею"),
     BotCommand(command="start", description="Связать Telegram с аккаунтом"),
 ]
