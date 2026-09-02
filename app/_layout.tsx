@@ -110,6 +110,7 @@ export default function RootLayout() {
             <Stack.Screen name="item/edit/[id]" options={{ title: 'Правка объявления' }} />
             <Stack.Screen name="booking/[id]" options={{ title: 'Сделка' }} />
             <Stack.Screen name="notifications" options={{ title: 'Уведомления' }} />
+            <Stack.Screen name="support" options={{ title: 'Поддержка' }} />
           </Stack>
         </AuthGate>
       </AuthProvider>

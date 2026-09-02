@@ -219,6 +219,22 @@ export type BookingContact = {
   telegram_username: string | null;
 };
 
+/**
+ * Своё обращение глазами того, кто его написал.
+ *
+ * Отдельный тип от SupportMessage, а не поле-флаг: модератору нужны имя
+ * автора и есть ли у него Telegram, автору — ни то ни другое. Общий тип с
+ * необязательными полями означал бы, что экран сам решает, какие из них
+ * заполнены, — а решает это политика базы.
+ */
+export type MySupportMessage = {
+  id: string;
+  text: string;
+  /** Проставлена, когда модератор отметил обращение разобранным. */
+  handled_at: string | null;
+  created_at: string;
+};
+
 /** Обращение участника из Telegram: что-то пошло не так и он написал. */
 export type SupportMessage = {
   id: string;
