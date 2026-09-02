@@ -194,8 +194,12 @@ header {
   footer { padding-bottom: 96px; }
 }
 
-@media (max-width: 980px) { .nav-links { gap: 16px; font-size: 14px; } }
-@media (max-width: 760px) { .nav-links { display: none; } }
+/* Порог подъят с 760 до 900: семь пунктов, логотип и кнопка в одну
+   строку ниже этого просто не помещаются, и шапка выталкивала
+   страницу вбок — кнопка «Сдать инструмент» уезжала за край. Меню
+   здесь удобство, кнопка — работа; жертвуем первым. */
+@media (max-width: 1040px) { .nav-links { gap: 14px; font-size: 14px; } }
+@media (max-width: 900px) { .nav-links { display: none; } }
 
 /* ── Хиро ────────────────────────────────────────────────── */
 
