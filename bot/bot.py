@@ -57,6 +57,7 @@ from aiogram.types import (
     CallbackQuery,
     BotCommand,
     BotCommandScopeAllPrivateChats,
+    ErrorEvent,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     KeyboardButton,
@@ -1785,6 +1786,53 @@ async def notifier(bot: Bot) -> None:
         except Exception as error:  # noqa: BLE001 — цикл не должен умирать
             log.error("волна доставки упала: %s", error)
         await asyncio.sleep(POLL_SECONDS)
+
+
+# ── Последний рубеж: ни одно нажатие не остаётся без ответа ───
+#
+# Обработчики ловят RentHubError — отказ, который вернула база. Но есть
+# второй класс сбоев, который они не ловят: сеть. Таймаут до Supabase,
+# оборванное соединение, упавший DNS — всё это httpx.HTTPError, и до сих
+# пор такое исключение уходило в лог aiogram, а человек не получал ничего.
+#
+# Молчание в ответ на нажатие читается как поломка приложения, причём без
+# единой подсказки, что делать. Одна строка «попробуйте ещё раз» стоит
+# дёшево и отвечает на главный вопрос: дело во мне или в них.
+
+
+@dp.error()
+async def on_any_error(event: ErrorEvent) -> None:
+    log.exception("необработанная ошибка: %s", event.exception)
+
+    text = (
+        "Не получилось связаться с сервером. Попробуйте ещё раз через минуту — "
+        "данные не потерялись."
+    )
+
+    update = event.update
+
+    # Ответ сам может не пройти: у всплывающего окна к нажатию есть срок
+    # около пятнадцати секунд, а сюда мы попадаем в том числе по таймауту в
+    # двадцать. Поэтому окно и сообщение пробуются по очереди, и падение
+    # ответа не должно ронять обработчик ошибок.
+    if update.callback_query is not None:
+        try:
+            await update.callback_query.answer(text, show_alert=True)
+            return
+        except Exception:  # noqa: BLE001
+            pass
+
+        try:
+            await update.callback_query.message.answer(text)
+        except Exception:  # noqa: BLE001
+            log.error("ответить на сбой не удалось")
+        return
+
+    if update.message is not None:
+        try:
+            await update.message.answer(text)
+        except Exception:  # noqa: BLE001
+            log.error("ответить на сбой не удалось")
 
 
 # Меню команд Telegram — та самая синяя кнопка рядом с полем ввода.
