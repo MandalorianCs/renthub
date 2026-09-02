@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, formatDate, formatDateRange, formatTenge } from '../../src/lib/format';
 import { shareItem } from '../../src/lib/share';
+import { nextMove } from '../../src/lib/nextMove';
 import { humanizeError } from '../../src/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -91,9 +92,27 @@ export default function MyItems() {
     [payouts],
   );
 
-  // Единственное, что действительно требует владельца: подтвердить заявку
-  // и принять вернувшуюся вещь. Всё остальное система делает сама.
-  const needsAction = bookings.filter((b) => b.status === 'pending' || b.status === 'active');
+  /**
+   * Что требует владельца прямо сейчас.
+   *
+   * Считается таблицей «чей ход», а не своим списком статусов. Свой список
+   * здесь был — pending и active — и он разошёлся с таблицей: та говорит,
+   * что returned тоже ход владельца («проверьте состояние вещи»), а секция
+   * про него молчала.
+   *
+   * Это не мелочь. Именно на returned владелец либо закрывает сделку, либо
+   * заявляет о порче, и окно на претензию закрывается по времени. Владелец,
+   * пропустивший уведомление и заглянувший сюда, видел пусто — и терял
+   * право на депозит, не узнав об этом.
+   *
+   * Завершённые исключены отдельно: там ход владельца тоже «его» —
+   * поставить оценку, — но денег на сделке уже нет, и место в списке
+   * срочного она бы занимала зря. Терминальных статусов ровно два, поэтому
+   * условие пишется через них, а не третьим списком «живых».
+   */
+  const needsAction = bookings.filter(
+    (b) => nextMove(b, true).yours && b.status !== 'completed' && b.status !== 'cancelled',
+  );
 
   const { refreshing, onRefresh } = useRefresh(load);
 

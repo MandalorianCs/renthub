@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ItemForm } from '../../../src/components/ItemForm';
 import { ListSkeleton } from '../../../src/components/Skeleton';
 import { Empty, ErrorState } from '../../../src/components/ui';
@@ -28,16 +28,25 @@ export default function EditItem() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Вынесено в useCallback ради кнопки «Повторить»: без неё оборванная
+  // связь оставляла человека на экране с текстом ошибки и без выхода —
+  // единственным способом было закрыть и открыть объявление заново.
+  const load = useCallback(() => {
     if (!id) return;
+    setLoading(true);
+    setError(null);
     fetchItem(id)
       .then(setItem)
       .catch((e) => setError(humanizeError(e)))
       .finally(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
   if (loading) return <ListSkeleton rows={3} />;
-  if (error) return <ErrorState message={error} />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
   if (!item) {
     return (
       <Empty
