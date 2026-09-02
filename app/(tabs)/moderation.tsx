@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useCallback, useEffect, useState } from 'react';
@@ -337,6 +338,7 @@ function PersonRow({ person, onChanged }: { person: ModerationPerson; onChanged:
  * остаётся решать вслепую — «почему-то снято, наверное можно вернуть».
  */
 function HeldRow({ item, onChanged }: { item: ItemWithOwner; onChanged: () => void }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -372,6 +374,20 @@ function HeldRow({ item, onChanged }: { item: ItemWithOwner; onChanged: () => vo
             onChangeText={setNote}
             placeholder="Фото поправлены, ограничение снимаю"
             multiline
+          />
+
+          {/* Открыть объявление до решения — не удобство, а условие.
+              Снимает ограничение чаще не тот, кто ставил, и в карточке
+              спора он видит только название и причину. Решать «теперь
+              можно», не посмотрев на фото и описание, — это решать вслепую.
+
+              Политика items_read_moderator открывает модератору и снятые
+              объявления, поэтому ссылка работает: обычному участнику
+              скрытая вещь не видна, а ему видна. */}
+          <Button
+            title="Открыть объявление"
+            variant="ghost"
+            onPress={() => router.push(`/item/${item.id}`)}
           />
 
           {/* Объявление останется скрытым — это надо сказать до нажатия,
