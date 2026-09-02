@@ -679,6 +679,9 @@ h2 {
    версии страницы было бы дороже и разошлось бы через неделю. */
 [data-draft-only] { display: none; }
 html[data-draft] [data-draft-only] { display: grid; }
+/* Плитка внутри сетки — блок, а не своя сетка: без этой строки
+   карточка участника в черновом режиме разъезжалась. */
+html[data-draft] .tile[data-draft-only] { display: block; }
 html[data-draft] [data-draft-hide] { display: none; }
 html[data-draft] .todo {
   display: block;
@@ -1195,7 +1198,12 @@ html[data-draft] .todo b { display: block; margin-bottom: 4px; }
         <p style="margin-top:14px">Приложение, база, бот и правила сделки. Отвечает за то,
         чтобы обещания продукта были ограничениями системы, а не текстом на сайте.</p>
       </div>
-      <div class="tile">
+      <!-- Карточка-заглушка — черновик.
+           Судья видел «?» вместо лица и просьбу прислать данные, обращённую
+           к автору. Соло-основатель на пилоте — это факт, а не пробел,
+           который надо объяснять: место второго участника лучше оставить
+           пустым, чем занять вопросительным знаком. -->
+      <div class="tile" data-draft-only>
         <div class="person">
           <div class="ava">?</div>
           <div>
