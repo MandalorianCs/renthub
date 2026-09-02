@@ -223,6 +223,11 @@ export default function MyItems() {
           />
         ) : (
           items.map((item) => {
+            // Те же три статуса, что считает занятыми сама база: ограничение
+            // bookings_no_overlap и функция item_busy_dates(). Совпадение
+            // этих двух сторожит стенд; здесь третья копия, и разойдись она
+            // — вещь показывалась бы свободной, когда забронировать её
+            // нельзя. Меняете там — правьте и тут.
             const activeBooking = bookings.find(
               (b) => b.item_id === item.id && ['pending', 'confirmed', 'active'].includes(b.status),
             );

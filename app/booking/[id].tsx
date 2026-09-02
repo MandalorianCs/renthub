@@ -309,8 +309,21 @@ export default function BookingScreen() {
         />
       ) : null}
 
+      {/* Кнопка, после которой пути назад нет.
+          До неё бронь отменяется без последствий: деньги не списывались,
+          депозит разблокируется. После — аренда началась, и отменить её
+          нельзя: вещь уже у арендатора. При этом заявить о неисправности он
+          не может — спор открывает только владелец. Значит осмотр до
+          нажатия и есть вся его защита, и об этом надо сказать до, а не
+          после. */}
       {isRenter && booking.status === 'confirmed' ? (
-        <Button title="Я забрал вещь" loading={busy} onPress={() => act(() => markPickedUp(booking.id))} />
+        <>
+          <Text style={s.beforePickup}>
+            Осмотрите вещь до того, как нажмёте. Сейчас бронь ещё можно отменить
+            без последствий, после отметки — уже нет.
+          </Text>
+          <Button title="Я забрал вещь" loading={busy} onPress={() => act(() => markPickedUp(booking.id))} />
+        </>
       ) : null}
 
       {isOwner && (booking.status === 'active' || booking.status === 'disputed') ? (
@@ -530,6 +543,12 @@ const s = StyleSheet.create({
   contactValue: { flex: 1, fontSize: 15, fontFamily: typeface[600], color: colors.text },
   contactHint: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
   note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
+  beforePickup: {
+    fontSize: 13,
+    fontFamily: typeface[400],
+    color: colors.textMuted,
+    lineHeight: 18,
+  },
   error: { fontSize: 14, fontFamily: typeface[400], color: colors.danger },
   evidence: { width: 72, height: 72, borderRadius: radius.sm, marginRight: spacing.sm, backgroundColor: colors.border },
   photos: { flexDirection: 'row', flexWrap: 'wrap' },
