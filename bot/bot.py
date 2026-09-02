@@ -174,6 +174,19 @@ class Damage(StatesGroup):
     amount = State()
 
 
+class Support(StatesGroup):
+    """
+    Обращение к организатору.
+
+    Два шага, а не один: записывать в очередь всё подряд, что человек
+    напишет боту, значит наполнить её опечатками и «спасибо». Кнопка —
+    осознанное «да, это вопрос», и только следующее сообщение уходит
+    модератору.
+    """
+
+    waiting = State()
+
+
 class NewPrice(StatesGroup):
     """
     Смена цены — единственный шаг, и это осознанно.
@@ -653,6 +666,8 @@ async def on_cancel(message: Message, state: FSMContext) -> None:
         )
     elif current == NewPrice.waiting.state:
         text = "Отменил, цена осталась прежней."
+    elif current == Support.waiting.state:
+        text = "Отменил, сообщение не отправлено."
     else:
         text = "Отменил, объявление не опубликовано. Начать заново — /сдать."
 
@@ -1968,6 +1983,89 @@ async def on_any_error(event: ErrorEvent) -> None:
             await update.message.answer(text)
         except Exception:  # noqa: BLE001
             log.error("ответить на сбой не удалось")
+
+
+# ── Последнее сообщение в файле: всё, что не разобрали выше ───
+#
+# Обработчик обязан стоять ПОСЛЕДНИМ: aiogram проверяет их в порядке
+# объявления, и ловушка, поставленная раньше, съела бы команды и шаги
+# диалогов.
+#
+# Зачем она нужна. Без неё бот на «не могу вернуть вещь, что делать»
+# отвечал молчанием — обработчика на произвольный текст не было вовсе.
+# Молчание читается как поломка, и человек в затруднении уходит вместе со
+# сделкой, на которой висит депозит.
+
+
+@dp.callback_query(F.data == "s:start")
+async def on_support_start(query: CallbackQuery, state: FSMContext) -> None:
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, query.from_user.id)
+
+    if user is None:
+        await query.answer("Сначала свяжите Telegram — /start", show_alert=True)
+        return
+
+    await state.set_state(Support.waiting)
+    await query.answer()
+    await query.message.edit_reply_markup(reply_markup=None)
+    await query.message.answer(
+        "Напишите, что случилось. Одним сообщением — его прочитает человек.\n\n"
+        "Передумали — /отмена."
+    )
+
+
+@dp.message(Support.waiting, F.text)
+async def on_support_text(message: Message, state: FSMContext) -> None:
+    if (message.text or "").strip().startswith("/"):
+        await message.answer("Жду сообщение для организатора. Или /отмена.")
+        return
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, message.from_user.id)
+        if user is None:
+            await state.clear()
+            await message.answer("Сначала свяжите Telegram — /start")
+            return
+
+        try:
+            await rest_rpc(
+                client,
+                "submit_support_message",
+                {"p_actor": user["id"], "p_text": message.text},
+            )
+        except RentHubError as error:
+            # Состояние не сбрасываем: «напишите хотя бы пару слов» — повод
+            # написать иначе, а не начинать заново.
+            await message.answer(str(error))
+            return
+
+    await state.clear()
+    await message.answer(
+        "Передал. Ответ придёт сюда же — организатор пишет через того же бота.\n\n"
+        "Пока можно посмотреть свои сделки: /сделки."
+    )
+
+
+@dp.message(Support.waiting)
+async def on_support_wrong(message: Message) -> None:
+    await message.answer("Здесь нужен текст сообщения. Или /отмена.")
+
+
+@dp.message(F.text)
+async def on_unknown(message: Message) -> None:
+    await message.answer(
+        "Не понял. Я знаю команды из меню рядом с полем ввода: сделки, "
+        "каталог, поиск, мои вещи, профиль.\n\n"
+        "Если это вопрос по сделке или что-то пошло не так — нажмите кнопку "
+        "ниже, и следующее ваше сообщение уйдёт организатору. Ответ придёт "
+        "сюда же.",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[
+                InlineKeyboardButton(text="✉️ Написать организатору", callback_data="s:start")
+            ]]
+        ),
+    )
 
 
 # Меню команд Telegram — та самая синяя кнопка рядом с полем ввода.

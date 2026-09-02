@@ -8,7 +8,9 @@ import { Button, Card, Empty, ErrorState, Field, Row, tap } from '../../src/comp
 import {
   fetchDisputesForReview,
   closeJoinRequest,
+  closeSupportMessage,
   fetchHeldItems,
+  fetchSupportMessages,
   fetchJoinRequests,
   fetchModerationOverview,
   fetchModerationPeople,
@@ -27,6 +29,7 @@ import type {
   JoinRequest,
   ModerationOverview,
   ModerationPerson,
+  SupportMessage,
 } from '../../src/lib/types';
 import { useRefresh } from '../../src/lib/useRefresh';
 import { colors, radius, spacing, typeface } from '../../src/theme';
@@ -49,23 +52,26 @@ export default function Moderation() {
   const [people, setPeople] = useState<ModerationPerson[]>([]);
   const [held, setHeld] = useState<ItemWithOwner[]>([]);
   const [joins, setJoins] = useState<JoinRequest[]>([]);
+  const [support, setSupport] = useState<SupportMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [d, s, p, h, j] = await Promise.all([
+      const [d, s, p, h, j, m] = await Promise.all([
         fetchDisputesForReview(),
         fetchModerationOverview(),
         fetchModerationPeople(),
         fetchHeldItems(),
         fetchJoinRequests(),
+        fetchSupportMessages(),
       ]);
       setDisputes(d);
       setStats(s);
       setPeople(p);
       setHeld(h);
       setJoins(j);
+      setSupport(m);
       setError(null);
     } catch (e) {
       setError(humanizeError(e));
@@ -123,6 +129,18 @@ export default function Moderation() {
               {plural(stats.bookings.week, 'бронь', 'брони', 'броней')}.
             </Text>
           </Card>
+
+          {/* Обращения выше всего: человек написал, потому что у него
+              что-то не работает прямо сейчас. Заявка на участие подождёт
+              день, застрявшая сделка — нет. */}
+          {support.length > 0 ? (
+            <Card>
+              <Text style={s.section}>Обращения · {support.length}</Text>
+              {support.map((m) => (
+                <SupportRow key={m.id} message={m} onChanged={load} />
+              ))}
+            </Card>
+          ) : null}
 
           {/* Заявки первыми: это люди, которые уже постучались и ждут.
               Спор можно разобрать завтра, а человек, оставивший заявку,
@@ -522,6 +540,91 @@ function JoinRow({ request, onChanged }: { request: JoinRequest; onChanged: () =
 }
 
 
+/**
+ * Обращение участника.
+ *
+ * Ответ уходит той же кнопкой «Написать участнику», что и раньше:
+ * moderator_notify() кладёт сообщение в notifications, а бот доставляет
+ * его в тот же чат, откуда обращение пришло. Отдельного канала связи
+ * заводить не нужно — петля замыкается тем, что уже есть.
+ */
+function SupportRow({
+  message,
+  onChanged,
+}: {
+  message: SupportMessage;
+  onChanged: () => void;
+}) {
+  const [reply, setReply] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(action: () => Promise<void>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      onChanged();
+    } catch (e) {
+      setError(humanizeError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View style={s.supportRow}>
+      <Text style={s.supportMeta}>
+        {message.full_name ?? 'Без имени'} · {formatDate(message.created_at)}
+        {message.telegram ? '' : ' · Telegram не привязан'}
+      </Text>
+
+      <Text style={s.supportText}>{message.text}</Text>
+
+      <Field
+        label="Ответ"
+        value={reply}
+        onChangeText={setReply}
+        placeholder="Придёт в тот же чат"
+        multiline
+      />
+
+      {/* Ответ и закрытие — разные кнопки, и это не лишний шаг. Ответ
+          может быть уточняющим вопросом: закрывать обращение после него
+          значит терять разговор на середине. */}
+      <Button
+        title="Ответить"
+        variant="secondary"
+        loading={busy}
+        disabled={reply.trim().length < 3}
+        onPress={() =>
+          run(async () => {
+            await moderatorNotify(message.user_id, 'Ответ организатора', reply.trim());
+            setReply('');
+          })
+        }
+      />
+
+      <Button
+        title="Разобрано"
+        variant="ghost"
+        loading={busy}
+        onPress={() => run(() => closeSupportMessage(message.id))}
+      />
+
+      {!message.telegram ? (
+        <Text style={s.supportMeta}>
+          Telegram не привязан — ответ будет ждать в приложении, пока человек
+          не откроет бота.
+        </Text>
+      ) : null}
+
+      {error ? <Text style={s.error}>{error}</Text> : null}
+    </View>
+  );
+}
+
+
 function Stat({ value, label, accent }: { value: number; label: string; accent?: boolean }) {
   return (
     <View style={s.stat}>
@@ -763,6 +866,14 @@ function PhotoStrip({ photos }: { photos: string[] }) {
 }
 
 const s = StyleSheet.create({
+  supportRow: {
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  supportMeta: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
+  supportText: { fontSize: 15, fontFamily: typeface[400], color: colors.text, lineHeight: 21 },
   joinRow: {
     flexDirection: 'row',
     alignItems: 'center',
