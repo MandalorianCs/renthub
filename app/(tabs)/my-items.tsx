@@ -200,6 +200,7 @@ export default function MyItems() {
           <Empty
             title="Пока ничего не сдаёте"
             body="Выложите инструмент, который лежит без дела — объявление занимает пару минут."
+            action={{ label: 'Сдать вещь', onPress: () => router.push('/item/new') }}
           />
         ) : (
           items.map((item) => {

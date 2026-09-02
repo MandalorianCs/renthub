@@ -38,13 +38,29 @@ export default function EditItem() {
 
   if (loading) return <ListSkeleton rows={3} />;
   if (error) return <ErrorState message={error} />;
-  if (!item) return <Empty icon="cube-outline" title="Объявление не найдено" />;
+  if (!item) {
+    return (
+      <Empty
+        icon="cube-outline"
+        title="Объявление не найдено"
+        body="Возможно, его удалили или ссылка устарела."
+        action={{ label: 'Мои вещи', onPress: () => router.push('/my-items') }}
+      />
+    );
+  }
 
   // Кнопка сюда ведёт только у владельца, но экран открывается и по прямой
   // ссылке — поэтому проверяем здесь тоже. Настоящая защита всё равно в базе:
   // политика items_update_own пропускает только своего.
   if (item.owner_id !== session?.user.id) {
-    return <Empty icon="lock-closed-outline" title="Это чужое объявление" />;
+    return (
+      <Empty
+        icon="lock-closed-outline"
+        title="Это чужое объявление"
+        body="Менять его может только владелец."
+        action={{ label: 'Открыть каталог', onPress: () => router.push('/') }}
+      />
+    );
   }
 
   return (

@@ -105,7 +105,16 @@ export default function BookingScreen() {
 
   if (loading) return <ListSkeleton rows={3} />;
   if (error && !booking) return <ErrorState message={error} onRetry={load} />;
-  if (!booking) return <Empty icon="document-outline" title="Сделка не найдена" />;
+  if (!booking) {
+    return (
+      <Empty
+        icon="document-outline"
+        title="Сделка не найдена"
+        body="Возможно, её отменили, или ссылка ведёт на чужую сделку."
+        action={{ label: 'Мои аренды', onPress: () => router.push('/bookings') }}
+      />
+    );
+  }
 
   const me = session?.user.id;
   const isOwner = booking.owner_id === me;
