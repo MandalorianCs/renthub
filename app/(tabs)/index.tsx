@@ -101,6 +101,34 @@ export default function Catalog() {
   const { refreshing, onRefresh } = useRefresh(load);
 
   /**
+   * Чем сейчас сужена выдача.
+   *
+   * Пустой экран раньше советовал «попробуйте другое слово» даже тогда,
+   * когда слова не было вовсе, а виноват был фильтр по цене. Совет, не
+   * относящийся к делу, отправляет человека чинить не то — и он уходит,
+   * решив, что вещей просто нет.
+   *
+   * Поэтому причина называется по факту, а не угадывается: перечисляем то,
+   * что включено, и даём одну кнопку снять всё разом.
+   */
+  const filters = useMemo(() => {
+    const on: string[] = [];
+    if (search.trim()) on.push(`поиск «${search.trim()}»`);
+    if (active) on.push('категория');
+    if (Number(maxPrice) > 0) on.push(`цена до ${maxPrice} ₸`);
+    if (onlyFavorites) on.push('только избранное');
+    return on;
+  }, [search, active, maxPrice, onlyFavorites]);
+
+  const resetFilters = useCallback(() => {
+    setSearch('');
+    setActive(null);
+    setMaxPrice('');
+    setOnlyFavorites(false);
+    setSort('new');
+  }, []);
+
+  /**
    * Кнопка «Сдать вещь» уходит вниз, пока листают вниз, и возвращается на
    * движение вверх.
    *
@@ -371,18 +399,30 @@ export default function Catalog() {
           }
           ListEmptyComponent={
             <Empty
+              // Кнопка зависит от причины пустоты. Пусто из-за фильтров —
+              // снять фильтры; пусто по-настоящему — выложить своё. Одна
+              // кнопка на оба случая звала бы публиковать того, кто просто
+              // задал слишком низкую цену.
               action={
-                onlyFavorites || search
-                  ? undefined
+                filters.length > 0
+                  ? { label: 'Сбросить фильтры', onPress: resetFilters }
                   : { label: 'Выложить свой инструмент', onPress: () => router.push('/item/new') }
               }
-              icon={onlyFavorites ? 'heart-outline' : 'cube-outline'}
-              title={onlyFavorites ? 'В избранном пусто' : search ? 'Ничего не нашлось' : 'Пока пусто'}
+              icon={
+                onlyFavorites ? 'heart-outline' : filters.length > 0 ? 'search-outline' : 'cube-outline'
+              }
+              title={
+                onlyFavorites && filters.length === 1
+                  ? 'В избранном пусто'
+                  : filters.length > 0
+                    ? 'Ничего не нашлось'
+                    : 'Пока пусто'
+              }
               body={
-                onlyFavorites
+                onlyFavorites && filters.length === 1
                   ? 'Нажмите сердечко на объявлении — оно появится здесь.'
-                  : search
-                    ? 'Попробуйте другое слово или уберите фильтр по категории.'
+                  : filters.length > 0
+                    ? `Сейчас включено: ${filters.join(', ')}. Возможно, дело в этом.`
                     : 'В этой категории ещё нет объявлений. Можно стать первым — выложите свой инструмент.'
               }
             />
