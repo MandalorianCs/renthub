@@ -173,6 +173,20 @@ class Damage(StatesGroup):
     amount = State()
 
 
+class NewPrice(StatesGroup):
+    """
+    Смена цены — единственный шаг, и это осознанно.
+
+    Правка объявления целиком в чате упирается в то, что человеку надо
+    показать все текущие значения и дать выбрать, какое менять, — это уже
+    экран, а не диалог. Цена другая: её правят чаще всего остального
+    вместе взятого, текущее значение помещается в одну строку, а новое —
+    это одно число.
+    """
+
+    waiting = State()
+
+
 class NewItem(StatesGroup):
     """
     Шаги публикации.
@@ -568,11 +582,24 @@ async def on_cancel(message: Message, state: FSMContext) -> None:
         await message.answer("Сейчас нечего отменять.")
         return
 
+    # Что именно отменили, зависит от состояния. Раньше здесь всегда стоял
+    # текст про претензию — и человек, отменивший публикацию вещи, читал
+    # «претензию не подал». Сообщение, не совпадающее с действием, заставляет
+    # гадать, не сделал ли бот чего-то ещё.
+    current = await state.get_state()
     await state.clear()
-    await message.answer(
-        "Отменил, претензию не подал. Загруженные снимки остались в хранилище — "
-        "они никому не показываются, пока претензии нет."
-    )
+
+    if current == Damage.photos.state or current == Damage.amount.state:
+        text = (
+            "Отменил, претензию не подал. Загруженные снимки остались в хранилище — "
+            "они никому не показываются, пока претензии нет."
+        )
+    elif current == NewPrice.waiting.state:
+        text = "Отменил, цена осталась прежней."
+    else:
+        text = "Отменил, объявление не опубликовано. Начать заново — /сдать."
+
+    await message.answer(text)
 
 
 @dp.message(F.text.in_({"/deals", "/сделки"}))
@@ -1265,7 +1292,8 @@ def item_keyboard(row: dict) -> InlineKeyboardMarkup | None:
 
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text=label, callback_data=f"i:{action}:{row['id']}")]
+            [InlineKeyboardButton(text=label, callback_data=f"i:{action}:{row['id']}")],
+            [InlineKeyboardButton(text="💰 Изменить цену", callback_data=f"i:price:{row['id']}")],
         ]
     )
 
@@ -1298,6 +1326,90 @@ def plural_ru(n: int, one: str, few: str, many: str) -> str:
 #
 # Телефона в ответе нет и быть не может: границу держит тип возврата
 # bot_profile(), а не аккуратность этого файла.
+
+
+async def start_price(query: CallbackQuery, state: FSMContext, item_id: str) -> None:
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, query.from_user.id)
+        if user is None:
+            await query.answer("Сначала свяжите Telegram — /start", show_alert=True)
+            return
+
+        try:
+            rows = await rest_rpc(client, "bot_my_items", {"p_actor": user["id"]})
+        except RentHubError as error:
+            await query.answer(str(error), show_alert=True)
+            return
+
+    item = next((r for r in rows if r["id"] == item_id), None)
+    if item is None:
+        await query.answer("Объявление не найдено", show_alert=True)
+        return
+
+    await state.set_state(NewPrice.waiting)
+    await state.update_data(item_id=item_id, title=item["title"])
+    await query.answer()
+
+    # Текущая цена показывается обязательно: человек меняет её относительно
+    # той, что стоит сейчас, а держать её в голове он не обязан.
+    await query.message.answer(
+        f"Сейчас <b>{esc(item['title'])}</b> сдаётся за {money(item['daily_price'])} "
+        f"в сутки.\n\n"
+        "Напишите новую цену числом. Уже оформленные брони не изменятся — "
+        "в них записана цена на момент заявки.\n\n"
+        "Передумали — /отмена.",
+        parse_mode="HTML",
+    )
+
+
+@dp.message(NewPrice.waiting, F.text)
+async def on_new_price(message: Message, state: FSMContext) -> None:
+    if (message.text or "").strip().startswith("/"):
+        await message.answer("Идёт смена цены. Напишите число или /отмена.")
+        return
+
+    price = amount_or_none(message.text)
+    if not price:
+        await message.answer("Нужна сумма числом, например 3000.")
+        return
+
+    data = await state.get_data()
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, message.from_user.id)
+        if user is None:
+            await state.clear()
+            await message.answer("Сначала свяжите Telegram — /start")
+            return
+
+        try:
+            await rest_rpc(
+                client,
+                "bot_set_item_price",
+                {"p_actor": user["id"], "p_item_id": data["item_id"], "p_price": price},
+            )
+        except RentHubError as error:
+            # Состояние не сбрасываем: «цена больше миллиона» — повод
+            # написать другое число, а не начинать всё заново.
+            await message.answer(str(error))
+            return
+
+    await state.clear()
+    await message.answer(
+        f"Новая цена: {money(price)} в сутки.\n"
+        f"Ваш заработок: {money(round(price * 0.8))} — платформа удерживает 20%."
+    )
+
+
+# ── На всё остальное в этом состоянии отвечаем, а не молчим ───
+#
+# Молчащий бот в середине диалога читается как поломка: человек не знает,
+# ждут от него чего-то или всё сломалось.
+
+
+@dp.message(NewPrice.waiting)
+async def on_price_wrong_input(message: Message) -> None:
+    await message.answer("Здесь нужна новая цена числом. Или /отмена.")
 
 
 @dp.message(F.text.in_({"/profile", "/профиль"}))
@@ -1389,8 +1501,13 @@ async def on_my_items(message: Message) -> None:
 
 
 @dp.callback_query(F.data.startswith("i:"))
-async def on_item_action(query: CallbackQuery) -> None:
+async def on_item_action(query: CallbackQuery, state: FSMContext) -> None:
     _, action, item_id = query.data.split(":", 2)
+
+    if action == "price":
+        await start_price(query, state, item_id)
+        return
+
     status = "hidden" if action == "hide" else "active"
 
     async with httpx.AsyncClient(timeout=20) as client:

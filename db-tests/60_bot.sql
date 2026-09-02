@@ -423,6 +423,76 @@ begin
     'чужие в список не попали — граница проходит по типу возврата');
 end $$;
 
+-- ── Цена из чата ──────────────────────────────────────────────
+--
+-- Цену владелец правит чаще всего: сосед сдаёт дешевле, кончился сезон.
+-- Главное, что здесь проверяется, — что уже оформленные брони от этого
+-- не дешевеют и не дорожают.
+
+do $$
+declare
+  v_before integer;
+  v_snap   integer;
+  v_after  integer;
+begin
+  select daily_price into v_before from items where id = t.id('item');
+
+  select daily_price_snapshot into v_snap from bookings
+   where item_id = t.id('item') order by created_at limit 1;
+
+  perform bot_set_item_price(t.id('owner'), t.id('item'), v_before + 700);
+
+  select daily_price into v_after from items where id = t.id('item');
+  perform t.assert(v_after = v_before + 700, 'цена изменилась из чата');
+
+  perform t.assert(
+    (select daily_price_snapshot = v_snap from bookings
+      where item_id = t.id('item') order by created_at limit 1),
+    'у оформленной брони цена не поехала — там снимок на момент заявки');
+
+  perform bot_set_item_price(t.id('owner'), t.id('item'), v_before);
+end $$;
+
+-- Ноль и минус отклоняются понятным текстом, а не именем ограничения.
+do $$
+declare v_err text;
+begin
+  begin
+    perform bot_set_item_price(t.id('owner'), t.id('item'), 0);
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+  perform t.assert(v_err like '%больше нуля%', 'нулевая цена отклонена');
+end $$;
+
+-- Лишний ноль в цене — не ошибка базы, а опечатка человека: объявление
+-- становится невидимым, и он узнаёт об этом через неделю тишины.
+do $$
+declare v_err text;
+begin
+  begin
+    perform bot_set_item_price(t.id('owner'), t.id('item'), 35000000);
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+  perform t.assert(v_err like '%лишнего нуля%', 'подозрительно большая цена отклонена');
+end $$;
+
+-- Чужую цену из чата не поменять: проверка владельца теперь одна на все
+-- операции, и это тот же assert_item_owner, что сторожит публикацию.
+do $$
+declare v_err text;
+begin
+  begin
+    perform bot_set_item_price(t.id('renter'), t.id('item'), 100);
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+  perform t.assert(v_err like '%принадлежит другому участнику%',
+    'чужую цену не поменять — проверка владельца общая');
+end $$;
+
+
 -- ── Профиль в чате ────────────────────────────────────────────
 --
 -- Рейтинг и число сделок — первое, что спрашивает владелец, решая,
