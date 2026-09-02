@@ -1,3 +1,4 @@
+import { brandSpellings } from './tools';
 import { PILOT_CITY, supabase } from './supabase';
 import type {
   Booking,
@@ -80,8 +81,20 @@ export async function fetchCatalog(params: {
     // их из запроса вырезаем: иначе поиск «дрель, буры» развалит фильтр
     // на два условия и вернёт мусор.
     const q = params.search.trim().replace(/[,()]/g, ' ');
+
+    // Марку ищем во всех её написаниях. Подсказки при публикации кладут в
+    // название латиницу — «Перфоратор Bosch», — а ищут её кириллицей:
+    // «бош». Без перевода собственная подсказка ухудшала бы находимость
+    // вещи, которую с её помощью и опубликовали.
+    const terms = [q, ...brandSpellings(q).map((t) => t.replace(/[,()]/g, ' '))];
+
     query = query.or(
-      `title.ilike.%${q}%,description.ilike.%${q}%,pickup_area.ilike.%${q}%`,
+      terms
+        .map(
+          (t) =>
+            `title.ilike.%${t}%,description.ilike.%${t}%,pickup_area.ilike.%${t}%`,
+        )
+        .join(','),
     );
   }
 

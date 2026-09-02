@@ -142,3 +142,33 @@ export function suggestTitles(slug: string | null, query: string, limit = 8): st
 
   return [...starts, ...inside].slice(0, limit);
 }
+
+/**
+ * Как ещё может быть написана та же марка.
+ *
+ * Нужно поиску по каталогу. Подсказки при публикации кладут в название
+ * латиницу — «Перфоратор Bosch», — а ищут её кириллицей: «бош». Без этого
+ * перевода собственная подсказка ухудшала бы находимость вещи, которую с её
+ * помощью и опубликовали.
+ *
+ * Возвращается и обратное направление: набравший «bosch» найдёт объявление,
+ * где владелец написал «Бош» руками.
+ */
+export function brandSpellings(query: string): string[] {
+  const q = fold(query);
+  if (q.length < 2) return [];
+
+  const out = new Set<string>();
+
+  for (const [brand, aliases] of Object.entries(ALIASES)) {
+    const all = [brand, ...aliases];
+    // Совпадение с началом, а не точное: человек набирает «бош» и ждёт
+    // подсказку, не дописав слово до конца.
+    if (all.some((form) => fold(form).startsWith(q))) {
+      for (const form of all) out.add(form);
+    }
+  }
+
+  out.delete(query.trim());
+  return [...out];
+}

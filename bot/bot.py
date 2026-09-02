@@ -347,6 +347,36 @@ def tool_example(slug: str) -> str:
     return cat["example"] if cat else "Перфоратор Bosch GBH 2-26"
 
 
+def _fold(text: str) -> str:
+    """Регистр и «ё» не должны мешать найти вещь. Повторяет fold() в tools.ts."""
+    return text.lower().replace("ё", "е").strip()
+
+
+def brand_spellings(query: str) -> list[str]:
+    """
+    Как ещё может быть написана та же марка.
+
+    Подсказки при публикации кладут в название латиницу — «Перфоратор
+    Bosch», — а ищут её кириллицей: «бош». Без перевода поиск в чате
+    находил бы не то же, что поиск на экране, хотя витрина одна.
+
+    Повторяет brandSpellings() из src/lib/tools.ts. Общего кода у Python и
+    TypeScript нет, но справочник у них общий — расходятся только эти
+    двадцать строк.
+    """
+    q = _fold(query)
+    if len(q) < 2:
+        return []
+
+    out: list[str] = []
+    for brand, aliases in TOOLS["brandAliases"].items():
+        forms = [brand, *aliases]
+        if any(_fold(f).startswith(q) for f in forms):
+            out.extend(forms)
+
+    return [f for f in out if f != query.strip()]
+
+
 def tool_popular(slug: str, limit: int = 4) -> list[str]:
     """
     С чего чаще всего начинают в этой категории.
@@ -1289,10 +1319,14 @@ async def show_catalog(message: Message, search: str | None) -> None:
         # это запрос не про инструмент, а про то, куда за ним ехать.
         # Список полей обязан совпадать с fetchCatalog в приложении,
         # иначе один и тот же запрос даст в чате и на экране разное.
-        params["or"] = (
-            f"(title.ilike.*{clean}*,description.ilike.*{clean}*,"
-            f"pickup_area.ilike.*{clean}*)"
+        # Марку ищем во всех написаниях — так же, как fetchCatalog в
+        # приложении. Иначе «бош» в чате не найдёт «Перфоратор Bosch».
+        terms = [clean, *(re.sub(r"[,()]", " ", t) for t in brand_spellings(clean))]
+        parts = ",".join(
+            f"title.ilike.*{t}*,description.ilike.*{t}*,pickup_area.ilike.*{t}*"
+            for t in terms
         )
+        params["or"] = f"({parts})"
 
     async with httpx.AsyncClient(timeout=20) as client:
         rows = await rest_get(client, "items", params)
