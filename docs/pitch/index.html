@@ -674,6 +674,12 @@ h2 {
    По умолчанию скрыты, открываются адресом /pitch/?draft — тем, кто их и
    писал. Не удалены: пока пункты не закрыты, они нужны. */
 .todo { display: none; }
+/* Черновая разметка живёт рядом с чистовой: data-draft-only видно только
+   в черновом режиме, data-draft-hide — только вне его. Держать две
+   версии страницы было бы дороже и разошлось бы через неделю. */
+[data-draft-only] { display: none; }
+html[data-draft] [data-draft-only] { display: grid; }
+html[data-draft] [data-draft-hide] { display: none; }
 html[data-draft] .todo {
   display: block;
   margin-top: 20px; padding: 16px 18px; border-radius: var(--r-md);
@@ -1217,11 +1223,21 @@ html[data-draft] .todo b { display: block; margin-bottom: 4px; }
       платежей, Z ₸ — операционные расходы на 12 месяцев». Пришлите цифры, соберу блок.
     </div>
 
-    <div class="grid g3" style="margin-top:28px">
+    <!-- Таблица из прочерков — тоже черновик.
+         Спрятать заметку себе и оставить судье три плитки с «— ₸» значит
+         показать ту же незаполненность, только без объяснения. Пока цифр
+         нет, честнее одна строка, которая называет вещи своими именами. -->
+    <div class="grid g3" style="margin-top:28px" data-draft-only>
       <div class="tile"><h3>Привлечение владельцев</h3><p>— ₸</p></div>
       <div class="tile"><h3>Платежи и эскроу</h3><p>— ₸</p></div>
       <div class="tile"><h3>Операционные расходы</h3><p>— ₸</p></div>
     </div>
+
+    <p class="lead" data-draft-hide style="margin-top:24px">
+      Разбивка запроса готовится вместе с финансовой моделью пилота: суммы
+      привязаны к числу владельцев и сделок, а не названы заранее. Пилот идёт
+      сейчас — на этой же странице выше видно, что именно уже работает.
+    </p>
   </div>
 </section>
 
