@@ -100,26 +100,7 @@ export default function Catalog() {
 
   const { refreshing, onRefresh } = useRefresh(load);
 
-  /**
-   * Чем сейчас сужена выдача.
-   *
-   * Пустой экран раньше советовал «попробуйте другое слово» даже тогда,
-   * когда слова не было вовсе, а виноват был фильтр по цене. Совет, не
-   * относящийся к делу, отправляет человека чинить не то — и он уходит,
-   * решив, что вещей просто нет.
-   *
-   * Поэтому причина называется по факту, а не угадывается: перечисляем то,
-   * что включено, и даём одну кнопку снять всё разом.
-   */
-  const filters = useMemo(() => {
-    const on: string[] = [];
-    if (search.trim()) on.push(`поиск «${search.trim()}»`);
-    if (active) on.push('категория');
-    if (Number(maxPrice) > 0) on.push(`цена до ${maxPrice} ₸`);
-    if (onlyFavorites) on.push('только избранное');
-    return on;
-  }, [search, active, maxPrice, onlyFavorites]);
-
+  /** Снять всё разом: по одному фильтры пришлось бы искать и выключать. */
   const resetFilters = useCallback(() => {
     setSearch('');
     setActive(null);
@@ -254,10 +235,33 @@ export default function Catalog() {
     [session, favorites],
   );
 
-  const activeFilters = useMemo(
-    () => (sort !== 'new' ? 1 : 0) + (maxPrice ? 1 : 0) + (onlyFavorites ? 1 : 0),
-    [sort, maxPrice, onlyFavorites],
-  );
+  /**
+   * Что сейчас сужает выдачу — один список на два разных ответа.
+   *
+   * Вопросов действительно два, и путать их нельзя. Бейдж на кнопке
+   * «Фильтры» отвечает «что спрятано в свёрнутой панели»: поиск и категорию
+   * человек видит сам, а сортировку и цену — нет, и без значка он не узнает,
+   * что они включены. Пустой экран отвечает на другое: «почему ничего нет»,
+   * и там нужно назвать всё, включая видимое.
+   *
+   * Раньше на это отвечали два независимых выражения. Они и разошлись:
+   * счётчик на кнопке не считал категорию и поиск, а пустой экран не знал
+   * про цену и советовал «попробуйте другое слово» тому, у кого слова не
+   * было. Теперь список один, а отличаются они признаком «видно и так».
+   */
+  const narrowing = useMemo(() => {
+    const all: { label: string; visible: boolean }[] = [];
+    if (search.trim()) all.push({ label: `поиск «${search.trim()}»`, visible: true });
+    if (active) all.push({ label: 'категория', visible: true });
+    if (Number(maxPrice) > 0) all.push({ label: `цена до ${maxPrice} ₸`, visible: false });
+    if (onlyFavorites) all.push({ label: 'только избранное', visible: false });
+    if (sort !== 'new') all.push({ label: 'сортировка', visible: false });
+    return all;
+  }, [search, active, maxPrice, onlyFavorites, sort]);
+
+  // На кнопке — только то, чего не видно на экране: значок над «Фильтрами»
+  // нужен, чтобы человек не искал причину там, где её не видно.
+  const activeFilters = narrowing.filter((f) => !f.visible).length;
 
   return (
     <View style={s.screen}>
@@ -404,25 +408,25 @@ export default function Catalog() {
               // кнопка на оба случая звала бы публиковать того, кто просто
               // задал слишком низкую цену.
               action={
-                filters.length > 0
+                narrowing.length > 0
                   ? { label: 'Сбросить фильтры', onPress: resetFilters }
                   : { label: 'Выложить свой инструмент', onPress: () => router.push('/item/new') }
               }
               icon={
-                onlyFavorites ? 'heart-outline' : filters.length > 0 ? 'search-outline' : 'cube-outline'
+                onlyFavorites ? 'heart-outline' : narrowing.length > 0 ? 'search-outline' : 'cube-outline'
               }
               title={
-                onlyFavorites && filters.length === 1
+                onlyFavorites && narrowing.length === 1
                   ? 'В избранном пусто'
-                  : filters.length > 0
+                  : narrowing.length > 0
                     ? 'Ничего не нашлось'
                     : 'Пока пусто'
               }
               body={
-                onlyFavorites && filters.length === 1
+                onlyFavorites && narrowing.length === 1
                   ? 'Нажмите сердечко на объявлении — оно появится здесь.'
-                  : filters.length > 0
-                    ? `Сейчас включено: ${filters.join(', ')}. Возможно, дело в этом.`
+                  : narrowing.length > 0
+                    ? `Сейчас включено: ${narrowing.map((f) => f.label).join(', ')}. Возможно, дело в этом.`
                     : 'В этой категории ещё нет объявлений. Можно стать первым — выложите свой инструмент.'
               }
             />
