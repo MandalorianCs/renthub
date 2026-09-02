@@ -932,6 +932,77 @@ html[data-draft] .todo b { display: block; margin-bottom: 4px; }
       аренда жилья к перфоратору в Кокшетау отношения не имеют.
     </p>
 
+    <!-- Считать «снизу» — значит показать саму арифметику.
+         Три плитки ниже дают вход и выход, но не переход между ними, а
+         судья проверяет именно переход: откуда 5,6 млн. Здесь каждая
+         стрелка — одно умножение, и любую цифру можно пересчитать в уме. -->
+    <figure class="diagram" style="margin-top:36px">
+      <div class="diagram-scroll">
+<svg viewBox="0 0 1040 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pitch-bottom-title pitch-bottom-desc">
+  <title id="pitch-bottom-title">Расчёт выручки пилота снизу</title>
+  <desc id="pitch-bottom-desc">Сорок пять тысяч домохозяйств Кокшетау, три процента из них арендуют инструмент, каждый дважды в год — две тысячи семьсот сделок. При чеке десять с половиной тысяч тенге это двадцать восемь миллионов оборота, из которых комиссия платформы двадцать процентов — пять целых семь десятых миллиона тенге выручки за первый год.</desc>
+
+  <defs>
+    <marker id="bf-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#8C857A"/>
+    </marker>
+  </defs>
+
+  <g font-family="Manrope, sans-serif">
+    <!-- 1. Домохозяйства -->
+    <rect x="8" y="70" width="186" height="96" rx="16" fill="#FFFFFF" stroke="#E7E0D6"/>
+    <text x="101" y="104" text-anchor="middle" font-size="26" font-weight="800" fill="#1A1917">45 000</text>
+    <text x="101" y="126" text-anchor="middle" font-size="13" fill="#6E675E">домохозяйств</text>
+    <text x="101" y="144" text-anchor="middle" font-size="13" fill="#6E675E">в Кокшетау</text>
+
+    <line x1="200" y1="118" x2="232" y2="118" stroke="#8C857A" stroke-width="1.5" marker-end="url(#bf-arrow)"/>
+    <text x="216" y="106" text-anchor="middle" font-size="12" font-weight="700" fill="#C2603C">× 3%</text>
+
+    <!-- 2. Арендаторы -->
+    <rect x="240" y="70" width="186" height="96" rx="16" fill="#FFFFFF" stroke="#E7E0D6"/>
+    <text x="333" y="104" text-anchor="middle" font-size="26" font-weight="800" fill="#1A1917">1 350</text>
+    <text x="333" y="126" text-anchor="middle" font-size="13" fill="#6E675E">арендуют</text>
+    <text x="333" y="144" text-anchor="middle" font-size="13" fill="#6E675E">инструмент</text>
+
+    <line x1="432" y1="118" x2="464" y2="118" stroke="#8C857A" stroke-width="1.5" marker-end="url(#bf-arrow)"/>
+    <text x="448" y="106" text-anchor="middle" font-size="12" font-weight="700" fill="#C2603C">× 2</text>
+
+    <!-- 3. Сделки -->
+    <rect x="472" y="70" width="186" height="96" rx="16" fill="#FFFFFF" stroke="#E7E0D6"/>
+    <text x="565" y="104" text-anchor="middle" font-size="26" font-weight="800" fill="#1A1917">2 700</text>
+    <text x="565" y="126" text-anchor="middle" font-size="13" fill="#6E675E">сделок в год</text>
+    <text x="565" y="144" text-anchor="middle" font-size="13" fill="#6E675E">дважды на человека</text>
+
+    <line x1="664" y1="118" x2="696" y2="118" stroke="#8C857A" stroke-width="1.5" marker-end="url(#bf-arrow)"/>
+    <text x="680" y="106" text-anchor="middle" font-size="12" font-weight="700" fill="#C2603C">× 10 500 ₸</text>
+
+    <!-- 4. Оборот -->
+    <rect x="704" y="70" width="150" height="96" rx="16" fill="#FFFFFF" stroke="#E7E0D6"/>
+    <text x="779" y="104" text-anchor="middle" font-size="24" font-weight="800" fill="#1A1917">28,4</text>
+    <text x="779" y="126" text-anchor="middle" font-size="13" fill="#6E675E">млн ₸</text>
+    <text x="779" y="144" text-anchor="middle" font-size="13" fill="#6E675E">оборота</text>
+
+    <line x1="860" y1="118" x2="892" y2="118" stroke="#8C857A" stroke-width="1.5" marker-end="url(#bf-arrow)"/>
+    <text x="876" y="106" text-anchor="middle" font-size="12" font-weight="700" fill="#C2603C">× 20%</text>
+
+    <!-- 5. Выручка — единственная зелёная: это деньги платформы -->
+    <rect x="900" y="62" width="132" height="112" rx="16" fill="#2F5D50"/>
+    <text x="966" y="100" text-anchor="middle" font-size="26" font-weight="800" fill="#FFFFFF">5,7</text>
+    <text x="966" y="122" text-anchor="middle" font-size="13" fill="#E3EDE9">млн ₸ выручки</text>
+    <text x="966" y="140" text-anchor="middle" font-size="13" fill="#E3EDE9">за первый год</text>
+
+    <!-- Что здесь допущение, а что факт: судья спросит, и лучше ответить
+         до вопроса. -->
+    <text x="8" y="216" font-size="13" font-weight="700" fill="#6E675E">Что здесь чем является</text>
+    <text x="8" y="240" font-size="13" fill="#6E675E">Факт: население и число домохозяйств Кокшетау. Чек 10 500 ₸ — реальная цена трёх суток аренды перфоратора.</text>
+    <text x="8" y="262" font-size="13" fill="#6E675E">Допущение: 3% домохозяйств и две аренды в год на человека. Проверяется пилотом — ради этого он и идёт.</text>
+    <text x="8" y="284" font-size="13" fill="#6E675E">Комиссия 20% — параметр платформы, записан в базе как настройка, а не обещание в презентации.</text>
+  </g>
+</svg>
+      </div>
+      <figcaption>Каждая стрелка — одно умножение. Любую цифру можно пересчитать на месте.</figcaption>
+    </figure>
+
     <div class="grid g3" style="margin-top:36px">
       <div class="tile">
         <h3>Чек сделки</h3>
