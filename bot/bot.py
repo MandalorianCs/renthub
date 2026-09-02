@@ -834,6 +834,42 @@ async def on_action(query: CallbackQuery, state: FSMContext) -> None:
         await start_damage(query, state, booking_id)
         return
 
+    # Отметка «забрал» закрывает арендатору единственный выход.
+    #
+    # До неё бронь отменяется без последствий: деньги не списывались, депозит
+    # разблокируется. После — аренда началась, и отменить её нельзя. При этом
+    # заявить о неисправности арендатор не может: спор открывает только
+    # владелец и только после возврата.
+    #
+    # На экране сделки об этом сказано текстом над кнопкой. В чате текст над
+    # кнопкой не поставишь — она приходит вместе с уведомлением, — поэтому
+    # переспрашиваем. Один лишний тап против необратимой ошибки: размен
+    # честный.
+    if action == "picked_up":
+        await query.answer()
+        await query.message.answer(
+            "Осмотрели вещь? Работает, комплект на месте?\n\n"
+            "Сейчас бронь ещё можно отменить без последствий. После отметки "
+            "аренда началась, и отменить её нельзя — вещь у вас.",
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text="✅ Да, всё в порядке", callback_data=f"a:picked_up_ok:{booking_id}"
+                    )
+                ], [
+                    InlineKeyboardButton(
+                        text="✖️ Отказаться от брони", callback_data=f"a:cancel:{booking_id}"
+                    )
+                ]]
+            ),
+        )
+        return
+
+    # Подтверждённый шаг зовёт ту же функцию: развилка только в интерфейсе,
+    # правило одно.
+    if action == "picked_up_ok":
+        action = "picked_up"
+
     fn = RPC_BY_ACTION.get(action)
 
     if fn is None:
