@@ -152,6 +152,14 @@ header {
 .hero-links a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .hero-links a:hover { color: var(--text); }
 
+/* График: та же карточка, что у остальных блоков. Прокрутка по
+   горизонтали — чтобы на телефоне столбцы не сжимались в нечитаемые
+   полоски, а уезжали вбок целиком. */
+.chart { margin: 28px 0 0; }
+.chart svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.chart > svg { min-width: 0; }
+.chart figcaption { margin-top: 14px; font-size: 14px; color: var(--muted); max-width: 62ch; }
+
 /* Плитки категорий. Имя cat-tile, а не tile: .tile на этой странице
    уже занят карточками-объяснениями с h3 и p, и мои плитки унаследовали
    бы их отступы и декоративный ::before. */
@@ -1278,6 +1286,67 @@ h2 {
 </section>
 
 <!-- ── Рынок ────────────────────────────────────────────── -->
+<!-- График окупаемости.
+     Отвечает на первый вопрос владельца — «сколько я заработаю» — числом,
+     которое можно проверить: всё считается из цены за сутки и комиссии,
+     обе видны рядом. Столбцы, а не линия: сравниваются три сценария, а не
+     показывается течение времени.
+
+     Своя разметка, как у схем на питче: ноль зависимостей и ничего чужого.
+     Библиотеки графиков сюда не тянутся ради пяти прямоугольников. -->
+<section id="payback">
+  <div class="wrap">
+    <div class="eyebrow">Окупаемость</div>
+    <h2>Когда инструмент вернёт свою цену</h2>
+    <p class="lead" style="margin-top:16px">
+      Перфоратор за 90 000 ₸ сдаётся по 3 500 ₸ в сутки. Обычная аренда —
+      трое суток: 10 500 ₸, из них владельцу 8 400 ₸. Дальше просто
+      умножение.
+    </p>
+
+    <figure class="chart">
+      <svg viewBox="0 0 900 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="payback-title payback-desc">
+        <title id="payback-title">Годовой доход владельца при разной частоте сдач</title>
+        <desc id="payback-desc">При одной сдаче в месяц владелец получает сто тысяч восемьсот тенге в год, при двух — двести одну тысячу шестьсот, при четырёх — четыреста три тысячи двести. Цена самого перфоратора, девяносто тысяч тенге, отбивается уже одиннадцатой сделкой. Высота столбцов пропорциональна суммам.</desc>
+
+        <g font-family="Manrope, sans-serif">
+          <line x1="60" y1="280" x2="860" y2="280" stroke="#E7E0D6" stroke-width="1.5"/>
+
+          <!-- Цена инструмента: всё, что выше линии, — уже сверх его стоимости -->
+          <line x1="60" y1="229" x2="860" y2="229" stroke="#A33A2A" stroke-width="1.5" stroke-dasharray="6 5"/>
+          <text x="860" y="221" text-anchor="end" font-size="13" font-weight="700" fill="#A33A2A">90 000 ₸ — цена самого перфоратора</text>
+
+          <rect x="110" y="222.5" width="180" height="57.5" rx="10" fill="#E7E0D6"/>
+          <text x="200" y="208" text-anchor="middle" font-size="22" font-weight="800" fill="#1A1917">100 800 ₸</text>
+          <text x="200" y="308" text-anchor="middle" font-size="15" font-weight="700" fill="#1A1917">1 сдача в месяц</text>
+          <text x="200" y="328" text-anchor="middle" font-size="13" fill="#6E675E">12 сделок</text>
+
+          <rect x="350" y="165.0" width="180" height="115.0" rx="10" fill="#F6E7E0"/>
+          <text x="440" y="199" text-anchor="middle" font-size="22" font-weight="800" fill="#1A1917">201 600 ₸</text>
+          <text x="440" y="308" text-anchor="middle" font-size="15" font-weight="700" fill="#1A1917">2 сдачи в месяц</text>
+          <text x="440" y="328" text-anchor="middle" font-size="13" fill="#6E675E">24 сделки</text>
+
+          <rect x="590" y="50.0" width="180" height="230.0" rx="10" fill="#2F5D50"/>
+          <text x="680" y="84" text-anchor="middle" font-size="22" font-weight="800" fill="#FFFFFF">403 200 ₸</text>
+          <text x="680" y="308" text-anchor="middle" font-size="15" font-weight="700" fill="#1A1917">4 сдачи в месяц</text>
+          <text x="680" y="328" text-anchor="middle" font-size="13" fill="#6E675E">48 сделок</text>
+
+        </g>
+      </svg>
+      <figcaption>
+        Одиннадцатая сдача закрывает стоимость инструмента. Всё, что после, —
+        доход с вещи, которая до этого лежала в кладовке.
+      </figcaption>
+    </figure>
+
+    <p class="assume" style="margin-top:20px">
+      Частота сдач — единственное, что здесь не факт: её и проверяет пилот.
+      Цена за сутки, комиссия 20% и длительность аренды взяты из работающего
+      расчёта, а не из презентации.
+    </p>
+  </div>
+</section>
+
 <section id="market">
   <div class="wrap">
     <div class="eyebrow">Рынок</div>
