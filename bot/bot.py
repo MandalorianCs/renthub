@@ -968,7 +968,8 @@ async def on_help(message: Message) -> None:
         "/каталог — свежие объявления, /найти перфоратор — поиск\n"
         "/сдать — опубликовать свою вещь, не открывая приложение\n"
         "/вещи — ваши объявления: снять с публикации, вернуть, изменить цену\n"
-        "/профиль — рейтинг, сделки и статус номера\n\n"
+        "/профиль — рейтинг, сделки и статус номера\n"
+        "/поддержка — написать организатору, если что-то пошло не так\n\n"
         "В меню рядом с полем ввода те же команды латиницей — "
         "/catalog, /find, /publish: Telegram не пускает в меню кириллицу. "
         "Работают оба написания.\n\n"
@@ -2070,6 +2071,14 @@ async def on_any_error(event: ErrorEvent) -> None:
 # сделкой, на которой висит депозит.
 
 
+# Приглашение написать — одно на оба входа, кнопку и команду. Разойдись
+# они, и человек, пришедший вторым путём, получил бы другие правила игры.
+SUPPORT_PROMPT = (
+    "Напишите, что случилось. Одним сообщением — его прочитает человек.\n\n"
+    "Передумали — /отмена."
+)
+
+
 @dp.callback_query(F.data == "s:start")
 async def on_support_start(query: CallbackQuery, state: FSMContext) -> None:
     async with httpx.AsyncClient(timeout=20) as client:
@@ -2082,10 +2091,36 @@ async def on_support_start(query: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(Support.waiting)
     await query.answer()
     await query.message.edit_reply_markup(reply_markup=None)
-    await query.message.answer(
-        "Напишите, что случилось. Одним сообщением — его прочитает человек.\n\n"
-        "Передумали — /отмена."
-    )
+    await query.message.answer(SUPPORT_PROMPT)
+
+
+# Та же дверь, но её видно.
+#
+# До 03.09.2026 написать организатору можно было ровно одним способом:
+# отправить боту что-нибудь неизвестное и нажать кнопку под ответом «не
+# понял». То есть возможность существовала, но открывалась по ошибке —
+# человек, который сделал всё правильно, до неё не доходил.
+#
+# А искать он будет там, где ищут все: в меню рядом с полем ввода и в
+# /help. В меню команды не было, в /help о поддержке не было ни слова —
+# оба места отвечали «такого здесь нет». Дальше человек либо уходит, либо
+# пишет организатору лично, если знает кому.
+@dp.message(F.text.in_({"/support", "/поддержка"}))
+async def on_support_command(message: Message, state: FSMContext) -> None:
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, message.from_user.id)
+
+    if user is None:
+        # Не тупик: /start — это и есть привязка, а без неё обращение
+        # некуда записать и некому ответить.
+        await message.answer(
+            "Сначала свяжите Telegram с аккаунтом — /start. "
+            "Без этого мне некуда записать обращение и некуда прислать ответ."
+        )
+        return
+
+    await state.set_state(Support.waiting)
+    await message.answer(SUPPORT_PROMPT)
 
 
 @dp.message(Support.waiting, F.text)
@@ -2163,6 +2198,11 @@ MENU = [
     BotCommand(command="publish", description="Сдать свою вещь"),
     BotCommand(command="items", description="Мои объявления: пауза и публикация"),
     BotCommand(command="profile", description="Рейтинг, сделки, статус номера"),
+    # Поддержка в меню, а не только кнопкой под «не понял». Человек, у
+    # которого что-то пошло не так, ищет её здесь — и до 03.09.2026 не
+    # находил: возможность открывалась только тому, кто отправил боту
+    # что-нибудь неизвестное.
+    BotCommand(command="support", description="Написать организатору"),
     BotCommand(command="help", description="Что я умею"),
     BotCommand(command="start", description="Связать Telegram с аккаунтом"),
 ]
