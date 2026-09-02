@@ -18,6 +18,7 @@ import type {
   Notification,
   Payout,
   Review,
+  SupportMessage,
   User,
 } from './types';
 
@@ -191,6 +192,30 @@ export async function updateItem(
     })
     .eq('id', id);
   if (error) throw error;
+}
+
+/**
+ * Обращения участников, на которые ещё не ответили.
+ *
+ * Отвечает модератор той же кнопкой «Написать участнику», что и раньше:
+ * moderator_notify() кладёт сообщение в notifications, а бот доставляет его
+ * в тот же чат, откуда обращение и пришло. Отдельного канала связи заводить
+ * не нужно — петля замыкается существующими частями.
+ */
+export async function fetchSupportMessages(): Promise<SupportMessage[]> {
+  const rows = await rpc<SupportMessage[]>('support_open', {});
+  return rows ?? [];
+}
+
+/**
+ * Отметить обращение разобранным.
+ *
+ * Отдельным действием, а не автоматически по факту ответа: ответ может быть
+ * уточняющим вопросом, и закрывать обращение после него значит терять
+ * разговор на середине.
+ */
+export async function closeSupportMessage(id: string) {
+  await rpc('support_close', { p_id: id });
 }
 
 /**

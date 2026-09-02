@@ -493,6 +493,107 @@ begin
 end $$;
 
 
+-- ── Обращение в поддержку ─────────────────────────────────────
+--
+-- До этого человек, написавший боту «не могу вернуть вещь», получал
+-- тишину: обработчика на произвольный текст не было вовсе. Молчание в
+-- ответ читается как поломка, и участник уходит вместе со сделкой, на
+-- которой висит депозит.
+
+do $$
+declare v_open integer;
+begin
+  perform submit_support_message(t.id('owner'), 'Не приходит код на почту');
+
+  select count(*) into v_open
+    from support_messages where user_id = t.id('owner') and handled_at is null;
+  perform t.assert(v_open = 1, 'обращение записано');
+end $$;
+
+-- Пустое обращение не принимается: «...» в очереди модерации это работа
+-- без содержания.
+do $$
+declare v_err text;
+begin
+  begin
+    perform submit_support_message(t.id('owner'), ' ');
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+  perform t.assert(v_err like '%хотя бы пару слов%', 'пустое обращение отклонено');
+end $$;
+
+-- Предел в три открытых. Не от недоверия: без него один расстроенный
+-- участник за минуту превращает очередь в свою переписку.
+do $$
+declare v_err text;
+begin
+  perform submit_support_message(t.id('owner'), 'Второе обращение');
+  perform submit_support_message(t.id('owner'), 'Третье обращение');
+
+  begin
+    perform submit_support_message(t.id('owner'), 'Четвёртое обращение');
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+
+  perform t.assert(v_err like '%три обращения%', 'четвёртое обращение отклонено');
+end $$;
+
+-- Чужие обращения вошедшему не видны: это чужие проблемы.
+do $$
+begin
+  perform t.assert(
+    t.as_value(t.id('renter'), 'select count(*)::text from support_messages')::int = 0,
+    'вошедший не видит чужих обращений');
+end $$;
+
+-- А своё — видит: иначе «я писал» превращается в спор без доказательств.
+do $$
+begin
+  perform t.assert(
+    t.as_value(t.id('owner'), 'select count(*)::text from support_messages')::int = 3,
+    'своё обращение человек видит');
+end $$;
+
+-- Очередь и закрытие — только модератору.
+select t.expect_fail(t.id('renter'), 'select * from support_open()', 'только модератор');
+
+do $$
+declare
+  v_was boolean;
+  v_id  uuid;
+  v_err text;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  select is_moderator into v_was from users where id = t.id('stranger');
+  update users set is_moderator = true where id = t.id('stranger');
+
+  perform t.assert(
+    t.as_value(t.id('stranger'), 'select count(*)::text from support_open()')::int = 3,
+    'модератор видит очередь обращений');
+
+  select id into v_id from support_messages where handled_at is null limit 1;
+  perform t.as(t.id('stranger'), format('select support_close(%L)', v_id));
+
+  perform t.assert(
+    t.as_value(t.id('stranger'), 'select count(*)::text from support_open()')::int = 2,
+    'закрытое обращение ушло из очереди');
+
+  -- Закрыть дважды нельзя: «готово» на второе нажатие означало бы, что
+  -- модератор закрыл что-то ещё, чего не видел.
+  begin
+    perform t.as(t.id('stranger'), format('select support_close(%L)', v_id));
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+  perform t.assert(v_err like '%уже закрыто%', 'повторное закрытие отклонено');
+
+  perform set_config('request.jwt.claims', '', true);
+  update users set is_moderator = v_was where id = t.id('stranger');
+end $$;
+
+
 -- ── Что осталось оценить ──────────────────────────────────────
 --
 -- Таблица «чей ход» говорит про закрытую сделку: «оцените вторую

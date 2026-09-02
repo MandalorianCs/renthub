@@ -219,6 +219,16 @@ export type BookingContact = {
   telegram_username: string | null;
 };
 
+/** Обращение участника из Telegram: что-то пошло не так и он написал. */
+export type SupportMessage = {
+  id: string;
+  user_id: string;
+  full_name: string | null;
+  telegram: boolean;
+  text: string;
+  created_at: string;
+};
+
 /** Заявка на участие от человека без приглашения. Номер подтверждён Telegram. */
 export type JoinRequest = {
   id: string;
