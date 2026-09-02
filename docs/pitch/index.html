@@ -666,12 +666,21 @@ h2 {
 .assume { font-size: 13px; color: var(--muted); margin-top: 10px; font-style: normal; }
 .assume::before { content: 'допущение · '; color: var(--warn); font-weight: 700; }
 
-.todo {
+/* Заметки себе, а не жюри.
+   Эти блоки написаны основателю: «положите логотип», «подтвердите
+   формулировку». Страницу открывает судья — и первым делом читает список
+   того, что автор не успел. Показывать проверяющему свой todo — значит
+   начать разговор с извинения.
+   По умолчанию скрыты, открываются адресом /pitch/?draft — тем, кто их и
+   писал. Не удалены: пока пункты не закрыты, они нужны. */
+.todo { display: none; }
+html[data-draft] .todo {
+  display: block;
   margin-top: 20px; padding: 16px 18px; border-radius: var(--r-md);
   background: var(--warn-soft); border: 1px dashed var(--warn);
   font-size: 14px; color: #6b5200;
 }
-.todo b { display: block; margin-bottom: 4px; }
+html[data-draft] .todo b { display: block; margin-bottom: 4px; }
 
 .timing { margin-top: 44px; }
 .timing table { min-width: 420px; }
@@ -1370,6 +1379,14 @@ h2 {
     window.addEventListener('scroll', onScroll, { passive: true });
   }
 })();
+</script>
+<script>
+  // Черновой режим: /pitch/?draft показывает заметки «заполнить перед
+  // защитой». Ставится до отрисовки — иначе блоки успели бы мигнуть у того,
+  // кому они не предназначены.
+  if (location.search.indexOf('draft') !== -1) {
+    document.documentElement.setAttribute('data-draft', '1');
+  }
 </script>
 </body>
 </html>
