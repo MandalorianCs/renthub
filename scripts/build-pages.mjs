@@ -13,7 +13,7 @@
 // дополнительной механики публикации.
 
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -96,6 +96,47 @@ writeFileSync(
 // симптом будет выглядеть как «белый экран, локально всё работает».
 writeFileSync(join(DOCS, '.nojekyll'), '');
 
+// ── Карточка ссылки для мессенджеров ──────────────────────────
+//
+// Expo отдаёт голый index.html: <title>RentHUB</title> и ничего больше.
+// Значит любая ссылка на приложение — из бота, из «поделиться», на
+// конкретное объявление — приходит в чат безымянным адресом: ни названия,
+// ни описания, ни картинки.
+//
+// Для витрины, которая растёт пересылкой ссылок, это прямая потеря: сосед
+// отправил ссылку на перфоратор, а получатель видит строку из букв и цифр.
+// Лендинг такие теги имеет давно, приложение — нет.
+//
+// Теги вставляются здесь, а не в шаблон Expo: шаблон перегенерируется
+// экспортом при каждой сборке, и правка в нём не переживёт следующую.
+//
+// Описание общее, без конкретной вещи: статический хостинг не умеет
+// отдавать разные теги на разные адреса, а угадывать название объявления
+// на клиенте поздно — превью собирается до выполнения JavaScript.
+const APP_META = `
+    <meta name="description" content="Витрина аренды строительного инструмента в Кокшетау: цена за сутки, депозит, календарь занятости." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="RentHUB" />
+    <meta property="og:title" content="RentHUB — аренда инструмента у соседей" />
+    <meta property="og:description" content="Витрина аренды строительного инструмента в Кокшетау: цена за сутки, депозит, календарь занятости." />
+    <meta property="og:url" content="${SITE}app/" />
+    <meta property="og:image" content="${SITE}assets/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="RentHUB — аренда инструмента у соседей" />
+    <meta name="twitter:description" content="Витрина аренды строительного инструмента в Кокшетау: цена за сутки, депозит, календарь занятости." />
+    <meta name="twitter:image" content="${SITE}assets/og.png" />`;
+
+const appHtmlPath = join(DOCS, 'app', 'index.html');
+const appHtml = readFileSync(appHtmlPath, 'utf8');
+
+if (appHtml.includes('og:title')) {
+  // Экспорт когда-нибудь начнёт добавлять теги сам — тогда две карточки
+  // подряд собьют превью, и лучше узнать об этом сразу.
+  console.warn('⚠ В index.html приложения уже есть og:title — теги не добавлены');
+} else {
+  writeFileSync(appHtmlPath, appHtml.replace('</head>', `${APP_META}\n  </head>`));
+}
+
 // Приложение — SPA с маршрутизацией на клиенте. Прямой заход на
 // /renthub/app/item/<id> Pages не найдёт как файл и отдаст свою 404 —
 // а без этого нельзя отправить ссылку на конкретное объявление, то есть
@@ -105,7 +146,10 @@ writeFileSync(join(DOCS, '.nojekyll'), '');
 // только там, вложенные игнорирует. Внутри — index приложения: ассеты
 // в нём прописаны абсолютными путями, поэтому он работает с любой глубины,
 // а expo-router разберёт адрес из location сам.
-cpSync(join(DOCS, 'app', 'index.html'), join(DOCS, '404.html'));
+//
+// Копируется ПОСЛЕ вставки тегов: ссылки на объявления ведут именно сюда,
+// и без карточки они остались бы теми же безымянными адресами.
+cpSync(appHtmlPath, join(DOCS, '404.html'));
 
 console.log(`
 ✓ Собрано в docs/ — это локальный предпросмотр.
