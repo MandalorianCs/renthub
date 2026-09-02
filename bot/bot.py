@@ -705,7 +705,12 @@ async def on_deals(message: Message) -> None:
                     # Присоединение без имени ключа: у bookings ровно одна
                     # связь с items, и PostgREST разрешает её однозначно.
                     # Так же записано в приложении — расходиться незачем.
+                    # Сроки: до них сделка идёт сама, после — система
+                    # решает за человека. Экран сделки их показывает давно,
+                    # а чат — нет, хотя владелец в пассивном режиме живёт
+                    # именно здесь и другого места не открывает.
                     "select": "id,status,start_date,end_date,rent_total,renter_total,"
+                    "grace_period_ends_at,damage_claim_ends_at,"
                     # Ориентир вместе с названием: человеку, которому пора
                     # ехать, «куда» нужнее, чем «что» — а открывать ради этого
                     # приложение значит обесценить кнопки в чате.
@@ -762,6 +767,7 @@ async def on_deals(message: Message) -> None:
             place = f"\n  \U0001F4CD {esc(area)}" if area else ""
             lines.append(f"• {item} — {status}{place}")
             lines.append(f"  {row['start_date']} → {row['end_date']} · {amount}"
+                         + deadline_line(row, mine)
                          + contact_line(contacts.get(row["id"])))
         lines.append("")
 
@@ -1363,6 +1369,37 @@ def contact_line(contact: dict | None) -> str:
         parts.append("@" + esc(contact["telegram_username"]))
     who = esc(contact.get("full_name") or "вторая сторона")
     return f"\n  {who}: {' · '.join(p for p in parts if p)}"
+
+
+def deadline_line(row: dict, mine: bool) -> str:
+    """
+    Срок, который сейчас важен.
+
+    Их всего два, и одновременно не бывает: до возврата — запас времени
+    после окончания аренды, после возврата — окно на претензию. Повторяет
+    ту же развилку, что на экране сделки: одна и та же сделка не должна
+    объясняться в чате иначе, чем на экране.
+
+    Строка появляется только когда срок есть: «срок: —» занимает место и
+    ничего не сообщает.
+    """
+    if row["status"] == "active" and row.get("grace_period_ends_at"):
+        when = row["grace_period_ends_at"][:16].replace("T", " ")
+        return (
+            f"\n  ⏳ вернуть до {when} — иначе система откроет спор о невозврате"
+            if not mine
+            else f"\n  ⏳ ждём возврата до {when}"
+        )
+
+    if row["status"] == "returned" and row.get("damage_claim_ends_at"):
+        when = row["damage_claim_ends_at"][:16].replace("T", " ")
+        return (
+            f"\n  ⏳ заявить о порче можно до {when}, потом сделка закроется сама"
+            if mine
+            else f"\n  ⏳ депозит вернётся до {when}"
+        )
+
+    return ""
 
 
 def item_line(row: dict) -> str:
