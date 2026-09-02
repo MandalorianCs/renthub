@@ -594,6 +594,104 @@ begin
 end $$;
 
 
+-- ── Та же дверь, но из приложения ─────────────────────────────
+--
+-- 02.09.2026 канал поддержки завели наполовину: бот научился принимать
+-- обращение, приложение — нет, хотя ссылку на продукт дают именно на него.
+-- support_submit() закрывает вторую половину.
+--
+-- Проверки стоят рядом с ботовскими намеренно. Правило приёма у обеих
+-- дверей одно — support_add(), — и это единственная причина, по которой
+-- предел в три обращения нельзя обойти, зайдя с другой стороны. Разнеси
+-- проверки по разным сценариям, и однажды предел поднимут для одной двери,
+-- а очередь модерации утопят из второй.
+
+-- Свидетель — «Без подтверждения»: ни Telegram, ни верификации. Через бота
+-- он написать не может физически, и это ровно тот человек, которому нужно
+-- сильнее прочих: он застрял на входе и хочет спросить почему.
+do $$
+begin
+  perform t.as(t.id('unverified'),
+    'select support_submit(''Не приходит код на телефон, что делать'')');
+
+  perform t.assert(
+    (select count(*) from support_messages where user_id = t.id('unverified')) = 1,
+    'из приложения обращение принято — без Telegram и без подтверждённого номера');
+end $$;
+
+-- Подписи под обращением быть не может: автор берётся из auth.uid(), а не
+-- приходит аргументом. Написать от чужого имени нечем — параметра нет.
+-- Проверяем то, что этот выбор действительно защищён: общее ядро, куда
+-- автор приходит аргументом, вошедшему недоступно.
+select t.expect_fail(t.id('renter'),
+  format('select support_add(%L, ''Обращение от чужого имени'')', t.id('owner')),
+  'permission denied');
+
+-- Анониму отказ приходит по-русски. Без явной проверки он упёрся бы во
+-- внешний ключ, и человек прочитал бы английскую строку про
+-- support_messages_user_id_fkey как поломку — хотя ему просто надо войти.
+do $$
+declare v_err text;
+begin
+  v_err := t.anon_fails('select support_submit(''Анонимное обращение'')');
+  perform t.assert(v_err like '%нужно войти%',
+    'анониму сказано войти, а не показан внешний ключ');
+end $$;
+
+-- Предел общий. Считается по человеку, а не по двери: у «Без подтверждения»
+-- уже одно открытое, значит через приложение пройдут ещё два, а четвёртое
+-- нет — ровно как у бота.
+do $$
+declare v_err text;
+begin
+  perform t.as(t.id('unverified'), 'select support_submit(''Второе обращение'')');
+  perform t.as(t.id('unverified'), 'select support_submit(''Третье обращение'')');
+
+  begin
+    perform t.as(t.id('unverified'), 'select support_submit(''Четвёртое обращение'')');
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+
+  perform t.assert(v_err like '%три обращения%',
+    'предел в три общий для обеих дверей — из приложения его не обойти');
+end $$;
+
+-- Заблокированный писать может, и это решение, а не недосмотр: человек,
+-- заблокированный по ошибке, иначе остаётся без единственного способа
+-- возразить. Проверка нужна потому, что «забыли добавить assert_verified»
+-- и «намеренно не добавили» выглядят в коде одинаково.
+do $$
+declare
+  v_was  boolean;
+  v_before integer;
+begin
+  perform set_config('request.jwt.claims', '', true);
+  select is_moderator into v_was from users where id = t.id('stranger');
+  update users set is_moderator = true where id = t.id('stranger');
+
+  perform t.as(t.id('stranger'),
+    format('select set_user_blocked(%L, true, ''Проверка обращения'')', t.id('renter')));
+
+  select count(*) into v_before from support_messages where user_id = t.id('renter');
+  perform t.as(t.id('renter'), 'select support_submit(''Меня заблокировали по ошибке'')');
+
+  perform t.assert(
+    (select count(*) from support_messages where user_id = t.id('renter')) = v_before + 1,
+    'заблокированный может написать организатору — иначе возразить ему нечем');
+
+  perform set_config('request.jwt.claims', '', true);
+  perform t.as(t.id('stranger'), format('select set_user_blocked(%L, false)', t.id('renter')));
+
+  -- Прибираем за собой: следующий блок считает обращения арендатора, и
+  -- оставленное здесь превратилось бы в ложный провал через сто строк.
+  delete from support_messages where user_id = t.id('renter');
+
+  perform set_config('request.jwt.claims', '', true);
+  update users set is_moderator = v_was where id = t.id('stranger');
+end $$;
+
+
 -- ── Что осталось оценить ──────────────────────────────────────
 --
 -- Таблица «чей ход» говорит про закрытую сделку: «оцените вторую

@@ -1368,3 +1368,244 @@ begin
 end $$;
 
 update users set is_moderator = false where id = t.id('stranger');
+
+-- ── Посторонний не может быть кем-то другим ───────────────────
+--
+-- Обёртки bot_* принимают того, за кого действуют, аргументом, и
+-- bot_actor_ok(p_actor) проверяет ЖЕРТВУ — что у неё привязан Telegram, —
+-- а не вызывающего. Опознать вызывающего здесь нечем. Значит право
+-- вызвать любую bot_* равно праву действовать от чужого имени, и держится
+-- всё на одном гранте.
+--
+-- 03.09.2026 замер показал, что грант был выдан: пять обёрток и
+-- submit_support_message оказались доступны роли anon — тому самому
+-- публикуемому ключу, что вшит в веб-сборку и в APK. Причина в том, что
+-- `revoke all ... from public` не отбирает право у anon: Supabase выдаёт
+-- этой роли собственный грант через alter default privileges.
+--
+-- Проверки ниже держат каждый измеренный путь поимённо. Правило целиком —
+-- в сценарии 2, где список доступного анониму сверяется со списком
+-- разрешённого.
+
+do $$
+declare
+  v_price integer;
+  v_st    text;
+  v_cnt   integer;
+begin
+  select daily_price, status into v_price, v_st from items where id = t.id('item');
+  select count(*) into v_cnt from support_messages where user_id = t.id('owner');
+
+  -- Цена. Опустив её до рубля, посторонний бронирует чужой перфоратор за
+  -- ничто: в bookings уезжает daily_price_snapshot, снятый в момент заявки.
+  perform t.anon_fails(format('select bot_set_item_price(%L, %L, 1)',
+    t.id('owner'), t.id('item')), 'permission denied');
+
+  -- Публикация. Тише и злее: владелец неделю ждёт заявок и решает, что
+  -- платформа не работает.
+  perform t.anon_fails(format('select bot_set_item_status(%L, %L, ''hidden'')',
+    t.id('owner'), t.id('item')), 'permission denied');
+
+  perform t.anon_fails(format('select count(*) from bot_my_items(%L)', t.id('owner')),
+    'permission denied');
+  perform t.anon_fails(format('select count(*) from bot_profile(%L)', t.id('owner')),
+    'permission denied');
+  perform t.anon_fails(format('select count(*) from bot_pending_reviews(%L)', t.id('owner')),
+    'permission denied');
+  perform t.anon_fails(format(
+    'select submit_support_message(%L, ''Обращение, которого владелец не писал'')',
+    t.id('owner')), 'permission denied');
+
+  -- Проверяем не только отказ, но и его следствие. Отказ, после которого
+  -- запись всё-таки появилась, — это не отказ.
+  perform t.assert(
+    (select daily_price from items where id = t.id('item')) = v_price
+    and (select status from items where id = t.id('item'))::text = v_st
+    and (select count(*) from support_messages where user_id = t.id('owner')) = v_cnt,
+    'после отказов ничего не изменилось — ни цена, ни публикация, ни обращения');
+end $$;
+
+-- Уведомление участнику. Пока право было у anon, бот работал каналом
+-- доставки чужого текста: сообщение приходило в Telegram подписанным
+-- платформой, и отличить его от настоящего человек не мог.
+do $$
+declare v_cnt integer;
+begin
+  select count(*) into v_cnt from notifications where user_id = t.id('owner');
+
+  perform t.anon_fails(format(
+    'select notify_user(%L, null, ''moderator_message'', ''Срочно'', ''Перейдите по ссылке'')',
+    t.id('owner')), 'permission denied');
+
+  perform t.assert(
+    (select count(*) from notifications where user_id = t.id('owner')) = v_cnt,
+    'постороннему нечем написать участнику от имени платформы');
+end $$;
+
+-- Шлюз закрытия сделки и начисление выплат. Своей проверки вызывающего у
+-- них нет и быть не может: их зовут другие security definer функции,
+-- каждая после собственной проверки. Единственная защита — грант.
+select t.anon_fails(format('select settle_booking(%L)', t.id('booking')),
+  'permission denied');
+select t.anon_fails(format('select schedule_payouts(%L)', t.id('booking')),
+  'permission denied');
+select t.anon_fails('select process_overdue_bookings()', 'permission denied');
+
+-- Функции модератора. Здесь дело было не только в гранте:
+-- assert_moderator() пропускала любой вызов с пустым auth.uid(), считая
+-- такой вызов сервисным. У anon он тоже пуст, и на этом держались все
+-- функции модератора разом — включая ту, что отдаёт телефон заявителя.
+select t.anon_fails('select count(*) from join_requests_open()', 'permission denied');
+select t.anon_fails('select count(*) from support_open()', 'permission denied');
+select t.anon_fails(format('select moderator_restore_item(%L, ''ок'')', t.id('item')),
+  'permission denied');
+
+-- Корень отдельно от гранта: даже если грант однажды вернут, проверка
+-- обязана отличать пустой uid анонима от пустого uid сервисного ключа.
+-- Зовём через функцию, право на которую у anon есть намеренно.
+do $$
+declare v_err text;
+begin
+  begin
+    perform t.as_anon('select assert_moderator()::text');
+    v_err := 'ПРОШЛО';
+  exception when others then v_err := sqlerrm;
+  end;
+
+  perform t.assert(v_err like '%только модератор%',
+    'проверка модератора не верит пустому uid: у анонима он тоже пуст');
+end $$;
+
+-- Обратная сторона того же правила: сервисному ключу и планировщику
+-- проверка обязана разрешать, иначе бот и pg_cron перестанут работать.
+-- Без этой проверки предыдущую можно было бы «починить» безусловным
+-- запретом, и стенд бы этого не заметил.
+do $$
+declare v_err text;
+begin
+  perform set_config('request.jwt.claims', '', true);
+
+  begin
+    execute 'set local role service_role';
+    perform assert_moderator();
+    execute 'reset role';
+    v_err := 'разрешено';
+  exception when others then
+    execute 'reset role';
+    v_err := sqlerrm;
+  end;
+  perform t.assert(v_err = 'разрешено', 'сервисному ключу проверка модератора разрешает');
+
+  begin
+    perform assert_moderator();
+    v_err := 'разрешено';
+  exception when others then v_err := sqlerrm;
+  end;
+  perform t.assert(v_err = 'разрешено', 'планировщику проверка модератора разрешает');
+end $$;
+
+
+-- ── Что вообще доступно постороннему ──────────────────────────
+--
+-- Самая дорогая находка 03.09.2026 держалась на одной строке, которую
+-- никто не писал: Supabase выдаёт роли anon грант на каждую новую функцию
+-- в public через `alter default privileges`, а `revoke all ... from
+-- public` его не отбирает — PUBLIC и anon это разные грантополучатели.
+--
+-- Значит по умолчанию открыто ВСЁ, и каждая функция закрыта ровно
+-- настолько, насколько автор миграции об этом вспомнил. Семь миграций
+-- подряд не вспомнили, и посторонний с публикуемым ключом мог менять цену
+-- чужого объявления, снимать его с публикации и читать телефоны
+-- заявителей.
+--
+-- Поэтому проверка идёт не по списку известных дыр, а от обратного:
+-- перечислено то, что анониму МОЖНО. Новая функция без отзыва прав уронит
+-- стенд, и автор решит осознанно, а не по умолчанию платформы.
+--
+-- Расширения (pgcrypto, btree_gist) отсеиваются по pg_depend: их функции
+-- не наши, и держать их в списке значило бы утопить его в шуме.
+
+do $$
+declare
+  v_allowed text[] := array[
+    -- Витрина без входа. Ради них каталог и открыт: человек должен
+    -- увидеть, что перфораторы есть, до того как введёт номер.
+    'item_busy_dates', 'user_deals_count', 'calc_booking_price', 'setting',
+
+    -- Действия, которые сами говорят «нужно войти». Отказ приходит
+    -- по-русски и текстом функции, а не «permission denied» — это лучше
+    -- для человека, и потому грант оставлен намеренно.
+    'create_item', 'item_set_price', 'item_set_status', 'open_damage_dispute',
+    'submit_review', 'support_submit', 'assert_item_owner',
+    'booking_cancel', 'booking_complete', 'booking_confirm',
+    'booking_mark_picked_up', 'booking_mark_returned',
+
+    -- Проверки. Ничего не делают, кроме отказа.
+    'assert_verified', 'assert_moderator', 'has_open_disputes',
+    'decide_dispute_payout',
+
+    -- Триггерные. Вызвать их напрямую нельзя — вне триггера у них нет NEW,
+    -- — а право на них Postgres проверяет при создании триггера, не при
+    -- срабатывании.
+    'bookings_after_insert', 'bookings_before_insert', 'items_before_write',
+    'reviews_before_insert', 'reviews_recalc_rating', 'handle_new_auth_user',
+    'sync_phone_verification', 'users_role_guard', 'link_join_request'
+  ];
+  v_open  text[];
+  v_extra text[];
+begin
+  select array_agg(distinct p.proname order by p.proname) into v_open
+    from pg_proc p
+   where p.pronamespace = 'public'::regnamespace
+     and has_function_privilege('anon', p.oid, 'EXECUTE')
+     and not exists (
+       select 1 from pg_depend d
+        where d.objid = p.oid and d.classid = 'pg_proc'::regclass and d.deptype = 'e');
+
+  select array_agg(x order by x) into v_extra
+    from unnest(v_open) x where x <> all (v_allowed);
+
+  perform t.assert(v_extra is null,
+    'анониму доступно только разрешённое; лишнее: '
+      || coalesce(array_to_string(v_extra, ', '), '—'));
+end $$;
+
+-- Отдельно и словами: функция, принимающая того, за кого действуют,
+-- аргументом, не может быть доступна сессионной роли. Вызывающего в ней
+-- опознать нечем — bot_actor_ok(p_actor) проверяет жертву, а не звонящего.
+--
+-- Правило держится на соглашении об имени параметра, и это осознанно:
+-- p_actor в этом проекте означает ровно «тот, за кого действуем», и все
+-- шестнадцать таких функций названы так с самого начала. Проверка по
+-- имени параметра ловит и ту, которую напишут завтра.
+do $$
+declare v_open text[];
+begin
+  select array_agg(p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')'
+                   order by p.proname) into v_open
+    from pg_proc p
+   where p.pronamespace = 'public'::regnamespace
+     and 'p_actor' = any (coalesce(p.proargnames, array[]::text[]))
+     and (has_function_privilege('anon', p.oid, 'EXECUTE')
+       or has_function_privilege('authenticated', p.oid, 'EXECUTE'));
+
+  perform t.assert(v_open is null,
+    'функции с p_actor закрыты обеим сессионным ролям; открыты: '
+      || coalesce(array_to_string(v_open, ', '), '—'));
+end $$;
+
+-- И проверка самой проверки: список p_actor-функций не должен внезапно
+-- опустеть. Пустой массив прошёл бы предыдущий тест с тем же успехом, что
+-- и правильно закрытые шестнадцать, — а означал бы, что соглашение об
+-- имени сломали и правило больше ничего не сторожит.
+do $$
+declare v_count integer;
+begin
+  select count(*) into v_count
+    from pg_proc p
+   where p.pronamespace = 'public'::regnamespace
+     and 'p_actor' = any (coalesce(p.proargnames, array[]::text[]));
+
+  perform t.assert(v_count >= 16,
+    'функций с p_actor найдено ' || v_count || ' — соглашение об имени живо');
+end $$;

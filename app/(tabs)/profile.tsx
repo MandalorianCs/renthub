@@ -176,6 +176,22 @@ export default function Profile() {
           )}
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </Pressable>
+
+        {/* Дверь к живому человеку.
+            До 03.09.2026 её здесь не было: канал поддержки умел принимать
+            обращение только из Telegram, хотя ссылку на продукт дают на
+            приложение. Человек, у которого что-то пошло не так со сделкой,
+            находил в профиле телефон, почту и рейтинг — и ни одного места,
+            куда написать. */}
+        <Pressable
+          style={({ pressed }) => [s.linkRow, tap({ pressed })]}
+          onPress={() => router.push('/support')}
+        >
+          <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+          <Text style={s.linkTitle}>Написать организатору</Text>
+          <Text style={s.note}>что-то не так</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
       </Card>
 
       <Card>

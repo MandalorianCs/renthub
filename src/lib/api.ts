@@ -18,6 +18,7 @@ import type {
   Notification,
   Payout,
   Review,
+  MySupportMessage,
   SupportMessage,
   User,
 } from './types';
@@ -216,6 +217,43 @@ export async function fetchSupportMessages(): Promise<SupportMessage[]> {
  */
 export async function closeSupportMessage(id: string) {
   await rpc('support_close', { p_id: id });
+}
+
+/**
+ * Написать организатору из приложения.
+ *
+ * Через RPC, а не вставкой в таблицу: правило приёма — длина текста и
+ * предел в три открытых обращения — общее с ботом и живёт в support_add().
+ * Права на прямую запись у участника нет и не будет: предел, который можно
+ * обойти вставкой, не предел.
+ *
+ * Автор берётся из auth.uid() внутри функции, а не приходит аргументом.
+ * Разница не косметическая: у ботовской двери автор именно аргумент, и
+ * ровно поэтому её нельзя открывать сессионным ролям.
+ */
+export async function submitSupport(text: string) {
+  await rpc('support_submit', { p_text: text });
+}
+
+/**
+ * Свои обращения — что написал и разобрано ли.
+ *
+ * Показывать их обязательно: иначе «я вам писал» превращается в спор без
+ * доказательств, а человек, не увидевший своего сообщения, пишет его ещё
+ * раз и упирается в предел, которого не понимает.
+ *
+ * Выборкой, а не функцией: политика support_read_own уже пускает человека
+ * к своим строкам и только к ним. Фильтр по user_id тут не защита, а
+ * подсказка планировщику — защита в политике.
+ */
+export async function fetchMySupport(userId: string): Promise<MySupportMessage[]> {
+  const { data, error } = await supabase
+    .from('support_messages')
+    .select('id, text, handled_at, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
 }
 
 /**
