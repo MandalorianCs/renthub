@@ -272,6 +272,39 @@ select t.expect_fail(t.id('renter'), format($sql$
   values (%L, %L, %L, 1)
 $sql$, t.id('booking'), t.id('renter'), t.id('owner')), 'duplicate key');
 
+-- Отзыв от чужого имени. Проверялось, что чужой человек не оставит отзыв о
+-- чужой сделке, — но не то, что участник не подпишется ЗА ВТОРУЮ СТОРОНУ.
+--
+-- Это и есть способ нарисовать себе рейтинг: арендатор вставляет строку,
+-- где from_user_id — владелец, а to_user_id — он сам. Правило записано в
+-- политике reviews_insert_own как with check (from_user_id = auth.uid()),
+-- и до сих пор его никто не пробовал обойти.
+--
+-- Цена ошибки здесь максимальная из всех: рейтинг — единственное, на что
+-- смотрит человек, решая отдать незнакомцу вещь за 90 000 ₸.
+select t.expect_fail(t.id('renter'), format($sql$
+  insert into reviews (booking_id, from_user_id, to_user_id, rating, comment)
+  values (%L, %L, %L, 5, 'подделанный отзыв о себе')
+$sql$, t.id('booking'), t.id('owner'), t.id('renter')),
+  'row-level security');
+
+-- И в обратную сторону: владелец не подпишется за арендатора.
+select t.expect_fail(t.id('owner'), format($sql$
+  insert into reviews (booking_id, from_user_id, to_user_id, rating)
+  values (%L, %L, %L, 5)
+$sql$, t.id('booking'), t.id('renter'), t.id('owner')),
+  'row-level security');
+
+-- Выплаты второй стороны не видны. Проверялось, что их не видит посторонний
+-- и аноним, — но не то, что арендатор не видит выручку владельца по СВОЕЙ
+-- же сделке. Именно у него есть и повод посмотреть, и знание, куда смотреть.
+do $$
+begin
+  perform t.assert(
+    t.as_value(t.id('renter'), 'select count(*)::text from payouts') = '0',
+    'арендатор не видит выплат владельца — даже по своей сделке');
+end $$;
+
 -- ── Storage ───────────────────────────────────────────────────
 
 select t.expect_fail(t.id('renter'), format($sql$
