@@ -530,6 +530,29 @@ begin
     t.as_value(t.id('stranger'), 'select count(*)::text from moderation_people()')::int >= 4,
     'модератор видит список участников');
 
+  -- Сигналы, ради которых блокировка обычно и случается. Без них кнопка
+  -- «заблокировать» нажимается вслепую: «4 объявления · 2 аренды» не
+  -- отвечает на вопрос, что с человеком не так.
+  perform t.assert(
+    t.as_value(t.id('stranger'), format(
+      'select coalesce(rating::text, ''нет'') from moderation_people() where id = %L',
+      t.id('owner'))) <> '',
+    'в списке виден рейтинг участника');
+
+  perform t.assert(
+    t.as_value(t.id('stranger'), format(
+      'select disputes::text from moderation_people() where id = %L', t.id('owner')))::int >= 0,
+    'в списке видно число споров');
+
+  -- Разбор человеком считается отдельно: спор ниже порога закрывается сам
+  -- и о поведении говорит мало, а дошедший до модератора означает, что
+  -- договориться не вышло.
+  perform t.assert(
+    t.as_value(t.id('stranger'), format(
+      'select (disputes >= disputes_manual)::text from moderation_people() where id = %L',
+      t.id('owner'))) = 'true',
+    'разобранных человеком не больше, чем споров всего');
+
   perform t.assert(
     left(t.as_value(t.id('stranger'),
       format('select phone from moderation_people() where id = %L', t.id('owner'))), 2) = '+7',

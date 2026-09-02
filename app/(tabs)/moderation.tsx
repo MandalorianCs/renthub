@@ -18,7 +18,7 @@ import {
   resolveDispute,
   setUserBlocked,
 } from '../../src/lib/api';
-import { formatDate, formatDateRange, formatTenge, plural } from '../../src/lib/format';
+import { formatDate, formatDateRange, formatTenge, plural, ratingLabel } from '../../src/lib/format';
 import { copyText } from '../../src/lib/share';
 import { humanizeError } from '../../src/lib/supabase';
 import type {
@@ -258,6 +258,35 @@ function PersonRow({ person, onChanged }: { person: ModerationPerson; onChanged:
             {person.telegram ? ' · Telegram' : ''}
             {person.verified ? '' : ' · номер не подтверждён'}
           </Text>
+          {/* Сигналы, ради которых блокировка обычно и случается. Кнопка
+              рядом закрывает человеку сдачу и аренду — нажимать её, глядя
+              на «4 объявления · 2 аренды», значит решать по ощущению.
+
+              Строка появляется, только когда есть что сказать: у нового
+              участника ни оценок, ни споров, и «★ — · споров 0» заняло бы
+              место, ничего не сообщив. */}
+          {person.ratings_count > 0 || person.disputes > 0 ? (
+            <Text style={s.personMeta}>
+              {/* ratingLabel, а не своя строка: правило «ноль оценок — это
+                  не ноль звёзд» уже записано там и работает на витрине.
+                  Второе выражение того же разошлось бы через месяц. */}
+              {person.ratings_count > 0
+                ? `★ ${ratingLabel(person.rating, person.ratings_count)}`
+                : 'оценок пока нет'}
+              {person.disputes > 0
+                ? ` · ${plural(person.disputes, 'спор', 'спора', 'споров')}`
+                : ''}
+              {/* Разбор человеком выделен цветом: спор ниже порога
+                  закрывается сам и о поведении говорит мало, а дошедший до
+                  модератора означает, что договориться не вышло. */}
+              {person.disputes_manual > 0 ? (
+                <Text style={{ color: colors.danger }}>
+                  {` · с разбором: ${person.disputes_manual}`}
+                </Text>
+              ) : null}
+            </Text>
+          ) : null}
+
           {person.blocked && person.blocked_reason ? (
             <Text style={[s.personMeta, { color: colors.danger }]}>
               Причина: {person.blocked_reason}

@@ -81,6 +81,13 @@ export type ModerationPerson = {
   blocked_reason: string | null;
   items: number;
   bookings: number;
+  /** Как его оценили те, кто уже имел с ним дело. null — оценок ещё не было. */
+  rating: number | null;
+  ratings_count: number;
+  /** Сколько раз доходило до спора — по обеим ролям. */
+  disputes: number;
+  /** Из них дошедших до человека: авторешённые о поведении говорят мало. */
+  disputes_manual: number;
   created_at: string;
 };
 
