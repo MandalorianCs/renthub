@@ -493,6 +493,68 @@ begin
 end $$;
 
 
+-- ── Что осталось оценить ──────────────────────────────────────
+--
+-- Таблица «чей ход» говорит про закрытую сделку: «оцените вторую
+-- сторону — это единственное, что осталось». Значит система называет это
+-- ходом человека, и сделать его должно быть можно не только из одного
+-- пролистанного уведомления.
+
+do $$
+declare
+  v_before integer;
+  v_after  integer;
+  v_id     uuid;
+begin
+  select count(*) into v_before from bot_pending_reviews(t.id('owner'));
+  perform t.assert(v_before > 0,
+    'у владельца есть закрытая сделка без его оценки');
+
+  -- Ставим оценку — сделка обязана уйти из списка. Иначе бот предлагал
+  -- бы оценить то, что уже оценено, и человек решил бы, что не сохранилось.
+  select id into v_id from bot_pending_reviews(t.id('owner')) limit 1;
+
+  -- Кого оцениваем, берём из самой сделки: подпись функции требует явного
+  -- получателя, и подставлять сюда что попало нельзя.
+  perform bot_submit_review(
+    t.id('owner'), v_id,
+    (select case when b.owner_id = t.id('owner') then b.renter_id else b.owner_id end
+       from bookings b where b.id = v_id),
+    5, null);
+
+  select count(*) into v_after from bot_pending_reviews(t.id('owner'));
+  perform t.assert(v_after = v_before - 1,
+    'оценённая сделка ушла из списка');
+end $$;
+
+-- Чужие сделки в список не попадают: граница проходит по запросу, а не
+-- по аккуратности того, кто пишет бота.
+do $$
+declare v_alien integer;
+begin
+  select count(*) into v_alien
+    from bot_pending_reviews(t.id('owner')) p
+    join bookings b on b.id = p.id
+   where b.owner_id <> t.id('owner') and b.renter_id <> t.id('owner');
+
+  perform t.assert(v_alien = 0, 'в списке только свои сделки');
+end $$;
+
+-- Без привязки к Telegram список не отдаётся — тот же пропуск, что у
+-- остальных обёрток.
+do $$
+declare v_err text;
+begin
+  begin
+    perform * from bot_pending_reviews(t.id('stranger'));
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+  perform t.assert(v_err like '%не привязан к Telegram%',
+    'без привязки список не отдаётся');
+end $$;
+
+
 -- ── Претензия по порче из чата ────────────────────────────────
 --
 -- Единственная обёртка бота, которую стенд не трогал вовсе, — и та, где

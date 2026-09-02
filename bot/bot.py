@@ -702,7 +702,19 @@ async def on_deals(message: Message) -> None:
             for role in ("owner_id", "renter_id")
         ]
 
-    if not as_owner and not as_renter:
+        # Что осталось оценить. Таблица «чей ход» называет это ходом
+        # человека — «оцените вторую сторону, это единственное, что
+        # осталось», — а сделать его в чате можно было ровно один раз, из
+        # уведомления о закрытии. Пролистал — и негде: /сделки показывает
+        # только живые, закрытая туда не попадает по построению.
+        try:
+            to_rate = await rest_rpc(client, "bot_pending_reviews", {"p_actor": user_id})
+        except RentHubError:
+            # Список — дополнение к главному ответу. Его сбой не должен
+            # мешать человеку увидеть свои живые сделки.
+            to_rate = []
+
+    if not as_owner and not as_renter and not to_rate:
         await message.answer(
             "Сейчас активных сделок нет.\n\n"
             "Каталог открыт без входа: "
@@ -745,6 +757,25 @@ async def on_deals(message: Message) -> None:
     lines.append("https://mandaloriancs.github.io/renthub/app/")
 
     await message.answer("\n".join(lines), parse_mode="HTML")
+
+    # Оценки идут отдельными сообщениями: у одного сообщения одна клавиатура,
+    # а звёзды нужны к каждой сделке свои. Тот же приём, что в /вещи.
+    #
+    # После списка, а не до: человек открывает /сделки ради того, что идёт
+    # сейчас. Просьба оценить закрытое сверху отодвинула бы главное.
+    for row in to_rate:
+        await message.answer(
+            f"Оцените сделку: <b>{esc(row['title'])}</b>\n"
+            f"Вторая сторона — {esc(row['other_name'] or 'без имени')}.\n\n"
+            "Рейтинг и есть то, ради чего незнакомец соглашается отдать вещь.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[[
+                    InlineKeyboardButton(text="★" * n, callback_data=f"r:{n}:{row['id']}")
+                    for n in range(1, 6)
+                ]]
+            ),
+        )
 
 
     # Отдельными сообщениями — только то, где ход за человеком. Кнопка под
