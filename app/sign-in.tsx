@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -33,6 +34,7 @@ const AUTH_MODE = process.env.EXPO_PUBLIC_AUTH_MODE ?? 'invite';
 
 export default function SignIn() {
   const [tab, setTab] = useState<'invite' | 'sms' | 'email'>(AUTH_MODE === 'sms' ? 'sms' : 'invite');
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -89,6 +91,21 @@ export default function SignIn() {
           )}
 
           {error ? <Text style={s.error}>{error}</Text> : null}
+
+          {/* Дверь туда, куда экран и так отправляет словами.
+              Форма говорит «каталог можно смотреть и без входа», но пути
+              туда не давала: человек, которого сюда привёл маршрутный
+              сторож — открыл ссылку на сделку, пришёл по рекламе, — упирался
+              в форму без выхода. Сказать про возможность и не дать её
+              читается как отговорка. */}
+          <Pressable
+            onPress={() => router.replace('/')}
+            style={({ pressed }) => [s.exit, pressed && { opacity: 0.6 }]}
+            accessibilityRole="link"
+            accessibilityLabel="Смотреть каталог без входа"
+          >
+            <Text style={s.exitText}>Смотреть каталог без входа</Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -422,5 +439,12 @@ const s = StyleSheet.create({
   stepBody: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 19 },
   note: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
   noteText: { flex: 1, fontSize: 13, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 19 },
+  exit: { alignSelf: 'center', paddingVertical: 14, paddingHorizontal: 8 },
+  exitText: {
+    fontSize: 15,
+    fontFamily: typeface[500],
+    color: colors.textMuted,
+    textDecorationLine: 'underline',
+  },
   error: { color: colors.danger, fontSize: 14, fontFamily: typeface[400], textAlign: 'center' },
 });
