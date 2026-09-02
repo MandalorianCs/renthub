@@ -334,6 +334,32 @@ async def user_by_telegram(client: httpx.AsyncClient, telegram_id: int) -> dict 
 # завести второй источник правды о том, ждут ли чего-то от человека, —
 # и он разошёлся бы с приложением на первой же правке текста.
 
+# Справочник инструмента — тот же приём и по той же причине: список читают
+# и форма публикации в приложении, и шаг названия здесь. Один файл на оба
+# входа, иначе в чате и на экране предлагались бы разные вещи.
+with open(os.path.join(ROOT, "shared", "tools.json"), encoding="utf-8") as _f:
+    TOOLS = json.load(_f)
+
+
+def tool_example(slug: str) -> str:
+    """Пример названия для категории — тот же, что в placeholder приложения."""
+    cat = TOOLS["categories"].get(slug)
+    return cat["example"] if cat else "Перфоратор Bosch GBH 2-26"
+
+
+def tool_popular(slug: str, limit: int = 4) -> list[str]:
+    """
+    С чего чаще всего начинают в этой категории.
+
+    В чате нет живого поиска по мере набора, как в форме приложения:
+    inline-режим — это отдельный механизм и отдельная настройка у бота.
+    Поэтому здесь показывается короткий список готовых названий кнопками —
+    он закрывает частый случай и не заставляет ничего печатать.
+    """
+    cat = TOOLS["categories"].get(slug)
+    return list(cat["popular"][:limit]) if cat else []
+
+
 with open(os.path.join(ROOT, "shared", "next-move.json"), encoding="utf-8") as _f:
     NEXT_MOVE = json.load(_f)
 
@@ -887,13 +913,57 @@ async def on_publish(message: Message, state: FSMContext) -> None:
 
 @dp.callback_query(F.data.startswith("c:"), NewItem.category)
 async def on_pick_category(query: CallbackQuery, state: FSMContext) -> None:
-    await state.update_data(category=query.data.split(":", 1)[1])
+    slug = query.data.split(":", 1)[1]
+    await state.update_data(category=slug)
     await state.set_state(NewItem.title)
     await query.answer()
     await query.message.edit_reply_markup(reply_markup=None)
+    popular = tool_popular(slug)
+
     await query.message.answer(
-        "Название — коротко и узнаваемо: «Перфоратор Bosch GBH 2-26».\n\n"
+        f"Название — коротко и узнаваемо: «{tool_example(slug)}».\n\n"
         "По нему ищут, поэтому марка и модель работают лучше, чем «хороший инструмент»."
+        + ("\n\nМожно взять готовое и дописать модель:" if popular else ""),
+        reply_markup=(
+            InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text=name, callback_data=f"n:{i}")]
+                    for i, name in enumerate(popular)
+                ]
+            )
+            if popular
+            else None
+        ),
+    )
+
+
+@dp.callback_query(F.data.startswith("n:"), NewItem.title)
+async def on_pick_name(query: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    popular = tool_popular(data.get("category", ""))
+
+    index = int(query.data.split(":", 1)[1])
+    if index >= len(popular):
+        # Список мог измениться между показом и нажатием — например, если бот
+        # перезапустили с новым справочником. Просить набрать руками честнее,
+        # чем подставить не то, что человек видел на кнопке.
+        await query.answer("Список обновился, напишите название сами", show_alert=True)
+        return
+
+    name = popular[index]
+    await query.answer()
+    await query.message.edit_reply_markup(reply_markup=None)
+
+    # Название не подставляется молча: человек должен увидеть, что именно
+    # записано, и понять, что модель ещё можно дописать следующим шагом —
+    # в чате нет поля, в которое он мог бы заглянуть.
+    await state.update_data(title=name)
+    await state.set_state(NewItem.price)
+    await query.message.answer(
+        f"Записал: <b>{esc(name)}</b>\n\n"
+        "Сколько берёте за сутки? Напишите числом, в тенге.\n\n"
+        "Платформа удержит 20% — остальное ваше.",
+        parse_mode="HTML",
     )
 
 

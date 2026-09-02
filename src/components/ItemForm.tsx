@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { fetchCategories, uploadPhoto } from '../lib/api';
 import { Field } from './ui';
@@ -10,6 +10,7 @@ import { formatTenge } from '../lib/format';
 import { COMMISSION_PCT } from '../lib/pricing';
 import { humanizeError } from '../lib/supabase';
 import type { Category } from '../lib/types';
+import { exampleFor, suggestTitles } from '../lib/tools';
 import { colors, radius, spacing, typeface } from '../theme';
 
 /**
@@ -93,6 +94,21 @@ export function ItemForm({
   }, []);
 
   const price = Number(dailyPrice) || 0;
+  /**
+   * Подсказки показываются, пока поле в фокусе, и гаснут после выбора.
+   *
+   * Держать их всегда нельзя: выбравший подсказку человек продолжает
+   * дописывать индекс модели, и список, живущий под пальцем, перекрывает
+   * то, что он печатает. Гасить сразу после первого символа тоже нельзя —
+   * подсказки нужнее всего как раз в середине набора.
+   */
+  const [titleFocused, setTitleFocused] = useState(false);
+
+  const suggestions = useMemo(
+    () => (titleFocused ? suggestTitles(category, title) : []),
+    [titleFocused, category, title],
+  );
+
   const problem = validate({ title, category, price, photoCount: photos.length });
 
   async function pickPhoto() {
@@ -147,9 +163,37 @@ export function ItemForm({
           label="Название"
           value={title}
           onChangeText={setTitle}
-          placeholder="Перфоратор Bosch GBH 2-26"
-          hint="Модель в названии — по ней ищут чаще всего"
+          onFocus={() => setTitleFocused(true)}
+          // Задержка перед скрытием: без неё нажатие на подсказку не
+          // успевает сработать — список исчезает раньше, чем палец до него
+          // доходит, и кнопка выглядит неработающей.
+          onBlur={() => setTimeout(() => setTitleFocused(false), 150)}
+          placeholder={exampleFor(category)}
+          hint={
+            category
+              ? 'Модель в названии — по ней ищут чаще всего'
+              : 'Выберите категорию выше — покажем подсказки'
+          }
         />
+
+        {suggestions.length > 0 ? (
+          <View style={s.suggests}>
+            {suggestions.map((text: string) => (
+              <Pressable
+                key={text}
+                onPress={() => {
+                  setTitle(text);
+                  setTitleFocused(false);
+                }}
+                style={({ pressed }) => [s.suggest, pressed && { opacity: 0.6 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Подставить название: ${text}`}
+              >
+                <Text style={s.suggestText} numberOfLines={1}>{text}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
         <Field
           label="Описание"
           value={description}
@@ -295,6 +339,22 @@ const s = StyleSheet.create({
   note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
   error: { fontSize: 14, fontFamily: typeface[400], color: colors.danger },
 
+  suggests: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: -spacing.xs,
+  },
+  suggest: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    maxWidth: '100%',
+  },
+  suggestText: { fontSize: 13, fontFamily: typeface[500], color: colors.text },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
     paddingHorizontal: spacing.md,
