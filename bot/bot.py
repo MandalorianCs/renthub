@@ -187,6 +187,26 @@ class Support(StatesGroup):
     waiting = State()
 
 
+class JoinNote(StatesGroup):
+    """
+    Вопрос от того, у кого аккаунта ещё нет.
+
+    Отдельно от Support, потому что дверь другая. Support пишет в
+    support_messages и требует user_id — у заявителя его нет и не будет
+    до приглашения. Здесь текст уходит в join_requests.note, то есть
+    в ту же строку очереди модерации, где организатор и так видит
+    номер и имя.
+
+    Зачем это вообще. С клиентского сайта на бота ведёт строка «Вопрос
+    организатору», и приходит по ней ровно тот, у кого аккаунта нет, —
+    человек с рекламы. До этой правки он получал «Сначала свяжите
+    Telegram», проходил заявку и оставался с вопросом, который никто
+    не услышал: спросить было негде, а ответить некому и не на что.
+    """
+
+    waiting = State()
+
+
 class NewPrice(StatesGroup):
     """
     Смена цены — единственный шаг, и это осознанно.
@@ -592,6 +612,16 @@ async def on_contact(message: Message) -> None:
                     "посмотреть, что уже сдают: /каталог.",
                     reply_markup=ReplyKeyboardRemove(),
                 )
+                # Клавиатура убрана предыдущим сообщением, поэтому кнопка —
+                # отдельным: две разметки в одном сообщении Telegram не
+                # принимает.
+                await message.answer(
+                    "Есть вопрос? Напишу его организатору вместе с заявкой.",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(
+                text="Задать вопрос организатору", callback_data="j:ask")]]
+        ),
+                )
             else:
                 await message.answer(
                     f"Заявка принята: {phone}.\n\n"
@@ -599,6 +629,13 @@ async def on_contact(message: Message) -> None:
                     "выдаст пароль, и вы получите сообщение сюда же.\n\n"
                     "Пока можно посмотреть витрину: /каталог или /найти перфоратор.",
                     reply_markup=ReplyKeyboardRemove(),
+                )
+                await message.answer(
+                    "Есть вопрос? Напишу его организатору вместе с заявкой.",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(
+                text="Задать вопрос организатору", callback_data="j:ask")]]
+        ),
                 )
             return
 
@@ -698,6 +735,11 @@ async def on_cancel(message: Message, state: FSMContext) -> None:
         text = "Отменил, цена осталась прежней."
     elif current == Support.waiting.state:
         text = "Отменил, сообщение не отправлено."
+    elif current == JoinNote.waiting.state:
+        # Ветка обязательна, а не для полноты: без неё человек, отменивший
+        # вопрос, читал бы «объявление не опубликовано» — ровно та ошибка,
+        # ради которой этот разбор по состояниям и появился.
+        text = "Отменил, вопрос не отправлен. Заявка на участие осталась в очереди."
     else:
         text = "Отменил, объявление не опубликовано. Начать заново — /сдать."
 
@@ -1284,6 +1326,92 @@ async def on_item_photo(message: Message, state: FSMContext) -> None:
             inline_keyboard=[[InlineKeyboardButton(text="🚀 Опубликовать", callback_data="p:go")]]
         ),
     )
+
+
+# ── Вопрос от того, у кого аккаунта ещё нет ───────────────────
+#
+# Текст уходит в join_requests.note той же функцией submit_join_request:
+# при открытой заявке она не создаёт вторую строку, а дописывает note.
+# Поэтому отдельной функции в базе не понадобилось — и правило «одна
+# открытая заявка на номер» осталось в одном месте.
+
+@dp.callback_query(F.data == "j:ask")
+async def on_join_ask(query: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(JoinNote.waiting)
+    await query.answer()
+    await query.message.edit_reply_markup(reply_markup=None)
+    await query.message.answer(
+        "Напишите вопрос одним сообщением — организатор прочитает его "
+        "вместе с заявкой.\n\n"
+        "Передумали — /отмена."
+    )
+
+
+@dp.message(JoinNote.waiting, F.text)
+async def on_join_note(message: Message, state: FSMContext) -> None:
+    if (message.text or "").strip().startswith("/"):
+        await message.answer("Жду вопрос для организатора. Или /отмена.")
+        return
+
+    text = (message.text or "").strip()
+
+    # Границы те же, что у join_requests_note_check в базе. Проверяем
+    # здесь по той же причине, что длину названия при публикации: отказ
+    # придёт по-английски именем ограничения, а исправить его человеку
+    # будет нечем — он уже написал.
+    if len(text) < 2:
+        await message.answer("Слишком коротко — напишите, что случилось.")
+        return
+    if len(text) > 300:
+        await message.answer(
+            f"Длинновато: {len(text)} символов, а поместится 300. "
+            "Оставьте самое главное — остальное обсудите с организатором."
+        )
+        return
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        # Номер берём из уже поданной заявки: спрашивать его второй раз
+        # значит просить человека набрать руками то, что Telegram уже
+        # подтвердил кнопкой.
+        rows = await rest_get(
+            client,
+            "join_requests",
+            {
+                "telegram_id": f"eq.{message.from_user.id}",
+                "handled_at": "is.null",
+                "select": "phone",
+                "limit": "1",
+            },
+        )
+
+        if not rows:
+            await state.clear()
+            await message.answer(
+                "Не нашёл вашу заявку — возможно, организатор уже завёл "
+                "аккаунт. Нажмите /start, и напишите снова через /поддержка."
+            )
+            return
+
+        try:
+            await rest_rpc(
+                client,
+                "submit_join_request",
+                {"p_phone": rows[0]["phone"], "p_note": text},
+            )
+        except RentHubError as error:
+            await message.answer(str(error))
+            return
+
+    await state.clear()
+    await message.answer(
+        "Передал. Организатор увидит вопрос рядом с вашей заявкой и "
+        "ответит сюда же, когда заведёт аккаунт."
+    )
+
+
+@dp.message(JoinNote.waiting)
+async def on_join_note_wrong(message: Message) -> None:
+    await message.answer("Здесь нужен текст. Или /отмена.")
 
 
 # ── Ответ не того вида ────────────────────────────────────────
@@ -2203,11 +2331,23 @@ async def on_support_command(message: Message, state: FSMContext) -> None:
         user = await user_by_telegram(client, message.from_user.id)
 
     if user is None:
-        # Не тупик: /start — это и есть привязка, а без неё обращение
-        # некуда записать и некому ответить.
+        # Сюда приходит человек с клиентского сайта: строка «Вопрос
+        # организатору» в подвале ведёт на бота, и нажимает её как раз
+        # тот, у кого аккаунта нет.
+        #
+        # Раньше он получал «Сначала свяжите Telegram» и упирался: /start
+        # приводил к заявке на участие, а вопрос, ради которого он
+        # пришёл, нигде не оставался. Обещание сайта — «напишите нам» —
+        # выполнялось наполовину.
+        #
+        # Теперь путь назван целиком, и вопрос доезжает: после заявки
+        # кнопка кладёт его в join_requests.note, то есть в ту же строку
+        # очереди, где организатор видит номер и имя.
         await message.answer(
-            "Сначала свяжите Telegram с аккаунтом — /start. "
-            "Без этого мне некуда записать обращение и некуда прислать ответ."
+            "Пилот идёт по приглашениям, и аккаунта с этим чатом пока нет.\n\n"
+            "Нажмите /start и поделитесь номером — это займёт одно нажатие. "
+            "Сразу после этого можно будет написать вопрос: он уйдёт "
+            "организатору вместе с заявкой."
         )
         return
 
