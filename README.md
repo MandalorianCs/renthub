@@ -238,7 +238,7 @@ npm run demo:clear                             # убрать её
 npm run icons                                  # пересобрать иконки и og:image
 npm run demo:photos                            # нарисовать заглушки для витрины
 npm run queue                                  # кто оставил заявку и ждёт приглашения
-npm run check:bot                              # нет ли в боте двух функций с одним именем
+npm run check:bot                              # два имени в боте и списки статусов против базы
 npm run check:pitch                            # сходятся ли числа деки между собой и с кодом
 ```
 

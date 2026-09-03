@@ -121,7 +121,7 @@ npm run moderator -- +7701...       право разбирать споры
 npm run email -- +7701... a@mail.com  привязать настоящую почту для входа
 npm run demo:photos                 заглушки для витрины, если фото нет
 npm run queue                       очередь заявок на участие
-npm run check:bot                   переопределения верхнего уровня в bot.py
+npm run check:bot                   два имени в боте и списки статусов против базы
 npm run check:pitch                 сходятся ли числа деки между собой и с кодом
 npm run demo:fill                   демо-объявления из demo-photos/
 npm run demo:clear                  убрать их
