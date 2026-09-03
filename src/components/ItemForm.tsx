@@ -7,7 +7,7 @@ import { fetchCategories, uploadPhoto } from '../lib/api';
 import { Field } from './ui';
 import { useAuth } from '../lib/auth';
 import { formatTenge } from '../lib/format';
-import { COMMISSION_PCT } from '../lib/pricing';
+import { COMMISSION_PCT, MAX_DAILY_PRICE } from '../lib/pricing';
 import { humanizeError } from '../lib/supabase';
 import type { Category } from '../lib/types';
 import { exampleFor, suggestTitles } from '../lib/tools';
@@ -55,6 +55,12 @@ function validate(v: {
   if (v.title.trim().length < 3) return 'Название — минимум 3 символа';
   if (!v.category) return 'Выберите категорию';
   if (v.price <= 0) return 'Укажите цену за сутки';
+  // Верхняя граница — не про дорогие вещи, а про лишний ноль: с ним
+  // объявление не бронируют, и владелец узнаёт об этом тишиной. То же
+  // правило в базе (assert_item_price), здесь — чтобы сказать до
+  // отправки, а не после собранных фото.
+  if (v.price > MAX_DAILY_PRICE)
+    return 'Цена за сутки больше миллиона — проверьте, нет ли лишнего нуля';
   if (v.photoCount < MIN_PHOTOS) return `Добавьте минимум ${MIN_PHOTOS} фото состояния вещи`;
   return null;
 }
