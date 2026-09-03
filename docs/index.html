@@ -148,8 +148,21 @@ header {
 
 /* Текстовые ссылки под кнопками героя: третий по важности путь не должен
    выглядеть третьей кнопкой — три равных кнопки не выбирают вовсе. */
-.hero-links { margin-top: 18px; font-size: 15px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 10px; }
-.hero-links a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+/* Измерено на 375 px: у этих ссылок высота была 24 px — ровно строка
+   текста, ноль отступов сверху и снизу. Это первое, во что человек с
+   рекламы целится пальцем, а палец накрывает около 44 px: промах
+   попадает в пустоту, и человек читает это как «ссылка не работает».
+
+   Отступ вертикальный, а не рамка: внешне ничего не меняется, растёт
+   только площадь попадания. Отрицательный margin-top гасит прибавку,
+   чтобы ряд не отъехал от заголовка. */
+.hero-links { margin-top: 8px; font-size: 15px; color: var(--muted); display: flex; flex-wrap: wrap;
+  gap: 10px 16px;
+  /* align-items обязателен вместе с отступом у ссылок: без него точки-
+     разделители растягиваются на те же 44 px, а их текст остаётся
+     наверху коробки — измерено, центр ссылки 721, текст точки выше. */
+  align-items: center; }
+.hero-links a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; padding: 10px 0; }
 .hero-links a:hover { color: var(--text); }
 
 /* График: та же карточка, что у остальных блоков. Прокрутка по
@@ -421,7 +434,10 @@ td:first-child { font-weight: 700; }
    единственное место страницы, где ссылки стоят в ряд через точку, и
    правило на них должно быть одно. */
 .foot-links{display:flex; flex-wrap:wrap; gap:10px; align-items:center; font-size:14px}
-.foot-links a{color:var(--muted); text-decoration:none; border-bottom:1px solid transparent; transition:color .15s, border-color .15s}
+/* Та же мера, что у ссылок первого экрана: было 23 px. Отступ здесь
+   вертикальный только сверху и снизу — подчёркивание при наведении
+   должно оставаться под текстом, а не под пустотой. */
+.foot-links a{color:var(--muted); text-decoration:none; padding:10px 0; border-bottom:1px solid transparent; transition:color .15s, border-color .15s}
 .foot-links a:hover{color:var(--accent); border-bottom-color:var(--accent)}
 /* Разделитель цветом рамки давал контраст 1,23:1 — измерено в браузере,
    то есть его не было видно вовсе, и ссылки читались как два случайно
