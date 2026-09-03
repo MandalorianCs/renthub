@@ -417,6 +417,17 @@ td:first-child { font-weight: 700; }
 }
 .person .role { font-size: 13px; color: var(--muted); }
 
+/* Строка ссылок в подвале. Отдельным правилом, а не инлайном: подвал —
+   единственное место страницы, где ссылки стоят в ряд через точку, и
+   правило на них должно быть одно. */
+.foot-links{display:flex; flex-wrap:wrap; gap:10px; align-items:center; font-size:14px}
+.foot-links a{color:var(--muted); text-decoration:none; border-bottom:1px solid transparent; transition:color .15s, border-color .15s}
+.foot-links a:hover{color:var(--accent); border-bottom-color:var(--accent)}
+/* Разделитель цветом рамки давал контраст 1,23:1 — измерено в браузере,
+   то есть его не было видно вовсе, и ссылки читались как два случайно
+   разошедшихся слова. Точка декоративная (aria-hidden), поэтому берём
+   приглушённый текст вполсилы: заметно глазу, не спорит со ссылками. */
+.foot-links span{color:var(--muted); opacity:.5}
 footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
 .foot { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; align-items: center; }
 .foot p { font-size: 14px; color: var(--muted); }
@@ -1580,6 +1591,32 @@ h2 {
           что петля работает, а не гладкость платежей.
         </p>
       </details>
+
+      <!-- Последний вопрос — тот, ради которого человек и открыл ответы.
+           Девять вопросов выше объясняют механику, но у пришедшего по
+           рекламе всегда остаётся десятый, которого в списке нет. До сих
+           пор страница на него отвечала молчанием: ни адреса, ни кнопки,
+           ни строки в подвале. Молчание в ответ на вопрос читается так же,
+           как молчание в ответ на нажатие, — «здесь никого нет».
+
+           Личный телефон в подвал не кладём: заявки уходили бы туда, где
+           их некому считать, а чужой контакт становился бы публичным. Бот
+           для этого уже есть — обращение попадает в очередь модерации, а
+           ответ приходит обратно тем же ботом. -->
+      <details>
+        <summary>А если мой вопрос не из этого списка?</summary>
+        <p>
+          Напишите нам в Telegram — команда
+          <strong>/поддержка</strong> у
+          <a href="https://t.me/renthub_kokshetau_bot" target="_blank" rel="noopener">бота</a>.
+          Обращение попадает организатору пилота, ответ приходит обратно
+          в тот же чат.
+        </p>
+        <p>
+          Отвечает человек, а не автоответчик: пилот идёт в одном городе, и
+          участников пока меньше, чем вопросов, которые они успевают задать.
+        </p>
+      </details>
     </div>
   </div>
 </section>
@@ -1646,6 +1683,13 @@ h2 {
   <div class="wrap foot">
     <div class="logo">RentHUB<span>.</span></div>
     <p>Пилот в Кокшетау · строительный инструмент · 2026</p>
+    <!-- Подвал — то место, куда идут искать контакт, когда не нашли выше.
+         Пусто здесь означало «связаться нельзя». -->
+    <p class="foot-links">
+      <a href="https://t.me/renthub_kokshetau_bot" target="_blank" rel="noopener">Вопрос организатору</a>
+      <span aria-hidden="true">·</span>
+      <a href="app/">Приложение</a>
+    </p>
   </div>
 </footer>
 
