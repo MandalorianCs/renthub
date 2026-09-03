@@ -254,7 +254,14 @@ export default function Catalog() {
     const all: { label: string; visible: boolean }[] = [];
     if (search.trim()) all.push({ label: `поиск «${search.trim()}»`, visible: true });
     if (active) all.push({ label: 'категория', visible: true });
-    if (Number(maxPrice) > 0) all.push({ label: `цена до ${maxPrice} ₸`, visible: false });
+    // Сумма через formatTenge, как все остальные на этом экране: maxPrice —
+    // строка из поля ввода, и в шаблоне она печаталась как есть. Пустой
+    // каталог объяснял причину словами «цена до 15000 ₸», а карточки
+    // рядом показывали «3 500 ₸» — два числа по разным правилам в одном
+    // экране читаются как недоделка, ровно то, о чём предупреждает
+    // докстрока formatRating.
+    if (Number(maxPrice) > 0)
+      all.push({ label: `цена до ${formatTenge(Number(maxPrice))}`, visible: false });
     if (onlyFavorites) all.push({ label: 'только избранное', visible: false });
     if (sort !== 'new') all.push({ label: 'сортировка', visible: false });
     return all;
