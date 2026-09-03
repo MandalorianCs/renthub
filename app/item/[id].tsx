@@ -25,6 +25,7 @@ import { useAuth } from '../../src/lib/auth';
 import { formatDateRange, formatTenge, ratingLabel } from '../../src/lib/format';
 import { calcPrice, countDays, INSURANCE_FEE } from '../../src/lib/pricing';
 import { shareItem } from '../../src/lib/share';
+import { DEMO_NOTICE, isDemoOwner } from '../../src/lib/demo';
 import { humanizeError } from '../../src/lib/supabase';
 import type { BusyRange, Item, ItemWithOwner } from '../../src/lib/types';
 import { colors, elevation, radius, spacing, typeface } from '../../src/theme';
@@ -113,6 +114,7 @@ export default function ItemScreen() {
   }
 
   const isOwnItem = item.owner_id === session?.user.id;
+  const isDemo = isDemoOwner(item.owner?.full_name);
 
   async function book() {
     if (!item || !session || !start || !end) return;
@@ -242,7 +244,29 @@ export default function ItemScreen() {
         )}
       </Card>
 
-      {isOwnItem ? (
+      {isDemo ? (
+        /* Отдельная ветка, а не выключенная кнопка с подписью.
+
+           Календарь и переключатель страховки здесь были бы формой,
+           которую некому отправить: заявка по демонстрационной вещи
+           уходит в pending и остаётся там навсегда — подтверждать её
+           некому, живого владельца у объявления нет. Через срок аренды
+           её молча закрывает планировщик, и человек делает единственно
+           возможный вывод: платформа мёртвая.
+
+           DESIGN.md: причина недоступности — заметным блоком, а не
+           мелким серым под выключенной кнопкой. И кнопка не молчит —
+           она ведёт туда, где действие возможно. */
+        <Card>
+          <Text style={s.sectionTitle}>Демонстрационное объявление</Text>
+          <Text style={s.note}>{DEMO_NOTICE}</Text>
+          <Button
+            title="Смотреть настоящие объявления"
+            variant="secondary"
+            onPress={() => router.push('/')}
+          />
+        </Card>
+      ) : isOwnItem ? (
         <Card>
           <Text style={s.sectionTitle}>Это ваше объявление</Text>
           <Text style={s.note}>Свою вещь забронировать нельзя.</Text>
@@ -373,7 +397,7 @@ export default function ItemScreen() {
     {/* Закреплённая панель: цена и действие остаются на экране, пока
         человек листает описание и календарь. Иначе, докрутив вниз, он
         теряет из виду, сколько это стоит. */}
-    {!isOwnItem ? (
+    {!isOwnItem && !isDemo ? (
       <View style={s.sticky}>
         <View style={{ flex: 1 }}>
           {price && days > 0 && start && end ? (

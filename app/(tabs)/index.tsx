@@ -20,6 +20,7 @@ import type { CatalogSort } from '../../src/lib/api';
 import { fetchCatalog, fetchCategories, fetchFavoriteIds, toggleFavorite } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { formatTenge, plural, ratingLabel } from '../../src/lib/format';
+import { isDemoOwner } from '../../src/lib/demo';
 import { humanizeError } from '../../src/lib/supabase';
 import type { Category, ItemWithOwner } from '../../src/lib/types';
 import { useRefresh } from '../../src/lib/useRefresh';
@@ -529,6 +530,19 @@ function ItemCard({
           </View>
         ) : null}
 
+        {/* Пометка стоит на фото, а не под названием: решение принимают по
+            фото и цене, и узнать, что вещь демонстрационная, человек должен
+            там же, где решает, — а не после нажатия «Забронировать».
+
+            Цвет нейтральный, не терракота: это не действие и не выбор, а
+            подпись к тому, что человек видит. Терракота значит «сюда
+            нажимать» — см. DESIGN.md. */}
+        {isDemoOwner(item.owner?.full_name) ? (
+          <View style={s.demoTag}>
+            <Text style={s.demoTagText}>ДЕМО</Text>
+          </View>
+        ) : null}
+
         {/* Всплытие останавливается вручную: карточка теперь настоящая
             ссылка, и на вебе нажатие на сердечко дошло бы до <a> и открыло
             объявление. Человек хотел отложить вещь, а не уйти с витрины. */}
@@ -731,6 +745,26 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(26,25,23,0.62)',
   },
   photoCountText: { fontSize: 11, fontFamily: typeface[700], color: colors.onScrim },
+  /* Подложка та же, что у счётчика фото двумя правилами выше: обе метки
+     лежат на чужом фоне — на снимке, — и должны читаться одинаково при
+     любом снимке. Значение записано числом, а не токеном, по той же
+     причине, что и там: своего токена под затемнение поверх фотографии
+     в теме нет. */
+  demoTag: {
+    position: 'absolute',
+    left: spacing.sm,
+    top: spacing.sm,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(26,25,23,0.62)',
+  },
+  demoTagText: {
+    fontSize: 10,
+    fontFamily: typeface[800],
+    color: colors.onScrim,
+    letterSpacing: 0.6,
+  },
   heart: {
     position: 'absolute',
     top: spacing.sm,

@@ -29,8 +29,15 @@ const PHOTOS_DIR = join(ROOT, 'demo-photos');
 
 // Владелец демонстрационных объявлений. Отдельный аккаунт, чтобы удаление
 // было безопасным: чистим по владельцу, а не по подстроке в названии.
-const DEMO_PHONE = '+77000000009';
-const DEMO_NAME = 'Демо-витрина RentHUB';
+//
+// Имя лежит в shared/demo-owner.json, а не здесь строкой: по нему приложение
+// узнаёт демонстрационные объявления на витрине и не даёт их бронировать.
+// Пока имя жило только в этом файле, узнать их было нечем — и человек с
+// лендинга видел вещь, неотличимую от настоящей, а заявка по ней уходила в
+// pending навсегда.
+const demoOwner = JSON.parse(readFileSync(join(ROOT, 'shared', 'demo-owner.json'), 'utf8'));
+const DEMO_PHONE = demoOwner.phone;
+const DEMO_NAME = demoOwner.fullName;
 
 const TOOLS = [
   { title: 'Перфоратор Bosch GBH 2-26', category: 'rotary_hammers', price: 3500, deposit: 20000,
