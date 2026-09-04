@@ -28,7 +28,11 @@ export default function Profile() {
     try {
       const [bookings, notifications] = await Promise.all([
         fetchMyBookings(session.user.id),
-        fetchNotifications(session.user.id),
+        // Счётчик непрочитанного — со своим catch по той же причине, что
+        // лента в «Моих вещах»: это цифра над колокольчиком, а история
+        // сделок — содержимое экрана. Терять второе из-за первого нечестный
+        // размен, и он был: отказ счётчика уводил весь профиль в ошибку.
+        fetchNotifications(session.user.id).catch(() => []),
       ]);
       setHistory(bookings.filter((b) => b.status === 'completed'));
       setUnread(notifications.filter((n) => !n.read_at).length);

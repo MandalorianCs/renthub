@@ -51,7 +51,15 @@ export default function MyItems() {
         fetchMyItems(session.user.id),
         fetchOwnerBookings(session.user.id),
         fetchPayouts(session.user.id),
-        fetchNotifications(session.user.id),
+        // Лента событий — со своим catch, как счётчик сделок на экране
+        // владельца и «похожие» на карточке объявления. Она здесь
+        // дополнение: экран отвечает на вопрос «что произошло, пока меня не
+        // было», и отвечают на него вещи, брони и заработок. Без ленты он
+        // читается, без заработка — нет.
+        //
+        // Раньше её отказ уводил в ErrorState всё, включая сумму, ради
+        // которой владелец сюда и заходит.
+        fetchNotifications(session.user.id).catch(() => []),
       ]);
       setItems(i);
       setBookings(b);
