@@ -74,6 +74,20 @@ export function readAccessToken() {
   return process.env.SUPABASE_ACCESS_TOKEN ?? readFrom('.env.secret', 'SUPABASE_ACCESS_TOKEN');
 }
 
+/**
+ * Токен GitHub — третий секрет, и снова с другой областью.
+ *
+ * Ключ проекта открывает базу, токен Supabase — настройки проекта, этот —
+ * репозиторий: статус сборок и настройку публикации Pages. Область у всех
+ * трёх разная, и складывать их в один «главный ключ» было бы удобно ровно
+ * до первой утечки.
+ *
+ * Необязателен: без него `npm run pages` проверяет и объясняет, что нажать.
+ */
+export function readGithubToken() {
+  return process.env.GITHUB_TOKEN ?? readFrom('.env.secret', 'GITHUB_TOKEN');
+}
+
 /** Идентификатор проекта из его адреса: https://<ref>.supabase.co */
 export function projectRef(url) {
   return url?.match(/^https:\/\/([a-z0-9]+)\.supabase\./)?.[1] ?? null;

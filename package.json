@@ -45,6 +45,7 @@
     "health": "node scripts/health.mjs",
     "auth": "node scripts/auth.mjs",
     "nudge": "node scripts/nudge.mjs",
+    "pages": "node scripts/pages.mjs",
     "invite": "node scripts/invite.mjs",
     "moderator": "node scripts/moderator.mjs",
     "email": "node scripts/email.mjs",
