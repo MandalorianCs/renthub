@@ -17,6 +17,7 @@
 // открыта), часть — этот скрипт.
 
 import { createClient } from '@supabase/supabase-js';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -218,6 +219,58 @@ if (serviceUser) {
   );
 }
 
+// ── Что лежит на публичном адресе ────────────────────────────
+//
+// Публикуют два процесса сразу — наш workflow и встроенный «pages build and
+// deployment». Оба заканчиваются успехом, и на адресе оказывается тот, кто
+// финишировал вторым. До 05.09.2026 вопрос «доехала ли правка» решался
+// гаданием, а попытка судить по имени бандла обманула меня же: локальная
+// сборка и сборка в CI дают разные имена при одном и том же коде.
+//
+// Отпечаток ставит build-pages.mjs — коммит, из которого собрано. Дальше
+// достаточно спросить, знает ли о нём наша история.
+try {
+  const page = await fetch('https://mandaloriancs.github.io/renthub/app/', {
+    cache: 'no-store',
+  });
+  const published = (await page.text()).match(
+    /name="renthub-build" content="([^"]+)"/,
+  )?.[1];
+
+  const known = published
+    ? execFileSync('git', ['cat-file', '-t', published], { cwd: ROOT, encoding: 'utf8' })
+        .trim() === 'commit'
+    : false;
+
+  const head = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  }).trim();
+
+  const behind = known
+    ? execFileSync('git', ['rev-list', '--count', `${published}..HEAD`], {
+        cwd: ROOT,
+        encoding: 'utf8',
+      }).trim()
+    : null;
+
+  say(
+    'публикация',
+    !published
+      ? 'отпечатка нет — сайт собран до 05.09.2026, пересоберите'
+      : !known
+        ? `собрано из ${published}, а такого коммита у нас нет`
+        : behind === '0'
+          ? `свежая (${head})`
+          : `отстаёт на ${behind} ${plural(Number(behind), 'коммит', 'коммита', 'коммитов')} (${published})`,
+    !published || !known || behind !== '0',
+  );
+} catch {
+  // Нет сети или нет git — не повод валить весь отчёт: остальные строки
+  // уже собраны и полезны сами по себе.
+  say('публикация', 'не проверить: нет сети или git недоступен', false);
+}
+
 say(
   'заявки на участие',
   waiting ? `${waiting} ждут ответа` : 'очередь пуста',
@@ -249,6 +302,11 @@ if (alarms.length === 0) {
       'на витрине только демонстрационные вещи. Реклама приведёт человека к тому,\n' +
       '      что никто не отдаст: нужны живые объявления или npm run demo:clear',
     'заявки на участие': 'npm run queue, дальше npm run invite',
+    'публикация':
+      'на публичном адресе не то, что в main. Публикуют два процесса сразу — наш\n' +
+      '      workflow и встроенный «pages build and deployment»; побеждает тот, кто\n' +
+      '      финишировал вторым. Чинится один раз, в вебе: Settings → Pages → Build\n' +
+      '      and deployment → Source: GitHub Actions',
     'ссылка из письма':
       'Supabase подставляет свой Site URL, письмо доходит — а ссылка в нём\n' +
       '      никуда. Что нажать в панели, печатает npm run auth; он же\n' +
