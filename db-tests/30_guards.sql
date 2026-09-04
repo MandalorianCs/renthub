@@ -1570,6 +1570,84 @@ begin
       || coalesce(array_to_string(v_extra, ', '), '—'));
 end $$;
 
+-- ── Доступное анониму обязано отказывать ──────────────────────
+--
+-- Список выше отвечает на вопрос «что анониму доступно». Он не отвечает на
+-- второй: доступное — отказывает ли оно на самом деле. Комментарий рядом со
+-- списком утверждал, что эти функции «сами говорят нужно войти». Восемь из
+-- них не говорили.
+--
+-- Причина в трёхзначной логике, а не в забытой строке. Проверка владельца
+-- написана как `v_b.owner_id <> auth.uid()`; у анонима auth.uid() пуст, а
+-- `uuid <> null` даёт NULL, и `if` не срабатывает. Условие выглядит верным
+-- и читается верным.
+--
+-- Измерено 04.09.2026 ролью anon, каждая функция — из статуса, в котором
+-- она разрешена: booking_cancel, booking_mark_picked_up,
+-- booking_mark_returned, booking_complete и open_damage_dispute проводили
+-- чужую сделку по всему жизненному циклу.
+--
+-- Поэтому проверка идёт от обратного и по признаку: берём всё, что доступно
+-- анониму, отбрасываем чтение (stable/immutable — они ничего не меняют) и
+-- требуем от остального отказа со словами «нужно войти». Новая функция,
+-- забывшая проверку, уронит стенд, даже если её никто не впишет в список.
+
+do $$
+declare
+  v_name  text;
+  v_args  text;
+  v_err   text;
+  v_bad   text[] := '{}';
+  v_seen  integer := 0;
+begin
+  for v_name, v_args in
+    select p.proname, pg_get_function_identity_arguments(p.oid)
+      from pg_proc p
+     where p.pronamespace = 'public'::regnamespace
+       and has_function_privilege('anon', p.oid, 'EXECUTE')
+       -- volatile = меняет данные. Читающие функции витрины сюда не
+       -- попадают: им отказывать не в чем, каталог открыт по замыслу.
+       and p.provolatile = 'v'
+       -- Триггерные вызвать напрямую нельзя: вне триггера у них нет NEW.
+       and p.prorettype <> 'trigger'::regtype
+       and not exists (
+         select 1 from pg_depend d
+          where d.objid = p.oid and d.classid = 'pg_proc'::regclass and d.deptype = 'e')
+  loop
+    v_seen := v_seen + 1;
+
+    begin
+      perform set_config('request.jwt.claims', '', true);
+      execute 'set local role anon';
+      -- Аргументы не подбираем: до тела дойдёт вызов с NULL, а проверка
+      -- входа стоит первой строкой — именно это и проверяется.
+      execute format(
+        'select %I(%s)', v_name,
+        (select string_agg('null::' || split_part(a, ' ', 2), ', ')
+           from unnest(string_to_array(v_args, ', ')) a
+          where a <> ''));
+      execute 'reset role';
+      v_err := 'ПРОШЛО БЕЗ ОТКАЗА';
+    exception when others then
+      execute 'reset role';
+      v_err := sqlerrm;
+    end;
+
+    if position('нужно войти' in v_err) = 0 then
+      v_bad := v_bad || (v_name || ' → ' || left(v_err, 60));
+    end if;
+  end loop;
+
+  -- Ноль функций означал бы, что образец перестал их находить, и проверка
+  -- зеленела бы ни на чём. Три ловушки такого вида уже находились.
+  perform t.assert(v_seen >= 5,
+    format('функций-действий, доступных анониму, найдено %s — образец жив', v_seen));
+
+  perform t.assert(array_length(v_bad, 1) is null,
+    'каждое доступное анониму действие отвечает «нужно войти»; молчат: '
+      || coalesce(array_to_string(v_bad, ' | '), '—'));
+end $$;
+
 -- Отдельно и словами: функция, принимающая того, за кого действуют,
 -- аргументом, не может быть доступна сессионной роли. Вызывающего в ней
 -- опознать нечем — bot_actor_ok(p_actor) проверяет жертву, а не звонящего.
