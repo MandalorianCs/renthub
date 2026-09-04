@@ -15,7 +15,12 @@ import { Platform, Share } from 'react-native';
 const SITE = 'https://mandaloriancs.github.io/renthub/app';
 
 export function itemUrl(itemId: string): string {
-  return `${SITE}/item/${itemId}`;
+  // Через параметр, а не через путь: /app/item/<id> на GitHub Pages
+  // отвечает 404 (файла нет), и мессенджеры на 404 не строят превью.
+  // Каталог читает `item` и открывает карточку сам — см. app/(tabs)/index.tsx.
+  //
+  // Правило обязано совпадать с item_url() в bot/bot.py.
+  return `${SITE}/?item=${itemId}`;
 }
 
 /**

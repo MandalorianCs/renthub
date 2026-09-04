@@ -238,6 +238,77 @@ else:
         print(f"✓ normalize_phone одинаков в трёх языках ({len(PHONE_CASES)} номеров)")
 
 
+# ── Ссылка на объявление: два языка, один адрес ──────────────
+#
+# Правило уже расходилось однажды, и комментарий в боте это признаёт: бот
+# писал `app/#/item/<id>`, приложение — `app/item/<id>`, и все ссылки бота
+# на вещи вели мимо. Держалось согласие комментарием «обязано совпадать»,
+# то есть ничем.
+#
+# 05.09.2026 адрес сменился на `app/?item=<id>`: путь вида /app/item/<uuid>
+# на GitHub Pages отвечает 404, файла с таким именем нет, и мессенджеры на
+# 404 не строят превью. Смена — ровно тот момент, когда две копии обычно и
+# расходятся: правят одну.
+#
+# Сверяется поведение, а не текст: вырезаем обе функции с их константами и
+# спрашиваем адрес для одного и того же идентификатора.
+ITEM_ID = "64a6fde6-1fcd-4d8c-bb41-059dc2086620"
+
+
+def item_url_python():
+    src = cut_function(ROOT / "bot" / "bot.py", "def item_url", False)
+    if src is None:
+        return None
+    text = io.open(ROOT / "bot" / "bot.py", encoding="utf-8").read()
+    app_url = re.search(r'APP_URL = "([^"]+)"', text)
+    if app_url is None:
+        return None
+    space = {"APP_URL": app_url.group(1)}
+    exec(src, space)
+    return space["item_url"](ITEM_ID)
+
+
+def item_url_ts():
+    path = ROOT / "src" / "lib" / "share.ts"
+    src = cut_function(path, "export function itemUrl", True)
+    if src is None:
+        return None
+    text = io.open(path, encoding="utf-8").read()
+    site = re.search(r"const SITE = '([^']+)'", text)
+    if site is None:
+        return None
+
+    src = re.sub(r"(\w+):\s*string", r"\1", src).replace("): string {", ") {")
+    src = src.replace("export function", "function")
+
+    probe = tempfile.NamedTemporaryFile("w", suffix=".mjs", delete=False, encoding="utf-8")
+    probe.write(f"const SITE = {json.dumps(site.group(1))};\n")
+    probe.write(src + "\n")
+    probe.write(f"console.log(itemUrl({json.dumps(ITEM_ID)}));\n")
+    probe.close()
+    try:
+        out = subprocess.run(["node", probe.name], capture_output=True, text=True, encoding="utf-8")
+        return out.stdout.strip() if out.returncode == 0 else None
+    finally:
+        os.unlink(probe.name)
+
+
+py_url, ts_url = item_url_python(), item_url_ts()
+
+if py_url is None or ts_url is None:
+    failed = True
+    print("\n✗ Ссылку на объявление не прочитать: образец больше не находится.")
+    print("  Переименовали item_url/itemUrl или переписали — почините образец здесь.")
+elif py_url != ts_url:
+    failed = True
+    print("\n✗ Ссылка на объявление собирается по-разному:")
+    print(f"  бот:         {py_url}")
+    print(f"  приложение:  {ts_url}")
+    print("  Пересланная ссылка откроет не то, что человек показывал.")
+else:
+    print(f"✓ ссылка на объявление одинакова в двух языках ({py_url.split('/')[-1][:22]}…)")
+
+
 PAIRS = [
     (
         "CONTACT_STATUSES",

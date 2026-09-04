@@ -65,7 +65,26 @@ export default function Catalog() {
    * переписывать историю браузера на каждое нажатие фильтра — кнопка
    * «назад» перестала бы возвращать на предыдущую страницу.
    */
-  const params = useLocalSearchParams<{ category?: string; q?: string }>();
+  const params = useLocalSearchParams<{ category?: string; q?: string; item?: string }>();
+
+  // Ссылка на объявление приходит сюда, а не на /item/<id>.
+  //
+  // Причина внешняя: сайт лежит на GitHub Pages, а тот отдаёт файлы. Пути
+  // вида /app/item/<uuid> файлами не являются, и сервер отвечает 404 —
+  // страницу спасает 404.html, копия приложения, поэтому человек ничего не
+  // замечает. Замечают краулеры: на 404 превью обычно не строится, и
+  // ссылка, ради которой в карточку добавляли og-теги, приходит в чат
+  // голым адресом.
+  //
+  // Адрес /app/?item=<uuid> существует физически и отвечает 200. Здесь мы
+  // читаем параметр и открываем карточку — для человека переход незаметен,
+  // а для мессенджера ссылка выглядит живой.
+  //
+  // replace, а не push: иначе «назад» вернёт на пустой каталог с тем же
+  // параметром, и человек попадёт в петлю.
+  useEffect(() => {
+    if (params.item) router.replace(`/item/${params.item}`);
+  }, [params.item, router]);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [active, setActive] = useState<string | null>(params.category ?? null);
