@@ -21,9 +21,12 @@
 // кода — и проверяет отношения между ними. Разойдётся код с декой, или дека
 // сама с собой, — падение придёт здесь, а не на защите.
 
+import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { readEnvFile, readSecret } from './env.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -163,6 +166,64 @@ ok(
 // Число проверок на слайде «Результаты инкубации» — единственная цифра
 // деки, которая растёт сама. Списанная однажды, она занижает: 03.09 там
 // стояло 130 против 345 фактических.
+// ── Пороги: тексты против ЖИВОЙ базы ──────────────────────────
+//
+// Всё выше сверяется с миграцией — то есть с тем, что мы намеревались
+// положить в базу. Но обещание человеку держит не намерение, а значение,
+// лежащее там сейчас. Настройки в app_settings меняются одной строкой, и
+// правило «не трогать схему через SQL Editor» держится на дисциплине.
+//
+// Три числа названы людям словами и потому проверяются здесь:
+//
+//   dispute_auto_threshold      «Ущерб до 15 000 ₸ решается автоматически»
+//   grace_period_hours          отсрочка перед просрочкой
+//   damage_claim_window_hours   окно на претензию по порче
+//
+// Порог до 05.09.2026 не проверялся ничем, хотя стоит заголовком на
+// лендинге и на странице для жюри. Расхождение здесь означает, что мы
+// пообещали разбор без людей там, где его не будет.
+const secret = process.env.SUPABASE_SECRET_KEY ?? readSecret();
+
+if (secret) {
+  const admin = createClient(
+    process.env.SUPABASE_URL ?? readEnvFile('EXPO_PUBLIC_SUPABASE_URL'),
+    secret,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+
+  const { data: live, error: liveError } = await admin
+    .from('app_settings')
+    .select('key, value');
+
+  if (liveError) {
+    console.log('\n── Живые настройки ──');
+    console.log(`  ??  базу не спросить: ${liveError.message}`);
+  } else {
+    const now = Object.fromEntries((live ?? []).map((r) => [r.key, digits(r.value)]));
+
+    console.log('\n── Живые настройки против текстов ──');
+
+    ok('комиссия в базе = коду', now.commission_pct, commissionCode, '%');
+    ok('сбор в базе = коду', now.insurance_fee, insuranceCode, ' ₸');
+
+    // Порог ищется в обоих текстах: заголовок один и тот же, и разойтись
+    // они могут поодиночке.
+    const thresholdPitch = find(
+      pitch,
+      /Ущерб до ([\d\s\u00a0]+)[\s\u00a0]?₸/,
+      'порог авторешения на странице для жюри',
+    );
+    const thresholdLanding = find(
+      landing,
+      /Ущерб до ([\d\s\u00a0]+)[\s\u00a0]?₸/,
+      'порог авторешения на лендинге',
+    );
+
+    ok('порог на лендинге = базе', thresholdLanding, now.dispute_auto_threshold, ' ₸');
+    ok('порог у жюри = базе', thresholdPitch, now.dispute_auto_threshold, ' ₸');
+  }
+}
+
 const claimed = find(pitch, /<div class="stat-v">(\d+)<\/div>/, 'число проверок стенда');
 console.log('\n── Стенд ──');
 console.log(`  ??  на слайде заявлено ${claimed} проверок`);
