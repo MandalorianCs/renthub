@@ -43,11 +43,34 @@ const headers = {
 
 console.log('\nКто публикует сайт\n');
 
-// ── 1. Что говорят сами сборки ───────────────────────────────
+// ── 1. Что стоит в настройке ─────────────────────────────────
 //
-// Публичный репозиторий отдаёт историю запусков без авторизации. Значит
-// эта половина проверки работает у любого, даже без токена, — и именно она
-// показывает, сколько процессов реально публикует.
+// Читается первой, хотя интереснее история. Причина в том, что настройка
+// историю ОБЪЯСНЯЕТ: пока источник — ветка, два имени в списке означают
+// гонку; после переключения те же два имени означают «одно из них больше
+// не запускается». Первая версия скрипта читала историю раньше и честно
+// печатала «! их двое» человеку, который минуту назад всё починил.
+const pagesUrl = `https://api.github.com/repos/${REPO}/pages`;
+const res = await fetch(pagesUrl, { headers });
+
+if (!res.ok) {
+  console.log(`  Настройку не прочитать: ${res.status}.`);
+  console.log(token ? '  Токену не хватает права Pages.' : '  Нужен токен — см. ниже.');
+  printManual();
+  process.exit(1);
+}
+
+const cfg = await res.json();
+const wrong = cfg.build_type !== 'workflow';
+
+console.log(
+  `  Источник      ${wrong ? `ветка ${cfg.source?.branch}${cfg.source?.path}` : 'GitHub Actions'}`,
+);
+
+// ── 2. Что говорят сами сборки ───────────────────────────────
+//
+// Публичный репозиторий отдаёт историю запусков без авторизации, поэтому
+// эта половина работает и без токена.
 const runs = await fetch(
   `https://api.github.com/repos/${REPO}/actions/runs?per_page=20`,
   { headers },
@@ -60,32 +83,21 @@ for (const run of runs.workflow_runs ?? []) {
 
 const builtin = [...names].some((n) => n.toLowerCase().includes('pages build'));
 
-console.log(`  Успешно публикуют: ${[...names].join(', ') || '(ни одного запуска)'}`);
-console.log(
-  builtin
-    ? '  ! их двое — на адресе оказывается тот, кто финишировал вторым'
-    : '  ✓ публикует один процесс',
-);
+console.log(`  В истории     ${[...names].join(', ') || '(ни одного запуска)'}`);
 
-// ── 2. Что стоит в настройке ─────────────────────────────────
-const pagesUrl = `https://api.github.com/repos/${REPO}/pages`;
-const res = await fetch(pagesUrl, { headers });
-
-if (!res.ok) {
-  console.log(`\n  Настройку не прочитать: ${res.status}.`);
-  console.log(token ? '  Токену не хватает права Pages.' : '  Нужен токен — см. ниже.');
-  printManual();
-  process.exit(1);
+if (wrong && builtin) {
+  console.log('  ! публикуют двое — на адресе оказывается тот, кто финишировал вторым');
+} else if (builtin) {
+  // История помнит встроенный процесс, но с переключённым источником он
+  // больше не стартует. Говорим это прямо: иначе знакомое имя в списке
+  // читается как «не сработало».
+  console.log('  ✓ встроенный процесс есть в истории, но больше не запускается');
+} else {
+  console.log('  ✓ публикует один процесс');
 }
 
-const cfg = await res.json();
-const wrong = cfg.build_type !== 'workflow';
-
-console.log('');
-console.log(`  Источник сейчас   ${cfg.build_type === 'workflow' ? 'GitHub Actions' : `ветка ${cfg.source?.branch}${cfg.source?.path}`}`);
-
 if (!wrong) {
-  console.log('\n✓ Публикует один процесс — наш workflow. Чинить нечего.\n');
+  console.log('\n✓ Источник — GitHub Actions. Публикует один процесс, чинить нечего.\n');
   process.exit(0);
 }
 
