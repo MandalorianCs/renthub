@@ -587,6 +587,42 @@ SHARE_KEYBOARD = ReplyKeyboardMarkup(
 )
 
 
+async def ask_link_query(query: CallbackQuery) -> None:
+    """
+    То же самое, но человек нажал кнопку, а не набрал команду.
+
+    Всплывающее окно Telegram не умеет носить клавиатуру и обрезается на
+    двух сотнях знаков — поэтому в нём короткая причина, а кнопка приходит
+    следующим сообщением. Иначе человек читает «нужно связать» и остаётся
+    ровно там же, где был.
+    """
+    await query.answer("Нужно связать Telegram — смотрите сообщение ниже", show_alert=True)
+    if query.message:
+        await ask_link(query.message)
+
+
+async def ask_link(message: Message) -> None:
+    """
+    Отказ непривязанному — с кнопкой, а не с просьбой набрать команду.
+
+    До 05.09.2026 таких отказов было семнадцать, и они разошлись текстами:
+    «Сначала свяжите Telegram — /start», «...нажмите /start и поделитесь
+    номером». Общее у них было одно: человеку предлагали НАБРАТЬ команду
+    там, где хватило бы нажатия. Каждый лишний шаг на этом месте — потеря,
+    а место это самое частое: привязку сделал один живой участник из пяти.
+
+    Здесь же говорится про каталог. Он открыт без привязки, и человек,
+    которого только что развернули, должен узнать, что смотреть вещи можно
+    прямо сейчас, — иначе отказ выглядит как «сюда нельзя».
+    """
+    await message.answer(
+        "Для этого нужно связать Telegram с аккаунтом — одно нажатие на "
+        "кнопку ниже. Telegram передаст ваш номер сам.\n\n"
+        "Посмотреть, что сдают, можно и без этого: /каталог",
+        reply_markup=SHARE_KEYBOARD,
+    )
+
+
 @dp.message(CommandStart())
 async def on_start(message: Message) -> None:
     """
@@ -906,9 +942,7 @@ async def on_deals(message: Message) -> None:
         )
 
         if not found:
-            await message.answer(
-                "Сначала свяжите Telegram с аккаунтом — нажмите /start и поделитесь номером."
-            )
+            await ask_link(message)
             return
 
         user_id = found[0]["id"]
@@ -1134,7 +1168,7 @@ async def on_action(query: CallbackQuery, state: FSMContext) -> None:
     async with httpx.AsyncClient(timeout=20) as client:
         user = await user_by_telegram(client, query.from_user.id)
         if user is None:
-            await query.answer("Сначала свяжите Telegram — /start", show_alert=True)
+            await ask_link_query(query)
             return
 
         try:
@@ -1160,7 +1194,7 @@ async def on_rate(query: CallbackQuery) -> None:
     async with httpx.AsyncClient(timeout=20) as client:
         user = await user_by_telegram(client, query.from_user.id)
         if user is None:
-            await query.answer("Сначала свяжите Telegram — /start", show_alert=True)
+            await ask_link_query(query)
             return
 
         # Кого оцениваем, бот не решает — он смотрит, кем человек был в этой
@@ -1266,7 +1300,7 @@ async def on_publish(message: Message, state: FSMContext) -> None:
     async with httpx.AsyncClient(timeout=20) as client:
         user = await user_by_telegram(client, message.from_user.id)
         if user is None:
-            await message.answer("Сначала свяжите Telegram — /start")
+            await ask_link(message)
             return
 
         categories = await rest_get(
@@ -1484,7 +1518,7 @@ async def on_item_photo(message: Message, state: FSMContext) -> None:
         user = await user_by_telegram(client, message.from_user.id)
         if user is None:
             await state.clear()
-            await message.answer("Сначала свяжите Telegram — /start")
+            await ask_link(message)
             return
 
         file = await message.bot.get_file(message.photo[-1].file_id)
@@ -1632,7 +1666,7 @@ async def on_item_publish(query: CallbackQuery, state: FSMContext) -> None:
         user = await user_by_telegram(client, query.from_user.id)
         if user is None:
             await state.clear()
-            await query.answer("Сначала свяжите Telegram — /start", show_alert=True)
+            await ask_link_query(query)
             return
 
         try:
@@ -1965,7 +1999,7 @@ async def start_price(query: CallbackQuery, state: FSMContext, item_id: str) -> 
     async with httpx.AsyncClient(timeout=20) as client:
         user = await user_by_telegram(client, query.from_user.id)
         if user is None:
-            await query.answer("Сначала свяжите Telegram — /start", show_alert=True)
+            await ask_link_query(query)
             return
 
         try:
@@ -2012,7 +2046,7 @@ async def on_new_price(message: Message, state: FSMContext) -> None:
         user = await user_by_telegram(client, message.from_user.id)
         if user is None:
             await state.clear()
-            await message.answer("Сначала свяжите Telegram — /start")
+            await ask_link(message)
             return
 
         try:
@@ -2050,7 +2084,7 @@ async def on_profile(message: Message) -> None:
     async with httpx.AsyncClient(timeout=20) as client:
         user = await user_by_telegram(client, message.from_user.id)
         if user is None:
-            await message.answer("Сначала свяжите Telegram — /start")
+            await ask_link(message)
             return
 
         try:
@@ -2107,7 +2141,7 @@ async def on_my_items(message: Message) -> None:
     async with httpx.AsyncClient(timeout=20) as client:
         user = await user_by_telegram(client, message.from_user.id)
         if user is None:
-            await message.answer("Сначала свяжите Telegram — /start")
+            await ask_link(message)
             return
 
         try:
@@ -2146,7 +2180,7 @@ async def on_item_action(query: CallbackQuery, state: FSMContext) -> None:
     async with httpx.AsyncClient(timeout=20) as client:
         user = await user_by_telegram(client, query.from_user.id)
         if user is None:
-            await query.answer("Сначала свяжите Telegram — /start", show_alert=True)
+            await ask_link_query(query)
             return
 
         try:
@@ -2284,7 +2318,7 @@ async def on_damage_photo(message: Message, state: FSMContext) -> None:
         user = await user_by_telegram(client, message.from_user.id)
         if user is None:
             await state.clear()
-            await message.answer("Сначала свяжите Telegram — /start")
+            await ask_link(message)
             return
 
         # Берём самый крупный вариант: Telegram присылает лесенку размеров, а
@@ -2347,7 +2381,7 @@ async def on_damage_amount(message: Message, state: FSMContext) -> None:
         user = await user_by_telegram(client, message.from_user.id)
         if user is None:
             await state.clear()
-            await message.answer("Сначала свяжите Telegram — /start")
+            await ask_link(message)
             return
 
         try:
@@ -2567,7 +2601,7 @@ async def on_support_start(query: CallbackQuery, state: FSMContext) -> None:
         user = await user_by_telegram(client, query.from_user.id)
 
     if user is None:
-        await query.answer("Сначала свяжите Telegram — /start", show_alert=True)
+        await ask_link_query(query)
         return
 
     await state.set_state(Support.waiting)
@@ -2627,7 +2661,7 @@ async def on_support_text(message: Message, state: FSMContext) -> None:
         user = await user_by_telegram(client, message.from_user.id)
         if user is None:
             await state.clear()
-            await message.answer("Сначала свяжите Telegram — /start")
+            await ask_link(message)
             return
 
         try:
