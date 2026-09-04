@@ -49,6 +49,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 import httpx
 from aiogram import Bot, Dispatcher, F
+from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -60,6 +61,7 @@ from aiogram.types import (
     ErrorEvent,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    InputMediaPhoto,
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
@@ -565,13 +567,85 @@ SHARE_KEYBOARD = ReplyKeyboardMarkup(
 
 @dp.message(CommandStart())
 async def on_start(message: Message) -> None:
+    """
+    Первая команда в меню — и то, что жмут, когда не знают, что делать.
+
+    Раньше она отвечала одинаково всем: «нажмите кнопку, чтобы связать
+    Telegram с вашим аккаунтом» и клавиатура с номером. Уже привязанному
+    это говорит, что связи нет, — а он сюда и пришёл потому, что она есть.
+    Нажатие ничего не ломает (телефон тот же, привязка та же), но человек
+    получает ответ на вопрос, которого не задавал, вместо ответа на свой.
+
+    Поэтому ответов два. Не привязан — прежний текст: без «Поделиться
+    номером» бот действительно ничего не может. Привязан — короткая сводка:
+    кто вы, есть ли ход за вами и куда идти. Это то, ради чего человек
+    открывает чат, не открывая приложение.
+    """
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, message.from_user.id)
+
+        if user is None:
+            await message.answer(
+                "RentHUB — аренда инструмента у соседей.\n\n"
+                "Нажмите кнопку ниже, чтобы связать Telegram с вашим аккаунтом. "
+                "После этого сюда будут приходить уведомления по сделкам: "
+                "подтверждения броней, напоминания о возврате, решения по спорам.\n\n"
+                "Команда /deals покажет активные сделки, /help — всё остальное.",
+                reply_markup=SHARE_KEYBOARD,
+            )
+            return
+
+        # Чей ход — по той же таблице, что читает экран сделки. Считаем, а
+        # не перечисляем: список сделок это /сделки, а здесь нужен ответ на
+        # «требуется ли от меня что-нибудь прямо сейчас».
+        statuses = ",".join(LIVE_STATUSES)
+        as_owner, as_renter = [
+            await rest_get(
+                client,
+                "bookings",
+                {
+                    role: f"eq.{user['id']}",
+                    "status": f"in.({statuses})",
+                    "select": "status",
+                    "limit": "20",
+                },
+            )
+            for role in ("owner_id", "renter_id")
+        ]
+
+    mine = sum(
+        1
+        for rows, is_owner in ((as_owner, True), (as_renter, False))
+        for row in rows
+        if next_move(row["status"], is_owner).get("yours")
+    )
+    live = len(as_owner) + len(as_renter)
+
+    name = user.get("full_name") or "без имени"
+
+    if mine:
+        head = (
+            f"{esc(name)}, за вами ход по "
+            f"{mine} {plural_ru(mine, 'сделке', 'сделкам', 'сделкам')}."
+        )
+        tail = "Что именно — /сделки: там кнопки, нажимать в приложении не нужно."
+    elif live:
+        head = (
+            f"{esc(name)}, у вас "
+            f"{live} {plural_ru(live, 'живая сделка', 'живые сделки', 'живых сделок')}, "
+            "и ход не за вами."
+        )
+        tail = "Посмотреть сроки и связаться со второй стороной — /сделки."
+    else:
+        head = f"{esc(name)}, активных сделок сейчас нет."
+        tail = "Посмотреть, что сдают, — /каталог. Выложить своё — /сдать."
+
     await message.answer(
-        "RentHUB — аренда инструмента у соседей.\n\n"
-        "Нажмите кнопку ниже, чтобы связать Telegram с вашим аккаунтом. "
-        "После этого сюда будут приходить уведомления по сделкам: "
-        "подтверждения броней, напоминания о возврате, решения по спорам.\n\n"
-        "Команда /deals покажет активные сделки, /help — всё остальное.",
-        reply_markup=SHARE_KEYBOARD,
+        f"<b>{head}</b>\n\n{tail}\n\n"
+        "Уведомления о бронях, возвратах и спорах приходят сюда сами. "
+        "Всё остальное — /help.",
+        parse_mode="HTML",
+        reply_markup=ReplyKeyboardRemove(),
     )
 
 
@@ -1104,7 +1178,8 @@ async def on_help(message: Message) -> None:
         "/сдать — опубликовать свою вещь, не открывая приложение\n"
         "/вещи — ваши объявления: снять с публикации, вернуть, изменить цену\n"
         "/профиль — рейтинг, сделки и статус номера\n"
-        "/поддержка — написать организатору, если что-то пошло не так\n\n"
+        "/поддержка — написать организатору, если что-то пошло не так\n"
+        "/отмена — выйти из начатого диалога, ничего не сохранив\n\n"
         "В меню рядом с полем ввода те же команды латиницей — "
         "/catalog, /find, /publish: Telegram не пускает в меню кириллицу. "
         "Работают оба написания.\n\n"
@@ -2096,10 +2171,62 @@ async def start_damage(query: CallbackQuery, state: FSMContext, booking_id: str)
     await state.set_state(Damage.photos)
     await state.update_data(booking_id=booking_id, photos=[])
     await query.answer()
+
+    # Фото «до» — первыми, до просьбы прислать «после».
+    #
+    # Текст ниже с самого начала обещал, что снимки «сверят с фото до», но
+    # показать их было негде: в приложении они на экране сделки, в чате их
+    # не было вовсе. Владелец решал, заявлять ли порчу, по памяти — а вещь
+    # он видел неделю назад и мог помнить её лучше, чем она была.
+    #
+    # Цена ошибки несимметрична. Ложная претензия удерживает чужой депозит
+    # и разбирается человеком; несделанная — стоит владельцу денег. Оба
+    # исхода лучше решать, глядя на снимок, чем вспоминая.
+    async with httpx.AsyncClient(timeout=20) as client:
+        rows = await rest_get(
+            client,
+            "bookings",
+            {
+                "id": f"eq.{booking_id}",
+                "select": "item:items(title,condition_photos)",
+                "limit": "1",
+            },
+        )
+
+    photos = ((rows[0].get("item") or {}) if rows else {}).get("condition_photos") or []
+
+    if photos:
+        try:
+            # Медиагруппой, а не по одному: шесть отдельных сообщений
+            # оттеснили бы просьбу прислать «после» за край экрана.
+            await query.message.answer_media_group(
+                [
+                    InputMediaPhoto(
+                        media=url,
+                        caption="Фото «до» — как вещь выглядела при публикации"
+                        if i == 0
+                        else None,
+                    )
+                    for i, url in enumerate(photos[:6])
+                ]
+            )
+        except Exception as error:  # noqa: BLE001
+            # Снимок мог быть удалён владельцем — политика хранилища это
+            # разрешает, и README разбирает это отдельным открытым вопросом.
+            # Претензию это не отменяет: без фото «до» её разбирает
+            # модератор, и карточка спора говорит ему, что сверять не с чем.
+            log.warning("фото «до» не показать (%s): %s", booking_id, error)
+            await query.message.answer(
+                "Фото «до» показать не удалось — возможно, их удалили. "
+                "Претензию это не отменяет: спор разберёт модератор."
+            )
+
     await query.message.answer(
         "Пришлите фото повреждений — можно несколько подряд.\n\n"
-        "Их сверят с фото «до», снятыми при публикации. Без снимков претензию "
-        "не примут: спор без них — слово против слова.\n\n"
+        + ("Сверяйте с теми, что выше: спор разбирают по ним. "
+           if photos
+           else "Фото «до" + chr(0x00BB) + " у объявления нет, поэтому снимайте подробнее. ")
+        + "Без снимков претензию не примут: спор без них — слово против слова.\n\n"
         "Передумали — /отмена."
     )
 
@@ -2289,7 +2416,29 @@ async def deliver_pending(bot: Bot) -> None:
                 await bot.send_message(
                     chat_id, text, parse_mode="HTML", reply_markup=keyboard
                 )
+            except TelegramForbiddenError:
+                # Человек заблокировал бота или удалил чат. Это не сбой сети:
+                # повторять бессмысленно, а мы повторяли — каждые пятнадцать
+                # секунд, вечно, потому что отметку о доставке не ставили. За
+                # неделю такой чат превращает очередь в свалку, и в ней тонет
+                # то, что действительно не ушло.
+                #
+                # Привязка снимается: она и правда больше не работает. В
+                # приложении профиль честно покажет «не подключено» и
+                # предложит связать заново, а накопленные уведомления человек
+                # увидит в ленте — они никуда не деваются, sent_at означает
+                # только «ушло в чат».
+                log.info("бот заблокирован, снимаю привязку: chat=%s", chat_id)
+                await rest_patch(
+                    client,
+                    "users",
+                    {"telegram_id": f"eq.{chat_id}"},
+                    {"telegram_id": None, "telegram_username": None},
+                )
+                continue
             except Exception as error:  # noqa: BLE001 — причина пишется в лог
+                # Всё остальное — сеть, таймаут, временный отказ Telegram.
+                # Отметку не ставим намеренно: следующая волна повторит.
                 log.warning("не доставлено %s: %s", row["id"], error)
                 continue
 
