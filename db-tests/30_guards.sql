@@ -1570,6 +1570,64 @@ begin
       || coalesce(array_to_string(v_extra, ', '), '—'));
 end $$;
 
+-- ── Сделки, которой нет, отвечают по-русски ───────────────────
+--
+-- `select * into v_b` по несуществующей строке не падает, а оставляет v_b
+-- пустым. Проверка владельца дальше сравнивает с NULL и не срабатывает —
+-- та же трёхзначная логика, что и у анонима, только с другой стороны.
+-- Функция идёт по пустой строке и валится там, где NOT NULL стоит
+-- физически.
+--
+-- Что видел человек: ни одна такая ошибка не начинается с RENTHUB_ и ни
+-- одна не совпадает со списком известных ограничений, поэтому
+-- humanizeError показывала её как есть — «null value in column "user_id"
+-- of relation "notifications"». Измерено 04.09.2026; так отвечали пять
+-- функций из семи.
+--
+-- Проверка идёт по всем сразу, а не по списку исправленных: важно не то,
+-- что эти пять починены, а то, что ни одна не отвечает сырым текстом.
+
+do $$
+declare
+  v_nowhere uuid := '11111111-2222-3333-4444-555555555555';
+  v_err     text;
+  v_bad     text[] := '{}';
+  v_calls   text[][] := array[
+    ['booking_confirm',        'select booking_confirm(%L)'],
+    ['booking_cancel',         'select booking_cancel(%L)'],
+    ['booking_mark_picked_up', 'select booking_mark_picked_up(%L)'],
+    ['booking_mark_returned',  'select booking_mark_returned(%L)'],
+    ['booking_complete',       'select booking_complete(%L)'],
+    ['booking_contact',        'select * from booking_contact(%L)'],
+    ['open_damage_dispute',
+     'select open_damage_dispute(%L, 1000, array[''https://x.test/a.jpg''], ''нет такой'')']
+  ];
+begin
+  for i in 1 .. array_length(v_calls, 1) loop
+    begin
+      perform set_config('request.jwt.claims',
+        json_build_object('sub', t.id('owner'), 'role', 'authenticated')::text, true);
+      execute 'set local role authenticated';
+      execute format(v_calls[i][2], v_nowhere);
+      execute 'reset role';
+      v_err := 'ПРОШЛО БЕЗ ОТКАЗА';
+    exception when others then
+      execute 'reset role';
+      v_err := sqlerrm;
+    end;
+
+    -- Годится любой свой отказ: важно, что он наш и по-русски, а не текст
+    -- Postgres с именами таблиц.
+    if v_err not like 'RENTHUB_%' then
+      v_bad := v_bad || (v_calls[i][1] || ' → ' || left(v_err, 55));
+    end if;
+  end loop;
+
+  perform t.assert(array_length(v_bad, 1) is null,
+    'несуществующая сделка всюду отвечает своим текстом; сырыми отвечают: '
+      || coalesce(array_to_string(v_bad, ' | '), '—'));
+end $$;
+
 -- ── Доступное анониму обязано отказывать ──────────────────────
 --
 -- Список выше отвечает на вопрос «что анониму доступно». Он не отвечает на
