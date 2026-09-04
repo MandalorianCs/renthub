@@ -72,7 +72,7 @@ const demoOwner = JSON.parse(readFileSync(join(ROOT, 'shared', 'demo-owner.json'
 
 const { data: items } = await admin
   .from('items')
-  .select('id, owner:users!items_owner_id_fkey(full_name)')
+  .select('id, condition_photos, owner:users!items_owner_id_fkey(full_name)')
   .eq('status', 'active');
 
 const total = items?.length ?? 0;
@@ -88,6 +88,42 @@ say(
   // держит это открытым вопросом организатора.
   total > 0 && demo === total,
 );
+
+// Картинки витрины.
+//
+// Ссылка на фото лежит в строке объявления, а сам файл — в Storage, и это
+// две разные вещи. Файл можно удалить, бакет — сделать приватным, политику
+// — переписать: строка при этом останется, объявление останется, а на
+// витрине будет серый прямоугольник.
+//
+// Молчаливость здесь полная: база отвечает успехом, приложение рисует
+// карточку, и только человек видит пустоту вместо инструмента. Проверяем
+// первое фото каждого объявления — если не отдаётся оно, остальные тем
+// более под вопросом.
+const photoChecks = await Promise.all(
+  (items ?? []).map(async (item) => {
+    const url = item.condition_photos?.[0];
+    if (!url) return 'нет ссылки';
+    try {
+      const res = await fetch(url, { method: 'HEAD' });
+      return res.ok ? 'ok' : `${res.status}`;
+    } catch {
+      return 'сеть';
+    }
+  }),
+);
+
+const brokenPhotos = photoChecks.filter((r) => r !== 'ok').length;
+
+if (total > 0) {
+  say(
+    'фото на витрине',
+    brokenPhotos === 0
+      ? `все ${total} отдаются`
+      : `${brokenPhotos} из ${total} не открываются (${[...new Set(photoChecks.filter((r) => r !== 'ok'))].join(', ')})`,
+    brokenPhotos > 0,
+  );
+}
 
 // ── Люди ─────────────────────────────────────────────────────
 //
@@ -302,6 +338,10 @@ if (alarms.length === 0) {
       'на витрине только демонстрационные вещи. Реклама приведёт человека к тому,\n' +
       '      что никто не отдаст: нужны живые объявления или npm run demo:clear',
     'заявки на участие': 'npm run queue, дальше npm run invite',
+    'фото на витрине':
+      'карточки покажут серые прямоугольники вместо инструмента. Проверьте\n' +
+      '      бакет item-photos: публичный ли он и на месте ли файлы. Заново\n' +
+      '      залить демонстрационные — npm run demo:photos, затем demo:fill',
     'публикация':
       'на публичном адресе не то, что в main. Публикуют два процесса сразу — наш\n' +
       '      workflow и встроенный «pages build and deployment»; побеждает тот, кто\n' +
