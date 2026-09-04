@@ -43,7 +43,7 @@
     "check:bot": "python scripts/check_bot.py",
     "check:pitch": "node scripts/check-pitch.mjs",
     "health": "node scripts/health.mjs",
-    "auth:url": "node scripts/auth-url.mjs",
+    "auth": "node scripts/auth.mjs",
     "nudge": "node scripts/nudge.mjs",
     "invite": "node scripts/invite.mjs",
     "moderator": "node scripts/moderator.mjs",

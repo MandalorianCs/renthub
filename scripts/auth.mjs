@@ -1,8 +1,12 @@
 #!/usr/bin/env node
-// Куда ссылка из письма возвращает человека — проверить и починить.
+// Настройки аутентификации — проверить и починить.
 //
-//   npm run auth:url            проверить (нужен только секретный ключ)
-//   npm run auth:url -- --apply починить (нужен ещё токен аккаунта)
+//   npm run auth            проверить
+//   npm run auth -- --apply починить (нужен токен аккаунта)
+//
+// Проверяются две вещи, и обе — про обещания, которые продукт даёт словами,
+// а держит настройками снаружи кода: куда возвращает ссылка из письма и
+// сколько живёт код входа.
 //
 // Зачем этот файл существует
 // ──────────────────────────
@@ -29,6 +33,13 @@
 // лежать чужие адреса, о которых мы не знаем; затереть их значит сломать то,
 // чего не видели. Ровно этого я и боялся в `config push` — глупо повторять
 // ту же ошибку своими руками.
+//
+// Второе обещание нашлось через час после первого. Функция telegram-otp
+// писала человеку «Действует час», а sms_otp_exp в проекте стоял 60 секунд.
+// Обе стороны сами по себе безупречны: текст вежлив, настройка допустима.
+// Врёт только их сочетание — и узнаёт об этом человек, вернувшийся к коду
+// через пять минут. Такие расхождения не ловятся чтением кода: читать надо
+// два места сразу, а они в разных репозиториях и на разных языках.
 
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
@@ -39,8 +50,9 @@ import { missingSecretMessage, projectRef, readAccessToken, readEnvFile, readSec
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const apply = process.argv.includes('--apply');
 
-const urls = JSON.parse(readFileSync(join(ROOT, 'shared', 'urls.json'), 'utf8'));
+const urls = JSON.parse(readFileSync(join(ROOT, 'shared', 'auth.json'), 'utf8'));
 const APP_URL = urls.app;
+const OTP = urls.otp;
 
 const url = process.env.SUPABASE_URL ?? readEnvFile('EXPO_PUBLIC_SUPABASE_URL');
 const secret = readSecret();
@@ -59,11 +71,11 @@ const admin = secret
   : null;
 
 if (!secret && !token) {
-  console.error(missingSecretMessage('npm run auth:url'));
+  console.error(missingSecretMessage('npm run auth'));
   process.exit(1);
 }
 
-console.log('\nАдрес возврата после письма\n');
+console.log('\nНастройки аутентификации\n');
 
 // ── 1. Не разошлись ли наши собственные источники ────────────
 //
@@ -76,10 +88,31 @@ const fallback = appSource.match(/EMAIL_RETURN_URL[\s\S]{0,400}?:\s*'([^']+)'/)?
 
 if (fallback !== APP_URL) {
   console.log(`  ! src/lib/supabase.ts просит ${fallback ?? '(не нашёл)'},`);
-  console.log(`    а shared/urls.json — ${APP_URL}. Сначала сведите их.\n`);
+  console.log(`    а shared/auth.json — ${APP_URL}. Сначала сведите их.\n`);
   process.exit(1);
 }
-console.log(`  ✓ приложение и shared/urls.json просят один адрес`);
+console.log(`  ✓ приложение и shared/auth.json просят один адрес`);
+
+// Срок жизни кода: что об этом СКАЗАНО человеку.
+//
+// Функция telegram-otp называет срок словами прямо в тексте сообщения —
+// «истечёт» без числа рождает вопрос, а вопрос в момент входа человек
+// задать некому. Значит слова обязаны совпадать с настройкой, иначе
+// вежливая фраза становится ложью.
+//
+// Проверяется тут, потому что для этого не нужно ни ключа, ни токена:
+// достаточно двух файлов в репозитории.
+const otpSource = readFileSync(
+  join(ROOT, 'supabase', 'functions', 'telegram-otp', 'index.ts'),
+  'utf8',
+);
+const otpSaid = otpSource.includes(`Действует ${OTP.smsHuman}`);
+
+console.log(
+  otpSaid
+    ? `  ✓ функция обещает «${OTP.smsHuman}» — как в shared/auth.json`
+    : `  ! функция не обещает «${OTP.smsHuman}»: текст в telegram-otp разошёлся с настройкой`,
+);
 
 // ── 2. Что происходит на самом деле ──────────────────────────
 //
@@ -114,7 +147,10 @@ if (before.error) {
   console.log(`  ? ссылка: ${before.error}`);
 } else if (before.target === APP_URL) {
   console.log(`  ✓ ссылка из письма возвращает в приложение`);
-  if (!apply) {
+  // Уйти отсюда можно, только когда проверять больше нечем. Токен есть —
+  // значит впереди ещё сверка срока кода с живой конфигурацией, и ранний
+  // выход соврал бы «настроено», не посмотрев вторую половину.
+  if (!apply && !token && otpSaid) {
     console.log('\n✓ Настроено. Чинить нечего.\n');
     process.exit(0);
   }
@@ -138,6 +174,10 @@ const panel = [
   '',
   '  У Site URL своя кнопка Save, отдельная от списка ниже — её легко',
   '  не заметить и уйти, ничего не сохранив.',
+  '',
+  '  Там же → Sign In / Providers → Phone → OTP Expiry:',
+  '',
+  `    ${OTP.smsSeconds} секунд (${OTP.smsHuman}) — столько живёт код входа`,
 ].join('\n');
 
 if (!token) {
@@ -149,7 +189,7 @@ if (!token) {
   console.log('');
   console.log('    SUPABASE_ACCESS_TOKEN=sbp_...');
   console.log('');
-  console.log('  Файл в .gitignore. После этого: npm run auth:url -- --apply');
+  console.log('  Файл в .gitignore. После этого: npm run auth -- --apply');
   console.log('');
   console.log('  Токен управляет всем аккаунтом, а не одним проектом, поэтому');
   console.log('  он необязателен: без него скрипт проверяет, но не трогает.');
@@ -197,22 +237,25 @@ const hookBefore = {
 const listed = (current.uri_allow_list ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 const missing = urls.redirects.filter((u) => !listed.includes(u));
 const siteWrong = current.site_url !== APP_URL;
+const otpWrong = current.sms_otp_exp !== OTP.smsSeconds;
 
 console.log('');
 console.log(`  Site URL сейчас   ${current.site_url || '(пусто)'}`);
+console.log(`  Код входа живёт   ${current.sms_otp_exp} сек`);
 console.log(`  Redirect URLs     ${listed.length ? listed.join(', ') : '(пусто)'}`);
 
-if (!siteWrong && missing.length === 0) {
+if (!siteWrong && missing.length === 0 && !otpWrong) {
   console.log('\n✓ В панели всё уже стоит правильно.\n');
   process.exit(0);
 }
 
 console.log('');
 if (siteWrong) console.log(`  → Site URL станет ${APP_URL}`);
+if (otpWrong) console.log(`  → код входа будет жить ${OTP.smsSeconds} сек (${OTP.smsHuman})`);
 for (const u of missing) console.log(`  → добавится ${u}`);
 
 if (!apply) {
-  console.log('\n  Это разбор, а не правка. Применить: npm run auth:url -- --apply\n');
+  console.log('\n  Это разбор, а не правка. Применить: npm run auth -- --apply\n');
   process.exit(1);
 }
 
@@ -225,6 +268,7 @@ const res = await fetch(api, {
   body: JSON.stringify({
     site_url: APP_URL,
     uri_allow_list: [...listed, ...missing].join(','),
+    sms_otp_exp: OTP.smsSeconds,
   }),
 });
 
@@ -268,6 +312,7 @@ const check = await actualTarget();
 
 console.log('');
 console.log(`  ✓ Site URL      ${after.site_url}`);
+console.log(`  ✓ Код входа     ${after.sms_otp_exp} сек`);
 console.log(`  ✓ Redirect URLs ${afterList.join(', ')}`);
 console.log(
   check.error

@@ -29,9 +29,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // src/lib/supabase.ts). Сверяем с ним: расхождение и есть дефект.
 //
 // Строкой он здесь лежал ровно до тех пор, пока копий не стало три —
-// health, invite и auth-url. Три копии одного адреса расходятся не «если»,
+// health, invite и auth. Три копии одного адреса расходятся не «если»,
 // а «когда», и разойдутся молча: каждая сама по себе верна.
-const APP_URL = JSON.parse(readFileSync(join(ROOT, 'shared', 'urls.json'), 'utf8')).app;
+const APP_URL = JSON.parse(readFileSync(join(ROOT, 'shared', 'auth.json'), 'utf8')).app;
 
 const url = process.env.SUPABASE_URL ?? readEnvFile('EXPO_PUBLIC_SUPABASE_URL');
 const secret = readSecret();
@@ -251,8 +251,8 @@ if (alarms.length === 0) {
     'заявки на участие': 'npm run queue, дальше npm run invite',
     'ссылка из письма':
       'Supabase подставляет свой Site URL, письмо доходит — а ссылка в нём\n' +
-      '      никуда. Что нажать в панели, печатает npm run auth:url; он же\n' +
-      '      чинит сам (npm run auth:url -- --apply), если есть токен аккаунта',
+      '      никуда. Что нажать в панели, печатает npm run auth; он же\n' +
+      '      чинит сам (npm run auth -- --apply), если есть токен аккаунта',
     'отправка писем':
       'Supabase отвечает не так, как ожидалось. Проверьте, включён ли провайдер\n' +
       '      Email: Authentication → Sign In / Providers → Email',

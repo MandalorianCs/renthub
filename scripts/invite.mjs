@@ -144,7 +144,7 @@ if (existing) {
 // ни одной ссылкой ещё не пользовался, и обновление его токена ничего не
 // ломает.
 const APP_URL = JSON.parse(
-  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'shared', 'urls.json'), 'utf8'),
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'shared', 'auth.json'), 'utf8'),
 ).app;
 let emailWorks = false;
 
