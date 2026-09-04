@@ -20,6 +20,7 @@ import {
   resolveDispute,
   setUserBlocked,
 } from '../../src/lib/api';
+import { useAuth } from '../../src/lib/auth';
 import { formatDate, formatDateRange, formatTenge, plural, ratingLabel } from '../../src/lib/format';
 import { copyText } from '../../src/lib/share';
 import { humanizeError } from '../../src/lib/supabase';
@@ -47,6 +48,33 @@ import { colors, radius, spacing, typeface } from '../../src/theme';
  * всё равно откажет — assert_moderator() проверяет право в самой базе.
  */
 export default function Moderation() {
+  // Право берётся у профиля, а не выводится из отказов запросов.
+  //
+  // Вывести его оттуда нельзя: из шести источников экрана половина —
+  // обычные таблицы под RLS, и постороннему они отвечают не отказом, а
+  // пустым списком. «Ничего не пришло» и «сюда нельзя» выглядели бы
+  // одинаково, а это разные вещи: первое читается как «разбирать
+  // нечего», ровно тот вывод, ради которого сюда и заходят.
+  //
+  // Вкладку посторонний не видит (href: null в _layout), но маршрут
+  // существует и открывается по прямой ссылке — на вебе это обычный
+  // адрес. Настоящая защита всё равно в базе: assert_moderator().
+  const { profile, profileError, loading: authLoading } = useAuth();
+  const router = useRouter();
+
+  // Три состояния, а не два, и путать их нельзя.
+  //
+  // Пока профиль грузится, is_moderator ещё не известен — и сказать
+  // модератору «право выдаёт организатор» значит соврать ему про его
+  // же право. Если профиль не загрузился (сеть), это тоже не «нет
+  // права»: тут нужна кнопка «Повторить», а не объяснение порядка.
+  //
+  // Ровно эту пару различает и docstring в src/lib/auth.tsx: раньше оба
+  // случая давали profile === null, и экран профиля показывал одно
+  // вместо другого. Поле profileError добавлено именно тогда.
+  const isModerator = profile?.is_moderator === true;
+  const rightUnknown = authLoading || (!profile && !profileError);
+
   const [disputes, setDisputes] = useState<DisputeForReview[]>([]);
   const [stats, setStats] = useState<ModerationOverview | null>(null);
   const [people, setPeople] = useState<ModerationPerson[]>([]);
@@ -55,30 +83,68 @@ export default function Moderation() {
   const [support, setSupport] = useState<SupportMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [partial, setPartial] = useState<string[]>([]);
 
+  /**
+   * Шесть независимых запросов, и падение одного не должно гасить пять
+   * остальных.
+   *
+   * Раньше здесь стоял Promise.all: любой отказ уводил весь экран в
+   * ErrorState, и модератор не видел ничего — включая споры, то есть
+   * единственное место, где решается судьба чужих денег. Достаточно было
+   * забыть грант новой функции: 03.09 сюда добавили support_open, и
+   * ошибись мы в нём — пропал бы весь экран, а не строка «обращения».
+   *
+   * Правило это в проекте уже записано, но в другом окне: в bot.py у
+   * списка «что осталось оценить» стоит свой except с объяснением —
+   * «список это дополнение к главному ответу, его сбой не должен мешать
+   * человеку увидеть свои живые сделки». Здесь была вторая дверь без него.
+   *
+   * Пустой список и несработавший запрос при этом не должны выглядеть
+   * одинаково — это худший класс ошибок по DESIGN.md. Поэтому пятая
+   * секция не просто исчезает: её имя попадает в строку над экраном.
+   */
   const load = useCallback(async () => {
-    try {
-      const [d, s, p, h, j, m] = await Promise.all([
-        fetchDisputesForReview(),
-        fetchModerationOverview(),
-        fetchModerationPeople(),
-        fetchHeldItems(),
-        fetchJoinRequests(),
-        fetchSupportMessages(),
-      ]);
-      setDisputes(d);
-      setStats(s);
-      setPeople(p);
-      setHeld(h);
-      setJoins(j);
-      setSupport(m);
-      setError(null);
-    } catch (e) {
-      setError(humanizeError(e));
-    } finally {
+    // Пока право неизвестно — не ходим в базу и не гасим скелетон:
+    // загрузка продолжится сама, когда придёт профиль (он в зависимостях).
+    if (rightUnknown) return;
+
+    if (!isModerator) {
       setLoading(false);
+      return;
     }
-  }, []);
+
+    const parts = [
+      ['споры', fetchDisputesForReview, setDisputes],
+      ['сводку', fetchModerationOverview, setStats],
+      ['участников', fetchModerationPeople, setPeople],
+      ['снятые объявления', fetchHeldItems, setHeld],
+      ['заявки на участие', fetchJoinRequests, setJoins],
+      ['обращения', fetchSupportMessages, setSupport],
+    ] as const;
+
+    const results = await Promise.allSettled(parts.map(([, fetcher]) => fetcher()));
+
+    const broken: string[] = [];
+    let lastError: unknown = null;
+
+    results.forEach((result, index) => {
+      const [label, , apply] = parts[index];
+      if (result.status === 'fulfilled') {
+        (apply as (v: unknown) => void)(result.value);
+      } else {
+        broken.push(label);
+        lastError = result.reason;
+      }
+    });
+
+    // Упало всё — это не «часть не загрузилась», а «сюда нельзя» или «нет
+    // сети». Показывать шесть пустых секций и строку про сбой значило бы
+    // прятать причину: экран выглядел бы работающим и пустым.
+    setError(broken.length === parts.length ? humanizeError(lastError) : null);
+    setPartial(broken.length === parts.length ? [] : broken);
+    setLoading(false);
+  }, [isModerator, rightUnknown]);
 
   useEffect(() => {
     load();
@@ -86,7 +152,24 @@ export default function Moderation() {
 
   const { refreshing, onRefresh } = useRefresh(load);
 
-  if (loading) return <ListSkeleton rows={3} />;
+  if (loading || rightUnknown) return <ListSkeleton rows={3} />;
+
+  // Профиль не пришёл — это сбой связи, а не отсутствие права.
+  // Объяснять здесь порядок выдачи прав значило бы ответить не на тот
+  // вопрос: человеку нужна кнопка «Повторить».
+  if (profileError) return <ErrorState message={profileError} onRetry={load} />;
+
+  if (!isModerator) {
+    return (
+      <Empty
+        icon="shield-outline"
+        title="Экран модератора"
+        body="Здесь разбирают споры и заявки на участие. Право выдаёт организатор пилота."
+        action={{ label: 'Открыть каталог', onPress: () => router.push('/') }}
+      />
+    );
+  }
+
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
@@ -96,6 +179,18 @@ export default function Moderation() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
       }
     >
+      {/* Что не загрузилось — словами и наверху. Молча пропавшая секция
+          читается как «пусто», а «пусто» на экране модерации означает
+          «разбирать нечего» — вывод, ради которого сюда и заходят. */}
+      {partial.length > 0 ? (
+        <Card>
+          <Text style={s.partial}>
+            Не удалось загрузить: {partial.join(', ')}. Остальное на экране — свежее.
+            Потяните вниз, чтобы попробовать снова.
+          </Text>
+        </Card>
+      ) : null}
+
       {/* Сводка первой: модератор должен видеть картину целиком, а не
           только то, что сломалось. Пустой список споров без контекста
           не отличается от неработающего экрана. */}
@@ -926,6 +1021,10 @@ const s = StyleSheet.create({
   evidenceLabel: { fontSize: 11, fontFamily: typeface[700], color: colors.textMuted, textTransform: 'uppercase' },
   photo: { width: 72, height: 72, borderRadius: radius.sm, backgroundColor: colors.border },
   photoEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },
+  // Цвет предупреждения, а не ошибки: экран работает, просто не весь.
+  // danger здесь сказал бы «всё сломалось» — и модератор не стал бы
+  // разбирать споры, которые как раз загрузились.
+  partial: { fontSize: 14, lineHeight: 20, fontFamily: typeface[500], color: colors.warn },
   weekNote: { fontSize: 13, fontFamily: typeface[500], color: colors.textMuted, marginTop: spacing.sm },
   person: { borderTopWidth: 1, borderTopColor: colors.border },
   personHead: {
