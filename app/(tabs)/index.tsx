@@ -301,11 +301,6 @@ export default function Catalog() {
         </View>
       </ScreenHead>
 
-      {/* Возврат по ссылке из письма приводит сюда — на адрес приложения.
-          Подтверждение показывается до всего остального: человек пришёл
-          узнать, вошёл ли он, а не выбирать категорию. */}
-      {linkedIn ? <SignedInNote onClose={dismissLinkedIn} /> : null}
-
       {/* ── Категории ─────────────────────────────────────── */}
       <ScrollView
         ref={chipsRef}
@@ -347,20 +342,6 @@ export default function Catalog() {
 
           Условие строгое — ни одной живой. Пока живые есть, полоса не
           нужна: демо среди настоящих читается как демо. */}
-      {!loading && items.length > 0 && items.every((i) => isDemoOwner(i.owner?.full_name)) ? (
-        <View style={s.allDemo}>
-          <Ionicons name="construct-outline" size={20} color={colors.accent} />
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={s.allDemoTitle}>Пока это витрина для показа</Text>
-            <Text style={s.allDemoBody}>
-              Все вещи здесь демонстрационные: пилот в Кокшетау только набирает
-              владельцев. Есть инструмент, который лежит без дела? Выложите — вашу
-              вещь увидят первой.
-            </Text>
-          </View>
-        </View>
-      ) : null}
-
       {/* ── Сколько нашли + вход в фильтры ────────────────── */}
       <View style={s.bar}>
         <Text style={s.count}>
@@ -436,6 +417,38 @@ export default function Catalog() {
           keyExtractor={(i) => i.id}
           contentContainerStyle={s.list}
           columnWrapperStyle={s.column}
+          // Шапка списка, а не экрана.
+          //
+          // 05.09.2026 на телефоне 375×812 всё это стояло НАД списком и
+          // потому не прокручивалось: заголовок, поиск, категории и полоса
+          // «витрина для показа» занимали около 490 точек, и на карточки
+          // оставалось полтора ряда. Полосу я добавил накануне, глядя на
+          // широкий экран, и объяснение витрины стоило человеку самой
+          // витрины.
+          //
+          // Здесь они уезжают вверх при первом же движении пальца: прочитал
+          // — и дальше смотришь вещи.
+          ListHeaderComponent={
+            <>
+              {linkedIn ? <SignedInNote onClose={dismissLinkedIn} /> : null}
+
+              {/* Полоса про демо — см. её же объяснение выше по файлу.
+                  Условие строгое: ни одной живой вещи. */}
+              {items.length > 0 && items.every((i) => isDemoOwner(i.owner?.full_name)) ? (
+                <View style={s.allDemo}>
+                  <Ionicons name="construct-outline" size={20} color={colors.accent} />
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={s.allDemoTitle}>Пока это витрина для показа</Text>
+                    <Text style={s.allDemoBody}>
+                      Все вещи здесь демонстрационные: пилот в Кокшетау только набирает
+                      владельцев. Есть инструмент, который лежит без дела? Выложите — вашу
+                      вещь увидят первой.
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+            </>
+          }
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
           }
@@ -727,8 +740,10 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     alignItems: 'flex-start',
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
+    // Горизонтальный отступ теперь даёт сам список (contentContainerStyle),
+    // и повторять его здесь значило бы сдвинуть полосу внутрь на двойное
+    // поле.
+    marginBottom: spacing.md,
     padding: spacing.md,
     borderRadius: radius.md,
     backgroundColor: colors.accentSoft,
