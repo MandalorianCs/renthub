@@ -183,6 +183,44 @@ if (appHtml.includes('og:title')) {
 // и без карточки они остались бы теми же безымянными адресами.
 cpSync(appHtmlPath, join(DOCS, '404.html'));
 
+// ── Ссылки на собственные файлы ───────────────────────────────
+//
+// Страницы называют свои файлы полными адресами: og:image, логотип в
+// структурированных данных, канонические ссылки. Опечатка в таком адресе
+// не ломает ничего видимого — ломается то, что видит не человек.
+//
+// 05.09.2026 в landing/index.html поле `logo` для поисковика указывало на
+// `/renthub/og-image.png`, а файл лежит в `/renthub/assets/og.png`. Google
+// шёл за логотипом организации и получал 404. Заметить это глазами нельзя:
+// на странице ничего не меняется.
+//
+// Проверяем здесь, а не отдельной командой: сборка — единственный момент,
+// когда известны и адреса, и то, какие файлы реально получились.
+const SITE_PREFIX = 'https://mandaloriancs.github.io/renthub/';
+const brokenLinks = [];
+
+for (const page of ['index.html', 'pitch/index.html', 'app/index.html']) {
+  const full = join(DOCS, page);
+  if (!existsSync(full)) continue;
+
+  const html = readFileSync(full, 'utf8');
+  for (const match of html.matchAll(/https:\/\/mandaloriancs\.github\.io\/renthub\/([^"'\s)]*)/g)) {
+    const rel = match[1].split('?')[0].split('#')[0];
+    // Пустой путь — сам сайт; каталоги отдаёт index.html; адреса приложения
+    // разбирает клиентская маршрутизация, файлов под них нет и не должно.
+    if (!rel || rel.endsWith('/') || rel.startsWith('app/')) continue;
+    if (!existsSync(join(DOCS, rel))) brokenLinks.push(`${page} → ${SITE_PREFIX}${rel}`);
+  }
+}
+
+if (brokenLinks.length) {
+  console.error('\n✗ Страницы ссылаются на файлы, которых в сборке нет:\n');
+  for (const link of [...new Set(brokenLinks)]) console.error(`    ${link}`);
+  console.error('\n  Это не видно глазами: ломается превью в мессенджере или');
+  console.error('  логотип в поиске, а страница выглядит целой.\n');
+  process.exit(1);
+}
+
 console.log(`
 ✓ Собрано в docs/ — это локальный предпросмотр.
 
