@@ -331,6 +331,31 @@ export default function Catalog() {
         ))}
       </ScrollView>
 
+      {/* Витрина, где нет ни одной живой вещи.
+          Значок «ДЕМО» на карточке честен, но объясняет только карточку.
+          Человек с рекламы видит восемь таких подряд и делает вывод не про
+          карточки, а про платформу: тут ничего нет и делать нечего.
+
+          Ему нужно сказать то, чего значок не говорит: пилот сейчас
+          набирает владельцев, и он может стать одним из них. Это и есть
+          то, ради чего его сюда привели.
+
+          Условие строгое — ни одной живой. Пока живые есть, полоса не
+          нужна: демо среди настоящих читается как демо. */}
+      {!loading && items.length > 0 && items.every((i) => isDemoOwner(i.owner?.full_name)) ? (
+        <View style={s.allDemo}>
+          <Ionicons name="construct-outline" size={20} color={colors.accent} />
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={s.allDemoTitle}>Пока это витрина для показа</Text>
+            <Text style={s.allDemoBody}>
+              Все вещи здесь демонстрационные: пилот в Кокшетау только набирает
+              владельцев. Есть инструмент, который лежит без дела? Выложите — вашу
+              вещь увидят первой.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       {/* ── Сколько нашли + вход в фильтры ────────────────── */}
       <View style={s.bar}>
         <Text style={s.count}>
@@ -693,6 +718,18 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: { fontSize: 11, fontFamily: typeface[800], color: colors.onFill },
+  allDemo: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'flex-start',
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.accentSoft,
+  },
+  allDemoTitle: { fontSize: 14, fontFamily: typeface[700], color: colors.text },
+  allDemoBody: { fontSize: 13, lineHeight: 19, fontFamily: typeface[400], color: colors.textMuted },
 
   panel: { paddingTop: spacing.md, gap: spacing.md },
   panelRow: {
