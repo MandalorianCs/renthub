@@ -239,9 +239,27 @@ const missing = urls.redirects.filter((u) => !listed.includes(u));
 const siteWrong = current.site_url !== APP_URL;
 const otpWrong = current.sms_otp_exp !== OTP.smsSeconds;
 
+// Сколько писем в час пропускает проект.
+//
+// По умолчанию два — и это два на ВЕСЬ проект, а не на человека. Третий за
+// час получает 429 и видит ровно то же, что при поломке: тишину.
+//
+// Поднять это МЫ НЕ МОЖЕМ, и попытка была: Supabase отвечает 401 «Custom
+// SMTP required to configure RATE_LIMIT_EMAIL_SENT». То есть два письма —
+// не настройка, а потолок встроенной отправки, и обходится он ровно одним
+// способом: своим SMTP.
+//
+// Поэтому лимит здесь не чинится, а показывается. Скрипт, который каждый
+// раз пробует невозможное и каждый раз падает, учит не читать его вывод.
+const mailLow = current.rate_limit_email_sent < OTP.emailPerHourMin;
+
 console.log('');
 console.log(`  Site URL сейчас   ${current.site_url || '(пусто)'}`);
 console.log(`  Код входа живёт   ${current.sms_otp_exp} сек`);
+console.log(
+  `  Писем в час       ${current.rate_limit_email_sent}` +
+    (mailLow ? '  ← потолок встроенной отправки, поднимается только своим SMTP' : ''),
+);
 console.log(`  Redirect URLs     ${listed.length ? listed.join(', ') : '(пусто)'}`);
 
 if (!siteWrong && missing.length === 0 && !otpWrong) {
@@ -252,6 +270,7 @@ if (!siteWrong && missing.length === 0 && !otpWrong) {
 console.log('');
 if (siteWrong) console.log(`  → Site URL станет ${APP_URL}`);
 if (otpWrong) console.log(`  → код входа будет жить ${OTP.smsSeconds} сек (${OTP.smsHuman})`);
+
 for (const u of missing) console.log(`  → добавится ${u}`);
 
 if (!apply) {
@@ -313,6 +332,7 @@ const check = await actualTarget();
 console.log('');
 console.log(`  ✓ Site URL      ${after.site_url}`);
 console.log(`  ✓ Код входа     ${after.sms_otp_exp} сек`);
+
 console.log(`  ✓ Redirect URLs ${afterList.join(', ')}`);
 console.log(
   check.error
