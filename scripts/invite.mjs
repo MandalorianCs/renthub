@@ -22,6 +22,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { missingSecretMessage, readEnvFile, readSecret } from './env.mjs';
 import { randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Телефон → внутренний адрес. Человек этого адреса не видит и не вводит:
@@ -147,7 +150,9 @@ if (existing) {
 // значит по ней видно, куда она приведёт. Пользователь только что заведён,
 // ни одной ссылкой ещё не пользовался, и обновление его токена ничего не
 // ломает.
-const APP_URL = 'https://mandaloriancs.github.io/renthub/app/';
+const APP_URL = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'shared', 'urls.json'), 'utf8'),
+).app;
 let emailWorks = false;
 
 try {

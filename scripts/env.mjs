@@ -58,6 +58,27 @@ export function readSecret() {
   return process.env.SUPABASE_SECRET_KEY ?? readFrom('.env.secret', 'SUPABASE_SECRET_KEY');
 }
 
+/**
+ * Токен управления аккаунтом — не то же самое, что секретный ключ.
+ *
+ * Секретный ключ открывает всё ВНУТРИ проекта: таблицы, пользователей,
+ * отправку писем. Настройки самого проекта — Site URL, список редиректов,
+ * включённые провайдеры — лежат СНАРУЖИ базы, и ключ до них не достаёт.
+ * Ими управляет Management API, а он спрашивает токен аккаунта (`sbp_...`).
+ *
+ * Разделение не случайно: скомпрометированный ключ проекта — потеря одного
+ * проекта, токен аккаунта — потеря всех. Поэтому он необязателен: без него
+ * скрипты обязаны продолжать работать и объяснять, что нажать руками.
+ */
+export function readAccessToken() {
+  return process.env.SUPABASE_ACCESS_TOKEN ?? readFrom('.env.secret', 'SUPABASE_ACCESS_TOKEN');
+}
+
+/** Идентификатор проекта из его адреса: https://<ref>.supabase.co */
+export function projectRef(url) {
+  return url?.match(/^https:\/\/([a-z0-9]+)\.supabase\./)?.[1] ?? null;
+}
+
 /** Одинаковая подсказка для всех скриптов, пример команды у каждого свой. */
 export function missingSecretMessage(example) {
   return (

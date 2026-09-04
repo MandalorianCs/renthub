@@ -1,0 +1,10 @@
+{
+  "_": "Адреса, куда Supabase разрешено возвращать человека после письма. Читают scripts/auth-url.mjs, scripts/health.mjs, scripts/invite.mjs. Приложение (src/lib/supabase.ts, EMAIL_RETURN_URL) просит адрес текущей вкладки — поэтому список обязан покрывать и публикацию, и локальную разработку. Расхождение ловит npm run auth:url.",
+  "app": "https://mandaloriancs.github.io/renthub/app/",
+  "redirects": [
+    "https://mandaloriancs.github.io/renthub/app/",
+    "https://mandaloriancs.github.io/renthub/app/**",
+    "http://localhost:8081",
+    "http://localhost:8081/**"
+  ]
+}

@@ -26,7 +26,11 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Тот же адрес, что просит приложение (EMAIL_RETURN_URL в
 // src/lib/supabase.ts). Сверяем с ним: расхождение и есть дефект.
-const APP_URL = 'https://mandaloriancs.github.io/renthub/app/';
+//
+// Строкой он здесь лежал ровно до тех пор, пока копий не стало три —
+// health, invite и auth-url. Три копии одного адреса расходятся не «если»,
+// а «когда», и разойдутся молча: каждая сама по себе верна.
+const APP_URL = JSON.parse(readFileSync(join(ROOT, 'shared', 'urls.json'), 'utf8')).app;
 
 const url = process.env.SUPABASE_URL ?? readEnvFile('EXPO_PUBLIC_SUPABASE_URL');
 const secret = readSecret();
@@ -234,10 +238,9 @@ if (alarms.length === 0) {
       '      что никто не отдаст: нужны живые объявления или npm run demo:clear',
     'заявки на участие': 'npm run queue, дальше npm run invite',
     'ссылка из письма':
-      'Supabase подставляет свой Site URL. Панель → Authentication → URL\n' +
-      '      Configuration: Site URL = https://mandaloriancs.github.io/renthub/app/\n' +
-      '      и тот же адрес в Redirect URLs. Без этого письмо доходит, а ссылка\n' +
-      '      в нём ведёт на localhost:3000 — README, «Что настроить в панели»',
+      'Supabase подставляет свой Site URL, письмо доходит — а ссылка в нём\n' +
+      '      никуда. Что нажать в панели, печатает npm run auth:url; он же\n' +
+      '      чинит сам (npm run auth:url -- --apply), если есть токен аккаунта',
     'отправка писем':
       'Supabase отвечает не так, как ожидалось. Проверьте, включён ли провайдер\n' +
       '      Email: Authentication → Sign In / Providers → Email',
