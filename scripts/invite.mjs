@@ -21,6 +21,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { missingSecretMessage, readEnvFile, readSecret } from './env.mjs';
+import { normalizePhone } from './phone.mjs';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -33,14 +34,6 @@ import { fileURLToPath } from 'node:url';
  */
 function inviteEmail(phone) {
   return `${phone.replace(/\D/g, '')}@renthub.test`;
-}
-
-/** Казахстанские номера: 8 705… и +7 705… — это один и тот же номер. */
-function normalizePhone(input) {
-  const digits = input.replace(/\D/g, '');
-  if (digits.startsWith('8') && digits.length === 11) return `+7${digits.slice(1)}`;
-  if (digits.startsWith('7') && digits.length === 11) return `+${digits}`;
-  return `+${digits}`;
 }
 
 
@@ -189,7 +182,7 @@ console.log(`
 Без этого человек не получит ни подтверждения брони, ни напоминания о
 возврате, ни ответа на обращение — всё это будет ждать его в приложении,
 и он узнает о них, только зайдя сам. На 04.09.2026 привязку сделал один
-участник из восьми: это то место, где пилот теряет больше всего.
+живой участник из пяти: это то место, где пилот теряет больше всего.
 ${realEmail
   ? emailWorks
     ? `

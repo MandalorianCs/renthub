@@ -17,13 +17,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { missingSecretMessage, readEnvFile, readSecret } from './env.mjs';
+import { normalizePhone } from './phone.mjs';
 
-function normalizePhone(input) {
-  const digits = input.replace(/\D/g, '');
-  if (digits.startsWith('8') && digits.length === 11) return `+7${digits.slice(1)}`;
-  if (digits.startsWith('7') && digits.length === 11) return `+${digits}`;
-  return `+${digits}`;
-}
 
 
 const [rawPhone, flag] = process.argv.slice(2);

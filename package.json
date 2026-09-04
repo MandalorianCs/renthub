@@ -44,6 +44,7 @@
     "check:pitch": "node scripts/check-pitch.mjs",
     "health": "node scripts/health.mjs",
     "auth:url": "node scripts/auth-url.mjs",
+    "nudge": "node scripts/nudge.mjs",
     "invite": "node scripts/invite.mjs",
     "moderator": "node scripts/moderator.mjs",
     "email": "node scripts/email.mjs",

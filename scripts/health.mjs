@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { missingSecretMessage, readEnvFile, readSecret } from './env.mjs';
+import { isServiceAccount } from './phone.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -88,31 +89,42 @@ say(
 );
 
 // ── Люди ─────────────────────────────────────────────────────
-const { count: people } = await admin
+//
+// Служебные аккаунты — два тестовых и владелец витрины — верифицированы
+// наравне с живыми, и до 04.09.2026 они считались людьми. Получалось «8
+// участников» при пяти, а привязка Telegram — «1 из 8» вместо «1 из 5».
+// Ошибка удобная: пилот выглядел больше, чем есть. Этим числом меряют
+// успех и называют его на питче, так что округлять его в свою пользу —
+// худшее, что тут можно сделать.
+const { data: verified } = await admin
   .from('users')
-  .select('id', { count: 'exact', head: true })
+  .select('phone, telegram_id')
   .not('verified_at', 'is', null);
+
+const humans = (verified ?? []).filter((u) => !isServiceAccount(u.phone));
+const people = humans.length;
+const service = (verified ?? []).length - people;
 
 const { count: waiting } = await admin
   .from('join_requests')
   .select('id', { count: 'exact', head: true })
   .is('handled_at', null);
 
-say('участники', `${people ?? 0} с подтверждённым номером`, false);
+say(
+  'участники',
+  `${people} ${plural(people, 'живой человек', 'живых человека', 'живых людей')}` +
+    (service ? ` (+${service} служебных: тесты и витрина)` : ''),
+  false,
+);
 
 // Привязка Telegram — не украшение, а условие работы трёх вещей сразу:
 // уведомлений о сделках, ответа организатора на обращение и входа по коду
 // (вкладка «По SMS» без неё отвечает отказом). Человек без неё пользуется
 // половиной продукта и об этом не знает.
 //
-// 04.09.2026 таких было семеро из восьми — то есть почти все.
-const { count: linked } = await admin
-  .from('users')
-  .select('id', { count: 'exact', head: true })
-  .not('telegram_id', 'is', null);
-
-const total_people = people ?? 0;
-const withTg = linked ?? 0;
+// 04.09.2026 таких было четверо из пяти — то есть почти все.
+const total_people = people;
+const withTg = humans.filter((u) => u.telegram_id).length;
 
 say(
   'Telegram привязан',
@@ -246,8 +258,8 @@ if (alarms.length === 0) {
       '      Email: Authentication → Sign In / Providers → Email',
     'Telegram привязан':
       'у большинства участников нет привязки — они не получают уведомлений,\n' +
-      '      ответов организатора и не могут войти по коду. Дайте ссылку на бота:\n' +
-      '      t.me/renthub_kokshetau_bot, одно нажатие «Поделиться номером»',
+      '      ответов организатора и не могут войти по коду. Кому написать и\n' +
+      '      каким текстом, печатает npm run nudge',
   };
 
   console.log(`\n! Требует внимания\n`);
