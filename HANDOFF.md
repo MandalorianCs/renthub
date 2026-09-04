@@ -123,6 +123,7 @@ npm run demo:photos                 заглушки для витрины, ес
 npm run queue                       очередь заявок на участие
 npm run check:bot                   два имени в боте и списки статусов против базы
 npm run check:pitch                 сходятся ли числа деки между собой и с кодом
+npm run health                      планировщик, очередь уведомлений, витрина, заявки
 npm run demo:fill                   демо-объявления из demo-photos/
 npm run demo:clear                  убрать их
 npm run notify:test -- +7701...     проверить связь «база → бот → Telegram»
