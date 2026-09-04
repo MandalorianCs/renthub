@@ -238,6 +238,50 @@ else:
         print(f"✓ normalize_phone одинаков в трёх языках ({len(PHONE_CASES)} номеров)")
 
 
+# ── Модуль должен загружаться, а не только разбираться ───────
+#
+# `ast.parse` выше ловит синтаксис и повторные имена. Импорт ловит другое:
+# забытый `import`, ошибку в коде верхнего уровня — сборке клавиатур,
+# словарей, декораторов aiogram. Всё это разбирается прекрасно и падает
+# при первом запуске бота.
+#
+# Чего он НЕ ловит: опечатку внутри функции. `await ask_lnk(message)` в
+# теле обработчика переживёт и разбор, и импорт, и упадёт у человека в
+# чате. Для этого нужен запуск сценария, а не загрузка модуля.
+#
+# Импорт выполняет модуль целиком: все определения, декораторы aiogram,
+# сборку клавиатур. Сетевых запросов при этом нет — polling начинается
+# в main(), под `if __name__ == "__main__"`.
+#
+# Отсутствие окружения не считается ошибкой: bot.py останавливается сам,
+# когда не находит токена, и это правильное поведение, а не поломка.
+def module_loads():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("renthub_bot", ROOT / "bot" / "bot.py")
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+        return module, None
+    except SystemExit:
+        return None, "нет окружения"
+    except Exception as error:  # noqa: BLE001 — сюда и целимся
+        return None, f"{type(error).__name__}: {error}"
+
+
+loaded, why = module_loads()
+
+if why == "нет окружения":
+    print("?  bot.py не загрузить: не хватает bot/.env — проверка пропущена")
+elif loaded is None:
+    failed = True
+    print(f"\n✗ bot.py разбирается, но не загружается: {why}")
+    print("  Синтаксис такое пропускает — падает при запуске бота.")
+else:
+    names = [n for n in ("ask_link", "ask_link_query", "item_url", "humanize") if callable(getattr(loaded, n, None))]
+    print(f"✓ bot.py загружается целиком ({len(names)} ключевых функций на месте)")
+
+
 # ── Ссылка на объявление: два языка, один адрес ──────────────
 #
 # Правило уже расходилось однажды, и комментарий в боте это признаёт: бот
