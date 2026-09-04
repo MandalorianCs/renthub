@@ -114,6 +114,51 @@ say(
   // просто не получит уведомление и не узнает, что должен был.
   total_people > 0 && withTg * 2 < total_people,
 );
+
+// ── Почта ────────────────────────────────────────────────────
+//
+// Служебный адрес вида 77010000001@renthub.test заводит invite.mjs из
+// номера — человек его не видит и войти по нему не может. Настоящая почта
+// — та, которую он привязал сам. Считаем именно её: это число говорит,
+// скольким людям вход по письму вообще доступен.
+const { data: authUsers } = await admin.auth.admin.listUsers({ perPage: 1000 });
+const realEmails = (authUsers?.users ?? []).filter(
+  (u) => u.email && !u.email.endsWith('@renthub.test'),
+);
+
+say(
+  'настоящая почта',
+  total_people === 0 ? 'участников нет' : `${realEmails.length} из ${total_people}`,
+  false,
+);
+
+// Доставку отсюда не проверить — почтового ящика у нас нет. Зато проверяется
+// то, что ей предшествует: принимает ли Supabase отправку вообще.
+//
+// Ответ 200 означает «заявка принята, дальше дело за доставкой»; 429 с
+// «email rate limit exceeded» — что исчерпана квота встроенного сервиса.
+// Спрашиваем про заведомо несуществующий адрес и с create_user: false:
+// такой запрос ничего не создаёт и никому не пишет.
+const probe = await fetch(`${url}/auth/v1/otp`, {
+  method: 'POST',
+  headers: {
+    apikey: readEnvFile('EXPO_PUBLIC_SUPABASE_ANON_KEY'),
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ email: 'health-probe@renthub.invalid', create_user: false }),
+});
+const probeText = await probe.text();
+
+say(
+  'отправка писем',
+  probe.status === 422
+    ? 'Supabase принимает запросы (провайдер включён)'
+    : probeText.includes('email rate limit exceeded')
+      ? 'исчерпана квота встроенного сервиса — нужен свой SMTP'
+      : `неожиданный ответ ${probe.status}: ${probeText.slice(0, 60)}`,
+  probe.status !== 422,
+);
+
 say(
   'заявки на участие',
   waiting ? `${waiting} ждут ответа` : 'очередь пуста',
@@ -145,6 +190,9 @@ if (alarms.length === 0) {
       'на витрине только демонстрационные вещи. Реклама приведёт человека к тому,\n' +
       '      что никто не отдаст: нужны живые объявления или npm run demo:clear',
     'заявки на участие': 'npm run queue, дальше npm run invite',
+    'отправка писем':
+      'Supabase отвечает не так, как ожидалось. Проверьте, включён ли провайдер\n' +
+      '      Email: Authentication → Sign In / Providers → Email',
     'Telegram привязан':
       'у большинства участников нет привязки — они не получают уведомлений,\n' +
       '      ответов организатора и не могут войти по коду. Дайте ссылку на бота:\n' +

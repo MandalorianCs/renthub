@@ -1,13 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { ListSkeleton } from '../src/components/Skeleton';
 import { Empty, ErrorState } from '../src/components/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchNotifications, markNotificationsRead } from '../src/lib/api';
 import { useAuth } from '../src/lib/auth';
 import { formatDateTime } from '../src/lib/format';
-import { humanizeError } from '../src/lib/supabase';
+import { humanizeError, TELEGRAM_BOT, TELEGRAM_BOT_URL } from '../src/lib/supabase';
 import { useRefresh } from '../src/lib/useRefresh';
 import type { Notification } from '../src/lib/types';
 import { colors, radius, spacing, typeface } from '../src/theme';
@@ -73,7 +73,7 @@ function look(type: string): Look {
  * не дублируется между приложением и ботом.
  */
 export default function Notifications() {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const router = useRouter();
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,6 +120,36 @@ export default function Notifications() {
       }
       ListEmptyComponent={
         <Empty icon="notifications-outline" title="Пока тихо" body="Здесь появятся события по вашим сделкам." />
+      }
+      /* Кто не привязал Telegram, узнаёт о событии, только открыв это
+         место. Он об этом не знает: экран выглядит как лента, а не как
+         единственный канал — и «подтвердите бронь» человек прочитает
+         через день, когда откроет приложение сам.
+
+         На 04.09.2026 привязка была у одного участника из восьми, то есть
+         почти вся доставка сводилась к этому экрану. Здесь и место сказать:
+         не в профиле, куда заходят раз в месяц, а там, где человек видит
+         пропущенное. */
+      ListHeaderComponent={
+        profile && !profile.telegram_id ? (
+          <View style={s.linkTg}>
+            <Ionicons name="paper-plane-outline" size={20} color={colors.accent} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={s.linkTgTitle}>Это единственное место, куда приходят уведомления</Text>
+              <Text style={s.linkTgBody}>
+                Подтверждение брони, напоминание о возврате и решение по спору сейчас
+                ждут вас здесь — и вы узнаёте о них, только открыв приложение.
+                Подключите Telegram, и они будут приходить сразу.
+              </Text>
+              <Pressable
+                style={({ pressed }) => [s.linkTgBtn, pressed && { opacity: 0.85 }]}
+                onPress={() => Linking.openURL(TELEGRAM_BOT_URL)}
+              >
+                <Text style={s.linkTgBtnText}>Открыть @{TELEGRAM_BOT}</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null
       }
       renderItem={({ item }) => {
         const view = look(item.type);
@@ -171,6 +201,25 @@ const s = StyleSheet.create({
     padding: spacing.lg,
   },
   unread: { borderLeftWidth: 3, borderLeftColor: colors.accent },
+  linkTg: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.accentSoft,
+  },
+  linkTgTitle: { fontSize: 15, fontFamily: typeface[700], color: colors.text },
+  linkTgBody: { fontSize: 14, lineHeight: 20, fontFamily: typeface[400], color: colors.textMuted },
+  linkTgBtn: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+    paddingVertical: 9,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.pill,
+    backgroundColor: colors.accent,
+  },
+  linkTgBtnText: { fontSize: 14, fontFamily: typeface[700], color: colors.onFill },
   title: { fontSize: 15, fontFamily: typeface[700], color: colors.text },
   body: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 19 },
   date: { fontSize: 11, fontFamily: typeface[400], color: colors.textMuted },
