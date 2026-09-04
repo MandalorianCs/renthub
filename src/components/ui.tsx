@@ -197,6 +197,30 @@ export function Empty({
  * а ошибка сети означает «мы не смогли посмотреть». Показывать их одинаково
  * значит врать пользователю о состоянии системы.
  */
+/**
+ * «Вы вошли по ссылке из письма» — подтверждение того, что уже случилось.
+ *
+ * Переход из почты в приложение для человека выглядит как обычная загрузка
+ * страницы: ничего не мигает, ничего не говорит. 05.09.2026 участник нажал
+ * «Sign in», вошёл — и решил, что не сработало, потому что экран открылся
+ * молча и показал форму, которую он принял за незаполненную.
+ *
+ * Отказ приложение объясняло с 04.09, успех — нет. Несимметрично в худшую
+ * сторону: человек, у которого всё получилось, уходит в сомнениях, а
+ * переспросить некого.
+ */
+export function SignedInNote({ onClose }: { onClose: () => void }) {
+  return (
+    <View style={s.signedIn}>
+      <Ionicons name="checkmark-circle" size={20} color={colors.green} />
+      <Text style={s.signedInText}>Вы вошли по ссылке из письма.</Text>
+      <Pressable onPress={onClose} hitSlop={10}>
+        <Ionicons name="close" size={18} color={colors.textMuted} />
+      </Pressable>
+    </View>
+  );
+}
+
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <View style={s.empty}>
@@ -262,6 +286,18 @@ const s = StyleSheet.create({
   headTinted: { borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
   headTitle: { fontSize: 32, fontFamily: typeface[800], color: colors.text, letterSpacing: -1.1 },
   headSub: { fontSize: 14, fontFamily: typeface[500], color: colors.textMuted, marginTop: 4 },
+
+  signedIn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.greenSoft,
+  },
+  signedInText: { flex: 1, fontSize: 14, fontFamily: typeface[600], color: colors.text },
 
   empty: { padding: spacing.xxl, alignItems: 'center', gap: spacing.sm },
   emptyIcon: {

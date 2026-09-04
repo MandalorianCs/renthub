@@ -78,6 +78,18 @@ type AuthState = {
    * ссылке нередко ходит не человек, а сканер безопасности почты.
    */
   linkError: string | null;
+  /**
+   * Вход только что произошёл по ссылке из письма.
+   *
+   * Отказ приложение читало, а успех — нет, и это несимметрично в худшую
+   * сторону: 05.09.2026 человек нажал «Sign in», вошёл (в логах GoTrue
+   * `login_method: implicit`) — и решил, что ничего не сохранилось, потому
+   * что экран открылся молча. Переход из почты в приложение выглядит как
+   * обычная загрузка страницы, и подтвердить его некому, кроме нас.
+   */
+  linkedIn: boolean;
+  /** Убрать подтверждение — человек его прочитал. */
+  dismissLinkedIn: () => void;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -110,11 +122,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // он останется в строке браузера и вернётся при обновлении страницы,
   // показав старую ошибку поверх нового входа.
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkedIn, setLinkedIn] = useState(false);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
     const hash = window.location.hash.replace(/^#/, '');
+
+    // Успешный возврат читается первым и по тому же хвосту адреса.
+    //
+    // GoTrue в implicit-режиме кладёт туда access_token; supabase-js его
+    // подберёт и создаст сессию сам, а нам достаточно знать, что переход
+    // был. Стирать хвост здесь нельзя — библиотека ещё не успела его
+    // прочитать, поэтому только запоминаем.
+    if (hash.includes('access_token')) {
+      setLinkedIn(true);
+      return;
+    }
+
     if (!hash.includes('error')) return;
 
     const params = new URLSearchParams(hash);
@@ -216,6 +241,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null);
       },
       refreshProfile: () => loadProfile(session?.user.id),
+      linkedIn,
+      dismissLinkedIn: () => setLinkedIn(false),
       linkError,
     }),
     [session, profile, profileError, loading, loadProfile, linkError],

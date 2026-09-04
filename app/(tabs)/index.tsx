@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { CatalogSkeleton } from '../../src/components/Skeleton';
-import { Empty, ErrorState, ScreenHead, tap } from '../../src/components/ui';
+import { Empty, ErrorState, ScreenHead, SignedInNote, tap } from '../../src/components/ui';
 import type { CatalogSort } from '../../src/lib/api';
 import { fetchCatalog, fetchCategories, fetchFavoriteIds, toggleFavorite } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
@@ -46,7 +46,7 @@ const SORTS: { key: CatalogSort; label: string }[] = [
 
 export default function Catalog() {
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, linkedIn, dismissLinkedIn } = useAuth();
   const { width } = useWindowDimensions();
 
   // Телефон — две колонки, планшет — три, широкий веб — четыре.
@@ -300,6 +300,11 @@ export default function Catalog() {
           ) : null}
         </View>
       </ScreenHead>
+
+      {/* Возврат по ссылке из письма приводит сюда — на адрес приложения.
+          Подтверждение показывается до всего остального: человек пришёл
+          узнать, вошёл ли он, а не выбирать категорию. */}
+      {linkedIn ? <SignedInNote onClose={dismissLinkedIn} /> : null}
 
       {/* ── Категории ─────────────────────────────────────── */}
       <ScrollView

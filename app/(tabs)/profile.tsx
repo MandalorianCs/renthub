@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { Badge, Button, Card, ErrorState, Field, Row, ScreenHead, tap } from '../../src/components/ui';
+import { Badge, Button, Card, ErrorState, Field, Row, ScreenHead, SignedInNote, tap } from '../../src/components/ui';
 import { fetchMyBookings, fetchNotifications, updateProfile } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, formatDateRange, ratingLabel } from '../../src/lib/format';
@@ -14,7 +14,7 @@ import { colors, radius, spacing, typeface } from '../../src/theme';
 
 /** Экран 6: профиль — рейтинг, история сделок, настройки. */
 export default function Profile() {
-  const { session, profile, profileError, isVerified, linkEmail, signOut, refreshProfile } = useAuth();
+  const { session, profile, profileError, isVerified, linkEmail, signOut, refreshProfile, linkedIn, dismissLinkedIn } = useAuth();
   const router = useRouter();
 
   const [history, setHistory] = useState<BookingWithItem[]>([]);
@@ -67,6 +67,8 @@ export default function Profile() {
       }
     >
       <ScreenHead title="Профиль" sub="Рейтинг, история сделок и настройки" bleed />
+
+      {linkedIn ? <SignedInNote onClose={dismissLinkedIn} /> : null}
 
       <Card>
         <View style={s.head}>
@@ -249,6 +251,18 @@ function EmailCard({
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Форма смены прячется, пока её не попросят.
+  //
+  // 05.09.2026 человек вошёл по ссылке из письма, попал сюда и решил, что
+  // ничего не сохранилось. Состояние при этом было верным: сверху значок
+  // «Привязана» и его адрес. Сбила пустая форма под ними — пустое поле
+  // читается как «надо заполнить», а бледная кнопка «Сменить почту» как
+  // «не нажалось».
+  //
+  // Экран обязан отвечать на вопрос, с которым на него пришли. Пришли
+  // проверить, работает ли вход, — значит первым делом ответ «работает»,
+  // а смена адреса это отдельное намерение, и его человек выразит сам.
+  const [changing, setChanging] = useState(false);
 
   const real = current && !current.endsWith('@renthub.test') ? current : null;
 
@@ -277,6 +291,16 @@ function EmailCard({
           Письмо отправлено. Перейдите по ссылке в нём — адрес сменится только после
           этого. Проверьте папку «Спам».
         </Text>
+      ) : real && !changing ? (
+        // Всё работает, и это единственное, что нужно сказать. Смена — по
+        // явному нажатию: кто пришёл менять, тот нажмёт, а кто пришёл
+        // убедиться, что вход цел, увидит ответ и уйдёт спокойно.
+        <Pressable
+          style={({ pressed }) => [s.changeLink, tap({ pressed })]}
+          onPress={() => setChanging(true)}
+        >
+          <Text style={s.changeLinkText}>Сменить адрес</Text>
+        </Pressable>
       ) : (
         <>
           <Field
@@ -313,6 +337,18 @@ function EmailCard({
             Адрес учётной записи — это и логин для входа по приглашению. После смены
             пароль из приглашения работает с новой почтой, а не с номером телефона.
           </Text>
+          {real ? (
+            <Pressable
+              style={({ pressed }) => [s.changeLink, tap({ pressed })]}
+              onPress={() => {
+                setChanging(false);
+                setValue('');
+                setError(null);
+              }}
+            >
+              <Text style={s.changeLinkText}>Не менять</Text>
+            </Pressable>
+          ) : null}
         </>
       )}
 
@@ -322,6 +358,8 @@ function EmailCard({
 }
 
 const s = StyleSheet.create({
+  changeLink: { paddingVertical: spacing.sm, alignSelf: 'flex-start' },
+  changeLinkText: { fontSize: 14, fontFamily: typeface[600], color: colors.accent },
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
   avatar: {
