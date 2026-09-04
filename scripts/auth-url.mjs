@@ -47,14 +47,21 @@ const secret = readSecret();
 const token = readAccessToken();
 const ref = projectRef(url);
 
-if (!secret) {
+// Два секрета — две независимые возможности, и требовать оба было ошибкой.
+//
+// Секретный ключ нужен ровно для одного: спросить у Supabase, куда ведёт
+// ссылка из письма (generateLink). Править настройку он не умеет — это
+// делает токен аккаунта. Пока скрипт требовал ключ на входе, он отказывался
+// работать в единственной ситуации, ради которой писался: токен есть,
+// ключ потерян, и починить настройку можно прямо сейчас.
+const admin = secret
+  ? createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } })
+  : null;
+
+if (!secret && !token) {
   console.error(missingSecretMessage('npm run auth:url'));
   process.exit(1);
 }
-
-const admin = createClient(url, secret, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
 
 console.log('\nАдрес возврата после письма\n');
 
@@ -81,6 +88,8 @@ console.log(`  ✓ приложение и shared/urls.json просят оди�
 // Служебный @renthub.test собирает invite.mjs из номера, человек им не
 // пользуется — обновление его одноразового токена ничей вход не сломает.
 async function actualTarget() {
+  if (!admin) return { error: 'нет секретного ключа — проверить нечем' };
+
   const { data: list } = await admin.auth.admin.listUsers({ perPage: 200 });
   const probe = (list?.users ?? []).find((u) => u.email?.endsWith('@renthub.test'));
   if (!probe) return { error: 'не на ком проверить: нет служебного адреса @renthub.test' };
@@ -169,6 +178,22 @@ async function config() {
 }
 
 const current = await config();
+
+// Хук Send SMS — то, ради чего мы отказались от `supabase config push`.
+// Через него приходят коды входа в Telegram; сотрётся — вход по коду
+// перестанет работать, причём молча: приложение будет отправлять код, а
+// человек не получит ничего.
+//
+// PATCH его не упоминает и трогать не должен. «Не должен» — это ожидание,
+// а проверка дешевле ожидания: запоминаем состояние до правки и сверяем
+// после. Если однажды Supabase изменит поведение PATCH, узнаем об этом мы,
+// а не участник пилота на экране входа.
+const hookBefore = {
+  enabled: current.hook_send_sms_enabled,
+  uri: current.hook_send_sms_uri,
+  hasSecret: Boolean(current.hook_send_sms_secrets),
+};
+
 const listed = (current.uri_allow_list ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 const missing = urls.redirects.filter((u) => !listed.includes(u));
 const siteWrong = current.site_url !== APP_URL;
@@ -214,6 +239,21 @@ if (!res.ok) {
 // заново и у конфигурации, и у самой ссылки: обещание проверяется тем же
 // измерением, которым был обнаружен дефект.
 const after = await config();
+
+const hookAfter = {
+  enabled: after.hook_send_sms_enabled,
+  uri: after.hook_send_sms_uri,
+  hasSecret: Boolean(after.hook_send_sms_secrets),
+};
+
+if (JSON.stringify(hookBefore) !== JSON.stringify(hookAfter)) {
+  console.error('\n✗ Правка задела хук Send SMS — вход по коду в Telegram под угрозой:');
+  console.error(`  было:  включён ${hookBefore.enabled}, адрес ${hookBefore.uri}, секрет ${hookBefore.hasSecret ? 'есть' : 'нет'}`);
+  console.error(`  стало: включён ${hookAfter.enabled}, адрес ${hookAfter.uri}, секрет ${hookAfter.hasSecret ? 'есть' : 'нет'}`);
+  console.error('  Панель → Authentication → Hooks, восстановите Send SMS.');
+  process.exit(1);
+}
+
 const afterList = (after.uri_allow_list ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 const stillMissing = urls.redirects.filter((u) => !afterList.includes(u));
 
