@@ -36,11 +36,15 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
  * потому что читать её будет разработчик.
  */
 const NOT_FOR_HUMANS = {
-  bookings_no_overlap: 'переведено отдельно как «даты заняты» (это EXCLUDE, не check)',
+  // bookings_no_overlap переведено в обоих клиентах и потому здесь не
+  // нужно. Оно EXCLUDE, и до миграции 20260905030000 функция его не
+  // возвращала вовсе — проверка нашла дефект в том, что её обслуживает.
   disputes_payout_amount_check: 'сумму выплаты считает decide_dispute_payout, человек её не вводит',
   payouts_amount_check: 'строку payouts создаёт триггер, человек к ней не прикасается',
   reviews_check: 'from_user_id <> to_user_id — отзыв себе невозможен через UI, кнопки нет',
   join_requests_phone_check: 'номер приходит от Telegram подтверждённым, руками его не вводят',
+  payouts_booking_id_kind_period_start_key:
+    'строку выплаты создаёт триггер, повтор возможен только ошибкой в коде',
 };
 
 const secret = readSecret();
