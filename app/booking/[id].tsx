@@ -118,6 +118,13 @@ export default function BookingScreen() {
 
   const me = session?.user.id;
   const isOwner = booking.owner_id === me;
+
+  // Вещь ждут обратно только при открытом споре о невозврате. Разбор порчи
+  // идёт по вещи, которая уже у владельца, и статус disputed у них общий —
+  // различает их тип спора, а не статус сделки.
+  const awaitingReturn = disputes.some(
+    (d) => d.type === 'non_return' && d.resolution_status === 'manual_review',
+  );
   const isRenter = booking.renter_id === me;
   const status = BOOKING_STATUS[booking.status];
   const deposit = DEPOSIT_STATUS[booking.deposit_status];
@@ -339,7 +346,21 @@ export default function BookingScreen() {
         </>
       ) : null}
 
-      {isOwner && (booking.status === 'active' || booking.status === 'disputed') ? (
+      {/* disputed — это два разных положения под одним именем.
+          Автоспор о невозврате: вещь ещё у арендатора, и кнопка обязана
+          быть — иначе выхода из спора нет. Разбор порчи: вещь давно
+          вернулась, её осматривает модератор, и «принять её обратно»
+          второй раз нечего.
+
+          Кнопка показывалась в обоих. Измерено на стенде 04.09.2026:
+          нажатие во время разбора уводило сделку из disputed в returned и
+          пересчитывало окно претензии от текущего момента — посреди
+          решения модератора. Теперь база это запрещает
+          (20260904100000_return_only_from_non_return), а кнопка не
+          предлагает того, что будет отклонено. */}
+      {isOwner &&
+      (booking.status === 'active' ||
+        (booking.status === 'disputed' && awaitingReturn)) ? (
         <Button title="Вещь вернули" loading={busy} onPress={() => act(() => markReturned(booking.id))} />
       ) : null}
 

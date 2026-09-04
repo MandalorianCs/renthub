@@ -281,6 +281,50 @@ select t.as(t.id('owner'), format($sql$
   select open_damage_dispute(%L, 18000, array['https://example.test/x.jpg'], 'Разбор')
 $sql$, t.id('booking6')));
 
+-- ── Назад из разбора хода нет ─────────────────────────────────
+--
+-- Статус disputed означает два разных положения, и одно из них —
+-- «вещь не вернули». Ради него disputed и разрешён в
+-- booking_mark_returned. Второе — «вещь вернулась, идёт разбор порчи», и
+-- отмечать возврат там нечего: вещь уже у владельца.
+--
+-- Проверка была одна на оба, и владелец мог нажать «Вещь вернули»
+-- повторно. Измерено 04.09.2026: сделка уходила из disputed в returned
+-- посреди разбора, а окно претензии пересчитывалось от текущего момента.
+-- Денег это не теряло — settle_booking держит сделку через
+-- has_open_disputes(), — но обе стороны видели «возвращено, ждёт
+-- проверки» ровно тогда, когда решение принимает модератор.
+
+do $$
+declare
+  v_status text;
+  v_ends   timestamptz;
+  v_after  timestamptz;
+begin
+  select status::text, damage_claim_ends_at into v_status, v_ends
+    from bookings where id = t.id('booking6');
+
+  perform t.assert(v_status = 'disputed',
+    'сделка в разборе — исходное положение для проверки');
+
+  perform t.expect_fail(t.id('owner'),
+    format('select booking_mark_returned(%L)', t.id('booking6')),
+    'идёт разбор претензии');
+
+  -- Отказ, после которого что-то всё-таки изменилось, — это не отказ.
+  -- Окно претензии проверяется отдельно от статуса: сдвигалось именно оно,
+  -- и проверка только по статусу прошла бы зелёной на сломанном коде.
+  select status::text, damage_claim_ends_at into v_status, v_after
+    from bookings where id = t.id('booking6');
+
+  perform t.assert(v_status = 'disputed', 'статус остался disputed');
+  perform t.assert(v_after = v_ends, 'окно претензии не сдвинулось');
+end $$;
+
+-- И обратная половина: там, где вещь действительно не вернули, отметка
+-- по-прежнему проходит. Без неё запрет забрал бы единственный выход из
+-- автоспора о невозврате — сценарий 40 проверяет этот путь целиком.
+
 -- Арендатор — сторона спора, но не модератор.
 do $$
 declare
