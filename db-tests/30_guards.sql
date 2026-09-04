@@ -1628,6 +1628,58 @@ begin
       || coalesce(array_to_string(v_bad, ' | '), '—'));
 end $$;
 
+-- ── То же для функций модератора ──────────────────────────────
+--
+-- Экран модерации держит список, загруженный минуту назад. Участника
+-- удалили, модератор нажимает «Заблокировать» — и до 04.09.2026 читал
+-- «insert or update on table "notifications" violates foreign key
+-- constraint». Восемь функций из десяти на том же наборе отвечали своим
+-- текстом; эти две — нет.
+
+do $$
+declare
+  v_none uuid := '11111111-2222-3333-4444-555555555555';
+  v_err  text;
+  v_bad  text[] := '{}';
+  v_calls text[][] := array[
+    ['moderator_hide_item',      'select moderator_hide_item(%L, ''причина'')'],
+    ['moderator_restore_item',   'select moderator_restore_item(%L, ''причина'')'],
+    ['resolve_dispute_manually', 'select resolve_dispute_manually(%L, 0, ''решение'')'],
+    ['set_user_blocked',         'select set_user_blocked(%L, true, ''причина'')'],
+    ['moderator_notify',         'select moderator_notify(%L, ''тема'', ''текст'')'],
+    ['join_request_close',       'select join_request_close(%L)']
+  ];
+begin
+  -- Право нужно, чтобы дойти до тела: без него мерялась бы проверка права.
+  perform set_config('request.jwt.claims', '', true);
+  update users set is_moderator = true where id = t.id('owner');
+
+  for i in 1 .. array_length(v_calls, 1) loop
+    begin
+      perform set_config('request.jwt.claims',
+        json_build_object('sub', t.id('owner'), 'role', 'authenticated')::text, true);
+      execute 'set local role authenticated';
+      execute format(v_calls[i][2], v_none);
+      execute 'reset role';
+      v_err := 'ПРОШЛО БЕЗ ОТКАЗА';
+    exception when others then
+      execute 'reset role';
+      v_err := sqlerrm;
+    end;
+
+    if v_err not like 'RENTHUB_%' then
+      v_bad := v_bad || (v_calls[i][1] || ' → ' || left(v_err, 55));
+    end if;
+  end loop;
+
+  perform set_config('request.jwt.claims', '', true);
+  update users set is_moderator = false where id = t.id('owner');
+
+  perform t.assert(array_length(v_bad, 1) is null,
+    'функции модератора отвечают своим текстом на то, чего нет; сырыми отвечают: '
+      || coalesce(array_to_string(v_bad, ' | '), '—'));
+end $$;
+
 -- ── Доступное анониму обязано отказывать ──────────────────────
 --
 -- Список выше отвечает на вопрос «что анониму доступно». Он не отвечает на
