@@ -37,6 +37,12 @@ export default function SignIn() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
+  // Отказ, с которым вернула ссылка из письма. Раньше он приходил в хвосте
+  // адреса и не читался никем: человек оказывался на витрине невошедшим и
+  // без единого слова о том, что произошло. Показываем его до всего
+  // остального — он объясняет, почему человек вообще здесь.
+  const { linkError } = useAuth();
+
   return (
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView
@@ -55,6 +61,13 @@ export default function SignIn() {
               «Через Telegram», «По почте») в ряд на телефоне не помещается,
               а перенос на две строки превращает переключатель в блок
               текста. Способ входа человек выбирает по одному слову. */}
+          {linkError ? (
+            <View style={s.linkError}>
+              <Ionicons name="link-outline" size={18} color={colors.danger} />
+              <Text style={s.linkErrorText}>{linkError}</Text>
+            </View>
+          ) : null}
+
           <View style={s.tabs}>
             <Tab
               label="Приглашение"
@@ -345,9 +358,10 @@ function EmailForm({ onError }: { onError: (m: string | null) => void }) {
               вероятный исход, и человеку надо дать работающий путь, а не
               оставить смотреть в пустой ящик. */}
           <Text style={s.stepBody}>
-            Письма нет через пару минут? Отправка почты на пилоте ещё
-            настраивается. Работают два других входа: по приглашению
-            (номер и пароль от организатора) и по коду в Telegram.
+            Ссылка из письма ведёт не туда или пишет, что устарела? Она
+            одноразовая, и адрес возврата пока настраивается организатором.
+            Работают два других входа: по приглашению (номер и пароль от
+            организатора) и по коду в Telegram.
           </Text>
         </View>
 
@@ -418,6 +432,16 @@ const s = StyleSheet.create({
   logo: { fontSize: 52, fontFamily: typeface[800], color: colors.text, letterSpacing: -2 },
   tagline: { fontSize: 16, fontFamily: typeface[500], color: colors.textMuted, lineHeight: 24 },
 
+  linkError: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerSoft,
+  },
+  linkErrorText: { flex: 1, fontSize: 14, lineHeight: 20, fontFamily: typeface[500], color: colors.text },
   tabs: {
     flexDirection: 'row',
     gap: spacing.xs,

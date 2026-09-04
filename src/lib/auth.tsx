@@ -1,7 +1,8 @@
 import type { Session } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { fetchProfile } from './api';
-import { humanizeError, supabase } from './supabase';
+import { Platform } from 'react-native';
+import { EMAIL_RETURN_URL, humanizeError, supabase } from './supabase';
 import type { User } from './types';
 
 type AuthState = {
@@ -65,6 +66,18 @@ type AuthState = {
   linkEmail: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  /**
+   * Отказ, с которым вернула ссылка из письма.
+   *
+   * Ссылка одноразовая: GoTrue проверяет токен и возвращает в приложение
+   * либо с сессией, либо с ошибкой в хвосте адреса — `#error=...`. Второе
+   * приложение до сих пор не читало вовсе, и человек оказывался на
+   * витрине невошедшим, без единого слова о том, что произошло.
+   *
+   * Случай не редкий: токен сгорает после первого перехода, а первым по
+   * ссылке нередко ходит не человек, а сканер безопасности почты.
+   */
+  linkError: string | null;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -91,6 +104,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(null);
       setProfileError(humanizeError(e));
     }
+  }, []);
+
+  // Хвост адреса читается один раз при запуске и сразу стирается: иначе
+  // он останется в строке браузера и вернётся при обновлении страницы,
+  // показав старую ошибку поверх нового входа.
+  const [linkError, setLinkError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    const hash = window.location.hash.replace(/^#/, '');
+    if (!hash.includes('error')) return;
+
+    const params = new URLSearchParams(hash);
+    const code = params.get('error_code') ?? '';
+    const described = params.get('error_description')?.replace(/\+/g, ' ') ?? '';
+
+    setLinkError(
+      code === 'otp_expired'
+        ? 'Ссылка из письма уже использована или устарела — она одноразовая. ' +
+            'Запросите новое письмо: кнопка ниже.'
+        : described || 'Ссылка из письма не сработала. Запросите новое письмо.',
+    );
+
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
   }, []);
 
   useEffect(() => {
@@ -130,7 +168,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       sendEmailCode: async (email) => {
         const { error } = await supabase.auth.signInWithOtp({
           email: email.trim().toLowerCase(),
-          options: { shouldCreateUser: false },
+          // emailRedirectTo — куда вернёт ссылка из письма. Без него
+          // Supabase берёт Site URL проекта, а он по умолчанию
+          // http://localhost:3000: письмо доходит, ссылка ведёт в никуда.
+          options: { shouldCreateUser: false, emailRedirectTo: EMAIL_RETURN_URL },
         });
         if (error) throw error;
       },
@@ -145,9 +186,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error) throw error;
       },
       linkEmail: async (email) => {
-        const { error } = await supabase.auth.updateUser({
-          email: email.trim().toLowerCase(),
-        });
+        const { error } = await supabase.auth.updateUser(
+          { email: email.trim().toLowerCase() },
+          // Тот же адрес возврата, что и у входа: письмо о смене почты
+          // содержит такую же одноразовую ссылку и так же уводило на
+          // localhost:3000.
+          { emailRedirectTo: EMAIL_RETURN_URL },
+        );
         if (error) throw error;
       },
       signInWithInvite: async (login, password) => {
@@ -171,8 +216,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null);
       },
       refreshProfile: () => loadProfile(session?.user.id),
+      linkError,
     }),
-    [session, profile, profileError, loading, loadProfile],
+    [session, profile, profileError, loading, loadProfile, linkError],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -24,6 +24,10 @@ import { missingSecretMessage, readEnvFile, readSecret } from './env.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
+// Тот же адрес, что просит приложение (EMAIL_RETURN_URL в
+// src/lib/supabase.ts). Сверяем с ним: расхождение и есть дефект.
+const APP_URL = 'https://mandaloriancs.github.io/renthub/app/';
+
 const url = process.env.SUPABASE_URL ?? readEnvFile('EXPO_PUBLIC_SUPABASE_URL');
 const secret = readSecret();
 
@@ -159,6 +163,45 @@ say(
   probe.status !== 422,
 );
 
+// Куда ведёт ссылка из письма — единственная проверка, до которой без
+// панели не добраться иначе.
+//
+// generateLink НЕ отправляет письмо, а возвращает ту самую ссылку. Значит
+// по ней видно и Site URL проекта, и то, принят ли запрошенный адрес
+// возврата: если его нет в списке Redirect URLs, GoTrue не отказывает, а
+// молча подставляет Site URL — и человек уезжает туда, куда мы не просили.
+//
+// 04.09.2026 обе строки показали http://localhost:3000, то есть Supabase
+// стоял с настройками по умолчанию. Письмо при этом доходило: ломался
+// следующий шаг, и выглядело это как «почта не работает».
+//
+// Берём служебный адрес (@renthub.test): его собирает invite.mjs из номера,
+// человек им не пользуется, и одноразовый токен, который generateLink
+// заодно обновит, ничей вход не сломает.
+const serviceUser = (authUsers?.users ?? []).find((u) => u.email?.endsWith('@renthub.test'));
+
+if (serviceUser) {
+  const { data: link, error: linkError } = await admin.auth.admin.generateLink({
+    type: 'magiclink',
+    email: serviceUser.email,
+    options: { redirectTo: APP_URL },
+  });
+
+  const actual = link?.properties?.action_link
+    ? new URL(link.properties.action_link).searchParams.get('redirect_to')
+    : null;
+
+  say(
+    'ссылка из письма',
+    linkError
+      ? `не проверить: ${linkError.message}`
+      : actual === APP_URL
+        ? 'возвращает в приложение'
+        : `ведёт на ${actual} — письмо дойдёт, а ссылка в нём никуда`,
+    Boolean(linkError) || actual !== APP_URL,
+  );
+}
+
 say(
   'заявки на участие',
   waiting ? `${waiting} ждут ответа` : 'очередь пуста',
@@ -190,6 +233,11 @@ if (alarms.length === 0) {
       'на витрине только демонстрационные вещи. Реклама приведёт человека к тому,\n' +
       '      что никто не отдаст: нужны живые объявления или npm run demo:clear',
     'заявки на участие': 'npm run queue, дальше npm run invite',
+    'ссылка из письма':
+      'Supabase подставляет свой Site URL. Панель → Authentication → URL\n' +
+      '      Configuration: Site URL = https://mandaloriancs.github.io/renthub/app/\n' +
+      '      и тот же адрес в Redirect URLs. Без этого письмо доходит, а ссылка\n' +
+      '      в нём ведёт на localhost:3000 — README, «Что настроить в панели»',
     'отправка писем':
       'Supabase отвечает не так, как ожидалось. Проверьте, включён ли провайдер\n' +
       '      Email: Authentication → Sign In / Providers → Email',

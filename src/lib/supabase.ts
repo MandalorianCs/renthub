@@ -40,6 +40,35 @@ export const TELEGRAM_BOT = process.env.EXPO_PUBLIC_TELEGRAM_BOT ?? 'renthub_kok
 export const TELEGRAM_BOT_URL = `https://t.me/${TELEGRAM_BOT}`;
 
 /**
+ * Куда возвращает ссылка из письма.
+ *
+ * Указывать это обязательно, хотя одного указания и мало. Измерено
+ * 04.09.2026 через `admin.generateLink`, который отдаёт ту самую ссылку,
+ * не отправляя письма:
+ *
+ *   без redirectTo            → redirect_to = http://localhost:3000
+ *   с redirectTo на витрину   → redirect_to = http://localhost:3000
+ *
+ * Первая строка — это Site URL проекта, оставшийся по умолчанию. Вторая
+ * говорит больше: запрошенный адрес **подменён**, потому что его нет в
+ * списке Redirect URLs. GoTrue не отказывает, а молча берёт Site URL — и
+ * человек уезжает на localhost:3000, которого у него нет.
+ *
+ * Поэтому порядок такой: здесь мы просим правильный адрес, а разрешить
+ * его должен организатор в панели — README, «Что настроить в панели
+ * Supabase». `npm run health` проверяет это той же командой и говорит,
+ * куда ссылка ведёт на самом деле.
+ *
+ * На вебе берём адрес текущей вкладки: тогда локальная разработка
+ * возвращает на localhost, а публикация — на Pages, без второй
+ * переменной, которая однажды разойдётся с первой.
+ */
+export const EMAIL_RETURN_URL =
+  Platform.OS === 'web' && typeof window !== 'undefined'
+    ? window.location.origin + window.location.pathname
+    : 'https://mandaloriancs.github.io/renthub/app/';
+
+/**
  * Ошибки бизнес-правил приходят из Postgres как `RENTHUB_CODE: текст`.
  * Показываем пользователю человеческую часть, а не сырой SQL-стейт.
  */
