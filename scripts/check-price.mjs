@@ -156,6 +156,60 @@ if (seen.size > 1) {
   console.log('    Форма примет то, что база отвергнет, — после собранных фото.');
 }
 
+// ── Порог автоспора: числом в базе, словами на экранах ────────
+//
+// 15 000 ₸ лежит в app_settings.dispute_auto_threshold, и база считает по
+// нему. Но человеку это число называют словами в двух местах приложения:
+// на экране сделки, под полем суммы ущерба («до 15 000 ₸ решается
+// автоматически»), и на экране модерации («здесь появляются споры выше
+// 15 000 ₸»).
+//
+// README честно предупреждает, что смена значения в базе меняет не всё:
+// эти две подписи придётся править руками. До сих пор их не сверял никто
+// — check:pitch смотрит лендинг и деку, потому что там цифру видит судья.
+//
+// Цена расхождения тише, чем у денег, но того же рода: человек с ущербом
+// в 14 000 читает «решится автоматически», ждёт — и попадает в очередь
+// модерации, где ждать некому. Или наоборот, идёт к модератору с тем, что
+// база уже закрыла сама.
+const { data: settings } = await admin
+  .from('app_settings')
+  .select('value')
+  .eq('key', 'dispute_auto_threshold')
+  .maybeSingle();
+
+const threshold = Number(settings?.value);
+
+console.log('\nПорог автоспора\n');
+
+if (!threshold) {
+  failed += 1;
+  console.log('  ✗   dispute_auto_threshold не прочитан из базы — сверять не с чем');
+} else {
+  const labels = [
+    ['экран сделки', read('app', 'booking', '[id].tsx'), /До ([\d\s\u00a0]+)[\s\u00a0]₸ решается автоматически/],
+    ['экран модерации', read('app', '(tabs)', 'moderation.tsx'), /ущербом выше ([\d\s\u00a0]+)[\s\u00a0]₸/],
+  ];
+
+  console.log(`  ok  ${'в базе'.padEnd(24)} ${threshold.toLocaleString('ru-RU')} ₸`);
+
+  for (const [where, text, pattern] of labels) {
+    const match = text.match(pattern);
+    if (!match) {
+      failed += 1;
+      console.log(`  ✗   ${where.padEnd(24)} подпись не найдена — образец сломан`);
+      continue;
+    }
+    const said = Number(match[1].replace(/[\s\u00a0]/g, ''));
+    if (said === threshold) {
+      console.log(`  ok  ${where.padEnd(24)} ${said.toLocaleString('ru-RU')} ₸`);
+    } else {
+      failed += 1;
+      console.log(`  ✗   ${where.padEnd(24)} обещает ${said.toLocaleString('ru-RU')} ₸ при ${threshold.toLocaleString('ru-RU')} ₸ в базе`);
+    }
+  }
+}
+
 if (failed === 0) {
   console.log(
     `\n✓ Расчёт сходится на ${CASES.length} наборах, потолок цены одинаков ` +
