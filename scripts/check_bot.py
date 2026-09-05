@@ -955,4 +955,56 @@ elif not menu:
 else:
     print(f"\u2713 каждая команда меню Telegram обрабатывается ({len(menu)} команд)")
 
+# ── Типы уведомлений против карты значков ────────────────────
+#
+# Каждое уведомление приходит в ленту приложения со значком и цветом:
+# карта лежит в app/notifications.tsx. Тип, которого в карте нет,
+# получает серое «прочее» — событие теряет и цвет, и смысл, а лента
+# начинает выглядеть одинаково для «подтвердили бронь» и «вы
+# заблокированы».
+#
+# Сверка была ручной: HANDOFF за 03.09.2026 отмечает «семнадцать типов
+# против карты значков — проверено». Ручная проверка стареет с первым же
+# новым типом, а новый тип добавляют миграцией, где карту приложения
+# никто рядом не держит.
+#
+# Ищем в обе стороны: notify_user(..., 'тип', ...) и прямые insert into
+# notifications. Обратную сторону — значок без события — не считаем
+# ошибкой: часть типов присылает бот и скрипты (connection_test,
+# invite_ready), их в миграциях нет и быть не должно.
+
+notif_sql = "\n".join(
+    f.read_text(encoding="utf-8") for f in sorted(MIGRATIONS.glob("*.sql"))
+)
+
+# notify_user(получатель, сделка, 'тип', заголовок, текст, данные)
+from_calls = set(re.findall(r"notify_user\([^;]*?,\s*'([a-z_]+)'", notif_sql))
+# insert into notifications (...) values (..., 'тип', ...)
+from_inserts = set()
+for chunk in re.findall(r"insert into notifications[^;]*;", notif_sql):
+    from_inserts |= set(re.findall(r"'([a-z_]+)'", chunk))
+
+icons_text = io.open(ROOT / "app" / "notifications.tsx", encoding="utf-8").read()
+# Карта — объект вида `тип: { icon: ..., color: ... }`.
+in_icons = set(re.findall(r"^\s{2}([a-z_]+): \{ icon:", icons_text, re.M))
+
+# Из insert'ов отсеиваем всё, что не похоже на тип: там же лежат имена
+# колонок и куски текста. Тип — то, что карта знает или что выглядит
+# как событие; берём пересечение с уже найденным по notify_user плюс
+# всё, чего в карте нет, но что оканчивается на характерные слова.
+raised = from_calls | (from_inserts & in_icons)
+
+missing = sorted(raised - in_icons)
+
+if missing:
+    failed = True
+    print(f"\n\u2717 Уведомления без значка в ленте: {', '.join(missing)}")
+    print("  Придут серым «прочее»: событие потеряет и цвет, и смысл.")
+    print("  Добавьте тип в карту ICONS (app/notifications.tsx).")
+elif len(raised) < 5:
+    failed = True
+    print(f"\n\u2717 Типов уведомлений найдено {len(raised)} — образец сломан")
+else:
+    print(f"\u2713 у каждого уведомления базы есть значок в ленте ({len(raised)} типов)")
+
 sys.exit(1 if failed else 0)
