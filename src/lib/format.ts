@@ -37,7 +37,47 @@ export function formatDate(iso: string): string {
 }
 
 export function formatDateRange(startISO: string, endISO: string): string {
-  return `${formatDate(startISO)} — ${formatDate(endISO)}`;
+  const from = new Date(startISO);
+  const to = new Date(endISO);
+
+  // Повторять то, что уже сказано, — значит заставлять перечитывать.
+  //
+  // «12 дек. 2025 — 15 дек. 2025» несёт ровно столько же, сколько
+  // «12 — 15 дек. 2025», но занимает вдвое больше места в карточке, где
+  // рядом стоят название, статус и сумма. Аренда почти всегда внутри
+  // одного месяца, так что сжатый вид — обычный случай, а не исключение.
+  //
+  // Три вида, по убыванию частоты:
+  //   один месяц      12 — 15 дек.
+  //   один год        28 нояб. — 3 дек.
+  //   разные годы     28 дек. 2025 — 3 янв. 2026
+  const sameYear = from.getFullYear() === to.getFullYear();
+  const sameMonth = sameYear && from.getMonth() === to.getMonth();
+
+  if (sameMonth) return `${from.getDate()} — ${formatDate(endISO)}`;
+  if (sameYear) return `${formatDay(startISO)} — ${formatDate(endISO)}`;
+
+  // Разные годы: год ставится у обеих дат, даже если правая в текущем.
+  // «28 дек. 2025 — 3 янв.» заставляет достраивать год самому, а «3 янв.
+  // 2026» не оставляет вопроса — за два лишних знака на редком случае.
+  return `${formatDayYear(startISO)} — ${formatDayYear(endISO)}`;
+}
+
+/** День, месяц и год — всегда. Для диапазонов через границу года. */
+function formatDayYear(iso: string): string {
+  return new Date(iso)
+    .toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
+    .replace(' г.', '');
+}
+
+/**
+ * День и месяц без года — левая половина диапазона внутри одного года.
+ *
+ * Отдельно от formatDate, потому что тот про год решает сам: там это
+ * правильно (дата стоит одна), здесь — нет (год скажет правая половина).
+ */
+function formatDay(iso: string): string {
+  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
 type StatusStyle = { label: string; fg: string; bg: string };
