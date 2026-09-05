@@ -10,7 +10,30 @@ export function formatTenge(amount: number): string {
 }
 
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  const d = new Date(iso);
+
+  // Год появляется, только когда он не текущий.
+  //
+  // Без этого «12 дек.» в истории сделок читается как декабрь этого года,
+  // хотя может быть прошлогодним, — и чем старше аккаунт, тем чаще. Даты
+  // будущих броней от добавки не страдают: они почти всегда в текущем году
+  // и года не получат.
+  //
+  // Бот делает то же самое в human_date(), но словом целиком: «12 декабря».
+  // Различие намеренное — в колонке экрана места меньше, чем в строке чата,
+  // — и записано здесь, чтобы следующий читатель не «починил» его до
+  // одинаковости.
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+
+  return d
+    .toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'short',
+      ...(sameYear ? {} : { year: 'numeric' }),
+    })
+    // «12 дек. 2025 г.» — два лишних знака в колонке, где место на счету.
+    // Год и так стоит числом, слово «г.» ничего к нему не добавляет.
+    .replace(' г.', '');
 }
 
 export function formatDateRange(startISO: string, endISO: string): string {
