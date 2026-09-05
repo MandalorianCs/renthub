@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { LayoutChangeEvent } from 'react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { fetchCategories, uploadPhoto } from '../lib/api';
 import { Field } from './ui';
@@ -75,6 +76,37 @@ export function ItemForm({
   onSubmit: (values: ItemFormValues) => Promise<void>;
 }) {
   const { session, isVerified } = useAuth();
+
+  // Прокрутка к полю, в которое встали.
+  //
+  // Измерено 05.09.2026 на живом Android: клавиатура открывается поверх
+  // формы, экран не двигается, и владелец печатает название и цену
+  // вслепую. Данные при этом доходят — но человек этого не видит и не
+  // знает, попал ли он в нужное поле.
+  //
+  // automaticallyAdjustKeyboardInsets, поставленный первой попыткой,
+  // здесь не помогает: это свойство iOS, на Android оно молча ничего не
+  // делает. Проверено на устройстве — ровно тот случай, когда правка
+  // выглядит сделанной, потому что типы её приняли.
+  //
+  // Работает так: каждая карточка запоминает свою высоту в потоке
+  // (onLayout), а поле при фокусе просит прокрутить к началу своей
+  // карточки. Задержка нужна, чтобы клавиатура успела занять место —
+  // иначе прокрутка считается по старой высоте экрана.
+  const scroll = useRef<ScrollView>(null);
+  const spots = useRef<Record<string, number>>({});
+
+  const remember = (key: string) => (e: LayoutChangeEvent) => {
+    spots.current[key] = e.nativeEvent.layout.y;
+  };
+
+  const focusOn = (key: string) => () => {
+    const y = spots.current[key];
+    if (y == null) return;
+    // 24 сверху — чтобы над полем осталась его подпись: поле без подписи
+    // на экране заставляет вспоминать, что в него вводят.
+    setTimeout(() => scroll.current?.scrollTo({ y: Math.max(0, y - 24), animated: true }), 180);
+  };
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [category, setCategory] = useState<string | null>(initial?.category ?? null);
@@ -154,10 +186,13 @@ export function ItemForm({
       считая, что кнопка не работает.
     */
     <ScrollView
+      ref={scroll}
       contentContainerStyle={s.container}
+      // «handled» сохраняет нажатие на кнопку, когда клавиатура открыта:
+      // без него первый тап только прячет клавиатуру, и человек жмёт
+      // «Опубликовать» дважды, считая, что кнопка не работает.
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
-      automaticallyAdjustKeyboardInsets
     >
       {!isVerified ? (
         <View style={s.problem}>
@@ -183,12 +218,19 @@ export function ItemForm({
         </View>
       </View>
 
-      <View style={s.card}>
+      <View style={s.card} onLayout={remember('text')}>
         <Field
           label="Название"
           value={title}
           onChangeText={setTitle}
-          onFocus={() => setTitleFocused(true)}
+          // Два дела на одном фокусе: показать подсказки названий и
+          // поднять форму над клавиатурой. Второе нужно всем полям, а
+          // первое — только этому, поэтому они и стоят рядом, а не
+          // разъезжаются по двум обработчикам.
+          onFocus={() => {
+            setTitleFocused(true);
+            focusOn('text')();
+          }}
           // Задержка перед скрытием: без неё нажатие на подсказку не
           // успевает сработать — список исчезает раньше, чем палец до него
           // доходит, и кнопка выглядит неработающей.
@@ -220,6 +262,7 @@ export function ItemForm({
           </View>
         ) : null}
         <Field
+          onFocus={focusOn('text')}
           label="Описание"
           value={description}
           onChangeText={setDescription}
@@ -231,6 +274,7 @@ export function ItemForm({
             Необязательное: у части владельцев вещь лежит там, где ориентира
             нет, и требовать его значило бы не пустить их в витрину. */}
         <Field
+          onFocus={focusOn('text')}
           label="Где забирать"
           value={pickupArea}
           onChangeText={setPickupArea}
@@ -240,8 +284,9 @@ export function ItemForm({
         />
       </View>
 
-      <View style={s.card}>
+      <View style={s.card} onLayout={remember('money')}>
         <Field
+          onFocus={focusOn('money')}
           label="Цена за сутки, ₸"
           value={dailyPrice}
           onChangeText={setDailyPrice}
@@ -255,6 +300,7 @@ export function ItemForm({
           hint="Можно изменить в любой момент — новая цена заработает со следующей брони"
         />
         <Field
+          onFocus={focusOn('money')}
           label="Депозит, ₸"
           value={deposit}
           onChangeText={setDeposit}
