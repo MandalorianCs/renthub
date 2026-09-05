@@ -238,6 +238,45 @@ else:
         print(f"✓ normalize_phone одинаков в трёх языках ({len(PHONE_CASES)} номеров)")
 
 
+# ── Документация против package.json ─────────────────────────
+#
+# Каждая команда, названная в README или HANDOFF, должна существовать.
+# Обратное не требуется: `npm start`, `android`, `ios` — стандартные
+# команды Expo, описывать их незачем.
+#
+# Дефект тихий и обидный: человек читает инструкцию, набирает команду и
+# получает «Missing script». Инструкция при этом выглядит подробной и
+# уверенной — тем хуже, потому что доверие к остальному тексту падает
+# разом.
+#
+# 05.09.2026 так и случилось: `npm run auth:url` переименовали в
+# `npm run auth`, четыре упоминания в HANDOFF остались. Проверка нашла это
+# в тот же час, когда появилась.
+import json as _json
+
+package = _json.loads(io.open(ROOT / "package.json", encoding="utf-8").read())
+scripts = set(package.get("scripts", {}))
+
+docs_text = ""
+for name in ("README.md", "HANDOFF.md", "PITCH.md", "DESIGN.md", "bot/README.md"):
+    path = ROOT / name
+    if path.exists():
+        docs_text += io.open(path, encoding="utf-8").read()
+
+promised = set(re.findall(r"npm run ([a-z][a-z:]*)", docs_text))
+ghosts = sorted(promised - scripts)
+
+if ghosts:
+    failed = True
+    print("\n✗ Документация обещает команды, которых нет:")
+    for name in ghosts:
+        print(f"  npm run {name}")
+    print("  Человек наберёт и получит «Missing script» — а доверие к")
+    print("  остальному тексту упадёт разом.")
+else:
+    print(f"✓ все команды из документации существуют ({len(promised)} упомянуто)")
+
+
 # ── Статусы базы против подписей у людей ─────────────────────
 #
 # `booking_status` — перечисление в Postgres, и оно единственный источник
