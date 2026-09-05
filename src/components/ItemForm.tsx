@@ -139,7 +139,26 @@ export function ItemForm({
   }
 
   return (
-    <ScrollView contentContainerStyle={s.container}>
+    /*
+      Клавиатура не должна закрывать поле, в которое печатают.
+
+      Измерено 05.09.2026 на живом Android: при вводе в «Описание» экран
+      не прокручивался, поле уходило под клавиатуру, и владелец печатал
+      вслепую. На вебе этого не увидеть — там клавиатура не перекрывает
+      страницу, а публикация вещи это главное действие владельца.
+
+      automaticallyAdjustKeyboardInsets добавляет ScrollView отступ ровно
+      на высоту клавиатуры, keyboardShouldPersistTaps="handled" сохраняет
+      нажатие на кнопку, когда клавиатура открыта: без него первый тап
+      только прячет клавиатуру, и человек нажимает «Опубликовать» дважды,
+      считая, что кнопка не работает.
+    */
+    <ScrollView
+      contentContainerStyle={s.container}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      automaticallyAdjustKeyboardInsets
+    >
       {!isVerified ? (
         <View style={s.problem}>
           <Ionicons name="alert-circle-outline" size={18} color={colors.warn} />

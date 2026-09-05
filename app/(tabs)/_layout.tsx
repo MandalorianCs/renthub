@@ -1,10 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/lib/auth';
 import { colors, typeface } from '../../src/theme';
 
 export default function TabsLayout() {
   const { profile } = useAuth();
+
+  // Отступ снизу — не запас «на всякий случай», а высота системной
+  // полосы жестов. На Android с жестовой навигацией она лежит поверх
+  // нижнего края приложения, и фиксированная высота панели её не знала:
+  // подписи «Мои аренды», «Мои вещи», «Профиль» оказывались ПОД полосой
+  // и читались перечёркнутыми.
+  //
+  // В браузере этого не видно вовсе — там нижнего инсета нет, — и
+  // проверить это можно было только запуском APK на устройстве. Найдено
+  // 05.09.2026 на первом же запуске в эмуляторе Android 14.
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -20,9 +32,12 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
-          height: 62,
+          // 62 — высота самой панели, дальше идёт полоса жестов. На
+          // устройствах с кнопочной навигацией inset нулевой, и панель
+          // остаётся ровно такой, какой была.
+          height: 62 + insets.bottom,
           paddingTop: 6,
-          paddingBottom: 8,
+          paddingBottom: 8 + insets.bottom,
         },
         sceneStyle: { backgroundColor: colors.bg },
       }}

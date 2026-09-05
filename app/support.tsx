@@ -91,6 +91,13 @@ export default function Support() {
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
       }
+      // Те же две строки, что в форме публикации: обращение пишут
+      // длинным текстом, поле стоит внизу экрана, и без отступа под
+      // клавиатуру человек не видит, что печатает. «handled» нужен
+      // отдельно — иначе первое нажатие на «Отправить» только прячет
+      // клавиатуру, и кнопка выглядит несработавшей.
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
     >
       <ScreenHead
         title="Написать организатору"
