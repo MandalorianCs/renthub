@@ -262,6 +262,23 @@ class NewPickup(StatesGroup):
     waiting = State()
 
 
+class NewDescription(StatesGroup):
+    """
+    Описание — третье исключение рядом с ценой и ориентиром.
+
+    Особенность у него своя: шага описания в /сдать НЕТ вовсе. Значит
+    объявление, опубликованное из чата, всегда выходит без описания —
+    и до 06.09.2026 дописать его владельцу было негде, если он живёт в
+    Telegram, а не в приложении.
+
+    Шаг в публикацию не добавлен намеренно: их там уже шесть, и седьмой
+    отделяет владельца от витрины ещё одним экраном. Описание — то, что
+    дописывают потом, когда вещь уже висит и её смотрят.
+    """
+
+    waiting = State()
+
+
 class NewItem(StatesGroup):
     """
     Шаги публикации.
@@ -360,6 +377,7 @@ CONSTRAINT_MESSAGES = (
     ("disputes_booking_id_type_key", "Претензия по этой сделке уже подана"),
     ("items_photos_count", "Нужно от одного до шести фото вещи"),
     ("items_pickup_area_check", "Ориентир: от 2 до 80 символов, или пропустите шаг"),
+    ("items_description_check", "Описание: от 2 до 600 символов"),
     # Эти два ограничения бот мог получить с первого дня публикации из чата,
     # а перевода у них не было: человек, назвавший вещь двумя буквами,
     # доходил до последнего шага и читал «Не получилось. Попробуйте ещё раз».
@@ -2177,6 +2195,12 @@ def my_item_line(row: dict) -> str:
     area = row.get("pickup_area")
     line += f"\n📍 {esc(area)}" if area else "\n📍 Ориентир не указан"
 
+    # Про описание — только факт наличия. Само оно бывает в шестьсот
+    # символов, и в списке из пяти вещей превратило бы строку в простыню;
+    # показать целиком есть где — в диалоге правки.
+    if not row.get("has_description"):
+        line += "\n📝 Без описания"
+
     # Причина показывается прямо здесь: в чате нет карточки объявления,
     # куда можно было бы отправить человека посмотреть, что исправлять.
     if row["moderated"] and row.get("moderated_why"):
@@ -2201,12 +2225,14 @@ def item_keyboard(row: dict) -> InlineKeyboardMarkup | None:
     # него; «Добавить» на заполненном прячет правку. Разница в одном слове
     # стоит ровно того, ради чего кнопка появилась.
     pickup = "📍 Изменить ориентир" if row.get("pickup_area") else "📍 Добавить ориентир"
+    about = "📝 Изменить описание" if row.get("has_description") else "📝 Добавить описание"
 
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=label, callback_data=f"i:{action}:{row['id']}")],
             [InlineKeyboardButton(text="💰 Изменить цену", callback_data=f"i:price:{row['id']}")],
             [InlineKeyboardButton(text=pickup, callback_data=f"i:pickup:{row['id']}")],
+            [InlineKeyboardButton(text=about, callback_data=f"i:about:{row['id']}")],
         ]
     )
 
@@ -2451,6 +2477,134 @@ async def on_pickup_wrong_input(message: Message) -> None:
     await message.answer("Здесь нужен район или ориентир текстом. Или /отмена.")
 
 
+# ── Описание: что человек получит ─────────────────────────────
+#
+# Шага описания в /сдать нет, и объявление из чата выходит без него.
+# Арендатор видит название, цену и фото — и решает, писать ли незнакомому
+# человеку, не зная, что именно получит.
+#
+# Границы длины сторожит ограничение items_description_check, перевод для
+# него лежит в обеих дверях. Проверка ниже — та же вежливость, что у
+# названия и ориентира: отказ базы после отправленного текста читается
+# хуже, чем подсказка до.
+
+
+async def start_about(query: CallbackQuery, state: FSMContext, item_id: str) -> None:
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, query.from_user.id)
+        if user is None:
+            await ask_link_query(query)
+            return
+
+        try:
+            rows = await rest_rpc(client, "bot_my_items", {"p_actor": user["id"]})
+        except RentHubError as error:
+            await query.answer(str(error), show_alert=True)
+            return
+
+        item = next((r for r in rows if r["id"] == item_id), None)
+        if item is None:
+            await query.answer("Объявление не найдено", show_alert=True)
+            return
+
+        # Сам текст описания в списке не приходит — там только признак:
+        # шестьсот символов на каждую вещь превратили бы /вещи в простыню.
+        # Здесь он нужен целиком, поэтому спрашиваем витрину: объявление
+        # своё и активное, читать его можно тем же путём, что и всем.
+        current = None
+        if item.get("has_description"):
+            try:
+                found = await rest_get(
+                    client,
+                    "items",
+                    {"select": "description", "id": f"eq.{item_id}"},
+                )
+                current = (found or [{}])[0].get("description")
+            except RentHubError:
+                # Не показать текущее описание — не повод не дать его
+                # заменить: скажем об этом честно и пойдём дальше.
+                current = None
+
+    await state.set_state(NewDescription.waiting)
+    await state.update_data(item_id=item_id, title=item["title"])
+    await query.answer()
+
+    if current:
+        head = f"Сейчас у «{esc(item['title'])}» написано:\n\n<i>{esc(current)}</i>"
+    elif item.get("has_description"):
+        head = f"У «{esc(item['title'])}» описание есть, но показать его не вышло."
+    else:
+        head = f"У «{esc(item['title'])}» описания нет."
+
+    keyboard = None
+    if item.get("has_description"):
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Убрать описание", callback_data=f"i:noabout:{item_id}")]
+            ]
+        )
+
+    await query.message.answer(
+        head + "\n\n"
+        "Напишите, что в комплекте, в каком состоянии вещь и есть ли "
+        "особенности. Это то, по чему решают, писать вам или нет.\n\n"
+        "Передумали — /отмена.",
+        parse_mode="HTML",
+        reply_markup=keyboard,
+    )
+
+
+@dp.message(NewDescription.waiting, F.text)
+async def on_new_about(message: Message, state: FSMContext) -> None:
+    if (message.text or "").strip().startswith("/"):
+        await message.answer("Идёт правка описания. Напишите текст или /отмена.")
+        return
+
+    text = (message.text or "").strip()
+
+    # Границы те же, что в ограничении items_description_check.
+    if len(text) < 2:
+        await message.answer("Слишком коротко — напишите хотя бы пару слов.")
+        return
+    if len(text) > 600:
+        await message.answer(
+            f"Слишком длинно: {len(text)} символов при шестистах. "
+            "Оставьте комплект, состояние и особенности."
+        )
+        return
+
+    data = await state.get_data()
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, message.from_user.id)
+        if user is None:
+            await state.clear()
+            await ask_link(message)
+            return
+
+        try:
+            await rest_rpc(
+                client,
+                "bot_set_item_description",
+                {"p_actor": user["id"], "p_item_id": data["item_id"], "p_text": text},
+            )
+        except RentHubError as error:
+            await message.answer(str(error))
+            return
+
+    await state.clear()
+    await message.answer(
+        f"Готово, описание у «{esc(data['title'])}» обновлено.\n"
+        "Его увидят на карточке вещи.",
+        parse_mode="HTML",
+    )
+
+
+@dp.message(NewDescription.waiting)
+async def on_about_wrong_input(message: Message) -> None:
+    await message.answer("Здесь нужен текст описания. Или /отмена.")
+
+
 @dp.message(F.text.in_({"/profile", "/профиль"}))
 async def on_profile(message: Message) -> None:
     async with httpx.AsyncClient(timeout=20) as client:
@@ -2551,6 +2705,10 @@ async def on_item_action(query: CallbackQuery, state: FSMContext) -> None:
         await start_pickup(query, state, item_id)
         return
 
+    if action == "about":
+        await start_about(query, state, item_id)
+        return
+
     async with httpx.AsyncClient(timeout=20) as client:
         user = await user_by_telegram(client, query.from_user.id)
         if user is None:
@@ -2561,6 +2719,26 @@ async def on_item_action(query: CallbackQuery, state: FSMContext) -> None:
         # строкой: база читает её как «поле не заполнено». Отдельной
         # функции удаления нет намеренно — она была бы вторым местом, где
         # решают, чем пустой ориентир отличается от отсутствующего.
+        if action == "noabout":
+            try:
+                await rest_rpc(
+                    client,
+                    "bot_set_item_description",
+                    {"p_actor": user["id"], "p_item_id": item_id, "p_text": ""},
+                )
+            except RentHubError as error:
+                await query.answer(str(error), show_alert=True)
+                return
+
+            await state.clear()
+            await query.answer("Убрал")
+            await query.message.edit_reply_markup(reply_markup=None)
+            await query.message.answer(
+                "Описание убрано. Объявление останется в каталоге, но арендатор "
+                "не узнает, что в комплекте и в каком вещь состоянии."
+            )
+            return
+
         if action == "nopickup":
             try:
                 await rest_rpc(

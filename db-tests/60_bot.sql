@@ -547,6 +547,70 @@ begin
 end $$;
 
 
+-- ── Описание: его в публикации из чата нет вовсе ──────────────
+--
+-- Шага описания в /сдать не существует, поэтому объявление из чата
+-- выходит без него всегда. Арендатор видит название, цену и фото — и
+-- решает, писать ли незнакомому человеку, не зная, что получит.
+
+do $$
+declare v_text text;
+begin
+  perform bot_set_item_description(t.id('owner'), t.id('item'),
+    '  Перфоратор с тремя бурами, в кейсе. Состояние рабочее.  ');
+
+  select description into v_text from items where id = t.id('item');
+  perform t.assert(v_text = 'Перфоратор с тремя бурами, в кейсе. Состояние рабочее.',
+    'описание записано из чата и обрезано по краям');
+
+  perform bot_set_item_description(t.id('owner'), t.id('item'), '   ');
+
+  select description into v_text from items where id = t.id('item');
+  perform t.assert(v_text is null,
+    'пустой ответ убирает описание, а не пишет пробелы');
+end $$;
+
+-- Граница в 600 символов появилась вместе с правкой из чата: в
+-- приложении человек видит, сколько набрал, а в чат приходит текст,
+-- пересланный откуда угодно.
+do $$
+declare v_err text;
+begin
+  begin
+    perform bot_set_item_description(t.id('owner'), t.id('item'), repeat('о', 601));
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+  perform t.assert(v_err like '%items_description_check%',
+    'описание длиннее шестисот символов отклонено ограничением таблицы');
+end $$;
+
+-- Ровно на границе — проходит: запрет, съедающий разрешённое, это
+-- вторая поломка, а не строгость.
+do $$
+begin
+  perform bot_set_item_description(t.id('owner'), t.id('item'), repeat('о', 600));
+  perform t.assert(
+    (select length(description) = 600 from items where id = t.id('item')),
+    'описание ровно в шестьсот символов принимается');
+
+  perform bot_set_item_description(t.id('owner'), t.id('item'), '');
+end $$;
+
+-- Чужое описание из чата не поменять — та же проверка владельца.
+do $$
+declare v_err text;
+begin
+  begin
+    perform bot_set_item_description(t.id('renter'), t.id('item'), 'моя вещь');
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+  perform t.assert(v_err like '%принадлежит другому участнику%',
+    'чужое описание не поменять — проверка владельца общая');
+end $$;
+
+
 -- ── Обращение в поддержку ─────────────────────────────────────
 --
 -- До этого человек, написавший боту «не могу вернуть вещь», получал
