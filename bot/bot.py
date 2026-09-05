@@ -31,6 +31,7 @@
 """
 
 import asyncio
+import datetime
 import html
 import json
 import logging
@@ -249,6 +250,40 @@ class NewItem(StatesGroup):
     deposit = State()
     pickup = State()
     photos = State()
+
+
+MONTHS_RU = (
+    "января", "февраля", "марта", "апреля", "мая", "июня",
+    "июля", "августа", "сентября", "октября", "ноября", "декабря",
+)
+
+
+def human_date(iso: str | None) -> str:
+    """
+    «2026-09-12» → «12 сентября».
+
+    База отдаёт даты в ISO, и до 05.09.2026 бот показывал их как есть.
+    Машине так удобнее, человеку — нет: в списке сделок «2026-09-12 →
+    2026-09-15» читается как строка кода, а не как «с двенадцатого по
+    пятнадцатое».
+
+    Год не пишем, пока он текущий: «12 сентября 2026» в сентябре 2026-го
+    добавляет четыре знака и ноль смысла. В декабре про март следующего
+    года год появится сам.
+
+    Неразобранное возвращаем как есть: показать сырую строку лучше, чем
+    уронить сообщение из-за формата, которого мы не ждали.
+    """
+    if not iso:
+        return "—"
+    try:
+        d = datetime.date.fromisoformat(str(iso)[:10])
+    except ValueError:
+        return str(iso)
+
+    today = datetime.date.today()
+    tail = "" if d.year == today.year else f" {d.year}"
+    return f"{d.day} {MONTHS_RU[d.month - 1]}{tail}"
 
 
 def normalize_phone(raw: str) -> str:
@@ -1054,7 +1089,8 @@ async def on_deals(message: Message) -> None:
             area = (row.get("item") or {}).get("pickup_area")
             place = f"\n  \U0001F4CD {esc(area)}" if area else ""
             lines.append(f"• {item} — {status}{place}")
-            lines.append(f"  {row['start_date']} → {row['end_date']} · {amount}"
+            lines.append(
+                f"  {human_date(row['start_date'])} → {human_date(row['end_date'])} · {amount}"
                          + deadline_line(row, mine)
                          + contact_line(contacts.get(row["id"])))
         lines.append("")
@@ -1881,7 +1917,13 @@ def deadline_line(row: dict, mine: bool) -> str:
     return ""
 
 
-def item_line(row: dict) -> str:
+# Статусы, при которых вещь считается занятой. Те же три, что учитывает
+# ограничение bookings_no_overlap в базе и экран «Мои вещи» в приложении.
+# Четвёртая копия правила — поэтому и записано, откуда она.
+BUSY_STATUSES = ("pending", "confirmed", "active")
+
+
+def item_line(row: dict, busy_until: str | None = None) -> str:
     owner = row.get("owner") or {}
     rating = owner.get("rating")
     # Оценку показываем только когда она есть. «0.0» рядом с новым владельцем
@@ -1894,11 +1936,49 @@ def item_line(row: dict) -> str:
     # Пометка стоит у названия, а не в конце строки: человек читает список
     # взглядом сверху вниз и до конца строки может не дойти.
     demo = " 🛠 демо" if is_demo(row) else ""
+    # Занятость показывается только когда вещь занята: «свободно» у каждой
+    # строки — восемь одинаковых слов подряд, которые перестают читаться уже
+    # на второй. Молчание здесь и означает «свободна».
+    busy = f"\n  🔒 занято до {busy_until}" if busy_until else ""
     return (
         f"• <b>{esc(row['title'])}</b>{demo} — {money(row.get('daily_price'))} / сутки\n"
-        f"  депозит {money(row.get('deposit_amount'))}{mark}{area}\n"
+        f"  депозит {money(row.get('deposit_amount'))}{mark}{area}{busy}\n"
         f"  {item_url(row['id'])}"
     )
+
+
+async def busy_map(client: httpx.AsyncClient, rows: list[dict]) -> dict[str, str]:
+    """
+    До какого числа занята каждая вещь из выдачи.
+
+    Одним запросом на весь список, а не по запросу на строку: восемь
+    объявлений — восемь обращений к базе ради одной подписи, и это тот
+    случай, когда удобство стоит дороже пользы.
+
+    Зачем вообще. В чате человек видел цену и депозит, а свободна ли вещь —
+    узнавал, только открыв приложение. Половина пути ради одного слова, и
+    половина людей его не пройдёт.
+    """
+    ids = [row["id"] for row in rows]
+    if not ids:
+        return {}
+
+    found = await rest_get(
+        client,
+        "bookings",
+        {
+            "item_id": f"in.({','.join(ids)})",
+            "status": f"in.({','.join(BUSY_STATUSES)})",
+            "select": "item_id,end_date",
+            "order": "end_date.desc",
+        },
+    )
+
+    # Первая запись на вещь — самая поздняя дата: порядок задан выше.
+    busy: dict[str, str] = {}
+    for booking in found:
+        busy.setdefault(booking["item_id"], human_date(booking["end_date"]))
+    return busy
 
 
 async def show_catalog(message: Message, search: str | None) -> None:
@@ -1931,6 +2011,10 @@ async def show_catalog(message: Message, search: str | None) -> None:
 
     async with httpx.AsyncClient(timeout=20) as client:
         rows = await rest_get(client, "items", params)
+        # Занятость спрашивается здесь, пока соединение открыто: ниже блок
+        # заканчивается, и второй раз открывать клиент ради одной подписи
+        # дороже, чем донести значение оттуда.
+        busy = await busy_map(client, rows)
 
         # Пустая выдача — это три разных положения, и человеку в каждом
         # нужно разное. На экране так и сделано: пустой каталог называет
@@ -1946,9 +2030,10 @@ async def show_catalog(message: Message, search: str | None) -> None:
             rows = await rest_get(client, "items", params)
 
             if rows:
+                busy = await busy_map(client, rows)
                 await message.answer(
                     f"По запросу «{search}» ничего нет. Вот что сдают сейчас:\n\n"
-                    + "\n\n".join(item_line(row) for row in rows)
+                    + "\n\n".join(item_line(row, busy.get(row["id"])) for row in rows)
                     + f"\n\nСпросите иначе — /найти дрель — или откройте "
                       f"витрину целиком: {APP_URL}",
                     parse_mode="HTML",
@@ -1986,7 +2071,7 @@ async def show_catalog(message: Message, search: str | None) -> None:
         f"стоимости.\n{APP_URL}"
     )
     await message.answer(
-        head + "\n\n" + "\n\n".join(item_line(row) for row in rows) + tail,
+        head + "\n\n" + "\n\n".join(item_line(row, busy.get(row["id"])) for row in rows) + tail,
         parse_mode="HTML",
         disable_web_page_preview=True,
     )
