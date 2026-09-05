@@ -23,6 +23,7 @@ import {
   fetchSimilarItems,
 } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
+import { rememberRoute } from '../../src/lib/returnTo';
 import { formatDateRange, formatTenge, plural, ratingLabel } from '../../src/lib/format';
 import { calcPrice, countDays, INSURANCE_FEE } from '../../src/lib/pricing';
 import { shareItem } from '../../src/lib/share';
@@ -462,7 +463,24 @@ export default function ItemScreen() {
           ) : (
             // Вход просим в последний момент, а не на входе в приложение:
             // человек уже посмотрел вещь и знает, за чем идёт.
-            <Button title="Войти и забронировать" onPress={() => router.push('/sign-in')} />
+            <Button
+              title="Войти и забронировать"
+              onPress={() => {
+                // Запомнить карточку обязательно, и это не дублирует
+                // сторожа из app/_layout.tsx: тот запоминает адрес,
+                // когда САМ уводит на вход, а карточка объявления
+                // публичная — уводить с неё не за чем, и до сторожа
+                // дело не доходит.
+                //
+                // Без этой строки человек, пришедший по ссылке на
+                // конкретную вещь (а именно так их и присылает бот),
+                // после входа попадал в каталог и искал её заново среди
+                // девяти объявлений. Ровно на том шаге, ради которого
+                // ссылку и открыл.
+                rememberRoute(`/item/${id}`);
+                router.push('/sign-in');
+              }}
+            />
           )}
         </View>
       </View>
