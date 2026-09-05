@@ -238,6 +238,70 @@ else:
         print(f"✓ normalize_phone одинаков в трёх языках ({len(PHONE_CASES)} номеров)")
 
 
+# ── Суммы: чат против экрана ─────────────────────────────────
+#
+# money() в боте и formatTenge() в приложении показывают одни и те же
+# деньги. Совпадать должны не только цифры, но и пробелы: Telegram
+# переносит строки по обычным пробелам, и «20 000 ₸» разрывалось надвое —
+# «20» в конце строки, «000 ₸» в начале следующей.
+#
+# 05.09.2026 так и было: в боте стояли обычные пробелы, в приложении —
+# неразрывные, а комментарий у money() обещал «как в приложении».
+# Совпадали только цифры, и заметить это можно было единственным способом —
+# посмотреть на коды символов.
+#
+# Сверяется поведение: обе функции спрашивают об одних суммах, ответы
+# сравниваются посимвольно.
+MONEY_CASES = [0, 150, 3500, 20000, 1000000]
+
+
+def money_python():
+    src = cut_function(ROOT / "bot" / "bot.py", "def money", False)
+    if src is None:
+        return None
+    space = {}
+    exec(src, space)
+    return [space["money"](v) for v in MONEY_CASES]
+
+
+def money_ts():
+    path = ROOT / "src" / "lib" / "format.ts"
+    src = cut_function(path, "export function formatTenge", True)
+    if src is None:
+        return None
+    src = re.sub(r"(\w+):\s*number", r"\1", src).replace("): string {", ") {")
+    src = src.replace("export function", "function")
+
+    probe = tempfile.NamedTemporaryFile("w", suffix=".mjs", delete=False, encoding="utf-8")
+    probe.write(src + "\n")
+    probe.write(f"console.log(JSON.stringify({json.dumps(MONEY_CASES)}.map(formatTenge)));\n")
+    probe.close()
+    try:
+        out = subprocess.run(["node", probe.name], capture_output=True, text=True, encoding="utf-8")
+        return json.loads(out.stdout) if out.returncode == 0 else None
+    finally:
+        os.unlink(probe.name)
+
+
+py_money, ts_money = money_python(), money_ts()
+
+if py_money is None or ts_money is None:
+    failed = True
+    print("\n✗ Формат сумм не прочитать: money() или formatTenge() не находятся.")
+elif py_money != ts_money:
+    failed = True
+    print("\n✗ Суммы выглядят по-разному в чате и на экране:")
+    for value, in_bot, in_app in zip(MONEY_CASES, py_money, ts_money):
+        if in_bot != in_app:
+            print(f"  {value}:")
+            print(f"    бот         {in_bot!r}")
+            print(f"    приложение  {in_app!r}")
+    print("  Различие обычно в пробелах: Telegram рвёт строку по обычному,")
+    print("  и сумма разъезжается на две строки.")
+else:
+    print(f"✓ суммы одинаковы в чате и на экране ({len(MONEY_CASES)} значений)")
+
+
 # ── Число рядом с plural() ───────────────────────────────────
 #
 # plural() в src/lib/format.ts возвращает число ВМЕСТЕ со словом: «23
