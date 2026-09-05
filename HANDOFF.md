@@ -126,6 +126,7 @@ npm run nudge                       кому написать: про Telegram �
                                     объявления, с готовым текстом на каждого
 npm run pages                       кто публикует сайт; `-- --apply` чинит
 npm run check:errors                каждое ограничение базы объяснено по-русски?
+npm run check:price                 расчёт стоимости: приложение против базы
 npm run demo:fill                   демо-объявления из demo-photos/
 npm run demo:clear                  убрать их
 npm run notify:test -- +7701...     проверить связь «база → бот → Telegram»

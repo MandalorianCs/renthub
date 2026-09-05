@@ -253,6 +253,7 @@ npm run health                                 # живо ли то, что об
 npm run auth                                   # адрес возврата и срок жизни кода входа
 npm run nudge                                  # кому написать про Telegram и каким текстом
 npm run check:errors                           # ошибки базы объяснены по-русски?
+npm run check:price                            # расчёт стоимости: приложение против базы
 npm run pages                                  # кто публикует сайт
 ```
 
