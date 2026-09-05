@@ -2525,12 +2525,48 @@ async def deliver_pending(bot: Bot) -> None:
             await rest_patch(client, "notifications", {"id": f"eq.{row['id']}"}, {"sent_at": "now()"})
 
 
+async def heartbeat() -> None:
+    """
+    Отметка «я жив» — раз в цикл опроса.
+
+    Зачем. `npm run health` считал доставку по очереди недоставленных
+    уведомлений: старше десяти минут — тревога. Это ловит бота, умершего
+    при живом потоке событий, и совсем не ловит умершего в тишине.
+
+    Пилот на пять человек — это как раз тишина: сутки без единой брони
+    обычны. Бот лежит, очередь пуста, health говорит «всё хорошо», и узнают
+    об этом на первой же реальной сделке, уже после того как человек не
+    получил подтверждения.
+
+    Отметка переворачивает вопрос: не «есть ли невыполненная работа», а
+    «когда о себе напомнил тот, кто её делает».
+
+    Свои ошибки съедает молча. Бот существует, чтобы доставлять
+    уведомления, и если отметка не записалась из-за сети — это повод для
+    строки в журнале, а не для остановки доставки.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(
+                f"{REST}/heartbeats",
+                headers={**HEADERS, "Prefer": "resolution=merge-duplicates"},
+                json={"name": "bot", "seen_at": "now()", "note": None},
+            )
+    except Exception as error:  # noqa: BLE001 — отметка не важнее доставки
+        log.debug("отметка живости не записалась: %s", error)
+
+
 async def notifier(bot: Bot) -> None:
     while True:
         try:
             await deliver_pending(bot)
         except Exception as error:  # noqa: BLE001 — цикл не должен умирать
             log.error("волна доставки упала: %s", error)
+
+        # После доставки, а не до: отметка означает «цикл дошёл до конца»,
+        # а не «процесс запустился». Первое полезнее — упавший в середине
+        # цикл выглядел бы живым.
+        await heartbeat()
         await asyncio.sleep(POLL_SECONDS)
 
 
