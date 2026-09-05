@@ -238,6 +238,75 @@ else:
         print(f"✓ normalize_phone одинаков в трёх языках ({len(PHONE_CASES)} номеров)")
 
 
+# ── Статусы базы против подписей у людей ─────────────────────
+#
+# `booking_status` — перечисление в Postgres, и оно единственный источник
+# правды о том, какие состояния бывают. Подписи к ним живут в двух местах:
+# STATUS_LABEL в боте и BOOKING_STATUS в src/lib/format.ts.
+#
+# Тексты там отличаются намеренно: в чате «возвращено, ждёт проверки», на
+# экране «Возвращено». В приложении рядом есть кнопки и подпись, в чате —
+# ничего, и короткий вариант читался бы как «всё, конец». Это записано в
+# комментарии рядом с самим STATUS_LABEL.
+#
+# А вот НАБОР ключей отличаться не может. Добавят статус в базу — оба
+# клиента получат его в ответе и покажут человеку сырым словом: «disputed»
+# вместо «спор». Никакой ошибки при этом не будет, и заметить это можно
+# только глазами, в чужом чате.
+def enum_values(name):
+    """Значения перечисления из последней миграции, где оно объявлено."""
+    pattern = re.compile(
+        r"create type\s+" + re.escape(name) + r"\s+as enum\s*\((.*?)\)\s*;",
+        re.S,
+    )
+    found = None
+    for file in sorted(MIGRATIONS.glob("*.sql")):
+        text = io.open(file, encoding="utf-8").read()
+        for match in pattern.finditer(text):
+            found = set(re.findall(r"'([a-z_]+)'", match.group(1)))
+    return found
+
+
+def dict_keys_in_bot(name):
+    """Ключи словаря верхнего уровня — из дерева разбора."""
+    for node in tree.body:
+        target = None
+        if isinstance(node, ast.Assign):
+            target = next((getattr(t, "id", "") for t in node.targets), "")
+        elif isinstance(node, ast.AnnAssign):
+            target = getattr(node.target, "id", "")
+        if target == name and isinstance(node.value, ast.Dict):
+            return {k.value for k in node.value.keys if isinstance(k, ast.Constant)}
+    return None
+
+
+db_statuses = enum_values("booking_status")
+bot_statuses = dict_keys_in_bot("STATUS_LABEL")
+
+app_text = io.open(ROOT / "src" / "lib" / "format.ts", encoding="utf-8").read()
+app_block = re.search(r"BOOKING_STATUS[^{]*\{(.*?)\n\};", app_text, re.S)
+app_statuses = set(re.findall(r"^\s{2}([a-z_]+):", app_block.group(1), re.M)) if app_block else None
+
+if not db_statuses or not bot_statuses or not app_statuses:
+    failed = True
+    print("\n✗ Статусы не прочитать: образец больше не находится.")
+    print("  Смотрите enum_values / STATUS_LABEL / BOOKING_STATUS.")
+elif db_statuses != bot_statuses or db_statuses != app_statuses:
+    failed = True
+    print("\n✗ Набор статусов разошёлся:")
+    print(f"  база:        {', '.join(sorted(db_statuses))}")
+    print(f"  бот:         {', '.join(sorted(bot_statuses))}")
+    print(f"  приложение:  {', '.join(sorted(app_statuses))}")
+    missing_bot = db_statuses - bot_statuses
+    missing_app = db_statuses - app_statuses
+    if missing_bot:
+        print(f"  в чате покажется сырым словом: {', '.join(sorted(missing_bot))}")
+    if missing_app:
+        print(f"  на экране покажется сырым словом: {', '.join(sorted(missing_app))}")
+else:
+    print(f"✓ статусы сделки подписаны везде ({len(db_statuses)} состояний)")
+
+
 # ── «За вами ход» и кнопка, которой можно ходить ─────────────
 #
 # shared/next-move.json говорит, ждут ли чего-то от человека. ACTIONS в
