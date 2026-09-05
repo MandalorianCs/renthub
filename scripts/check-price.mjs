@@ -20,8 +20,14 @@
 // SQL-функция вызывается через RPC.
 
 import { createClient } from '@supabase/supabase-js';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { calcPrice } from '../src/lib/pricing.ts';
 import { missingSecretMessage, readEnvFile, readSecret } from './env.mjs';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
 
 const url = process.env.SUPABASE_URL ?? readEnvFile('EXPO_PUBLIC_SUPABASE_URL');
 const secret = readSecret();
@@ -103,9 +109,57 @@ for (const c of CASES) {
   }
 }
 
+// ── Потолок цены: четыре копии одного числа ───────────────────
+//
+// 1 000 000 ₸ за сутки — не параметр бизнес-модели, а ловушка для
+// опечатки: цена с лишним нулём не делает объявление дорогим, она делает
+// его невидимым, и владелец узнаёт об этом не отказом, а неделей тишины.
+//
+// Именно поэтому числа нет в app_settings — и именно поэтому оно
+// записано четырежды: два рубежа (проверка в assert_item_price и
+// ограничение items_daily_price_max) и две вежливости (форма публикации
+// и шаг цены в чате, которые говорят об этом до отправки).
+//
+// README про это пишет прямо: «Меняете число — меняете все четыре:
+// разойдутся, и форма примет то, что база отвергнет». Проверял это
+// только тот, кто помнил.
+//
+// Сверяем текстом, а не запуском: чтобы измерить рубежи в базе, нужно
+// живое объявление и его владелец, а число видно в самой миграции — там,
+// где оно и обязано совпадать.
+const ceilings = [
+  ['форма публикации', read('src', 'lib', 'pricing.ts'), /MAX_DAILY_PRICE = ([\d_]+)/],
+  ['шаг цены в чате', read('bot', 'bot.py'), /MAX_DAILY_PRICE = ([\d_]+)/],
+  ['assert_item_price', read('supabase', 'migrations', '20260903120000_price_ceiling.sql'), /if p_price > (\d+) then/],
+  ['items_daily_price_max', read('supabase', 'migrations', '20260903120000_price_ceiling.sql'), /check \(daily_price <= (\d+)\)/],
+];
+
+console.log('\nПотолок цены за сутки\n');
+
+const seen = new Set();
+
+for (const [where, text, pattern] of ceilings) {
+  const match = text.match(pattern);
+  if (!match) {
+    failed += 1;
+    console.log(`  ✗   ${where.padEnd(24)} число не найдено — образец сломан`);
+    continue;
+  }
+  const value = Number(match[1].replace(/_/g, ''));
+  seen.add(value);
+  console.log(`  ok  ${where.padEnd(24)} ${value.toLocaleString('ru-RU')} ₸`);
+}
+
+if (seen.size > 1) {
+  failed += 1;
+  console.log(`\n  ✗ Потолки разошлись: ${[...seen].join(', ')}`);
+  console.log('    Форма примет то, что база отвергнет, — после собранных фото.');
+}
+
 if (failed === 0) {
   console.log(
-    `\n✓ Обе реализации расчёта сходятся на ${CASES.length} наборах.` +
+    `\n✓ Расчёт сходится на ${CASES.length} наборах, потолок цены одинаков ` +
+      `во всех ${ceilings.length} местах.` +
       '\n  Человек увидит на экране ровно то, что начислит база.\n',
   );
   process.exitCode = 0;
