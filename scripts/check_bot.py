@@ -238,6 +238,83 @@ else:
         print(f"✓ normalize_phone одинаков в трёх языках ({len(PHONE_CASES)} номеров)")
 
 
+# ── «За вами ход» и кнопка, которой можно ходить ─────────────
+#
+# shared/next-move.json говорит, ждут ли чего-то от человека. ACTIONS в
+# боте говорит, какие кнопки ему показать. Первое читают оба клиента,
+# второе — только бот, и разойтись они могут молча.
+#
+# Цена расхождения несимметрична. Лишняя кнопка дыры не откроет: база
+# откажет теми же проверками. А вот «за вами ход» без кнопки — это
+# сообщение, которое нечем выполнить: человек в чате не видит экрана и
+# ищет действие там, где его нет.
+#
+# Три состояния исключены осознанно, и это не «пока не сделали»:
+#
+#   completed/owner, completed/renter — кнопки есть, но собираются отдельной
+#   веткой в action_keyboard: оценка это пять звёзд в ряд, а не одна кнопка,
+#   и в таблицу ACTIONS такое не ложится.
+#
+#   active/renter — «Верните вовремя». Действие происходит в реальном мире:
+#   человек везёт вещь владельцу. Кнопке здесь взяться неоткуда, и её
+#   отсутствие — не дефект, а честность.
+MOVES_WITHOUT_BUTTON = {
+    ("completed", "owner"): "оценка собирается отдельной веткой (пять звёзд)",
+    ("completed", "renter"): "оценка собирается отдельной веткой (пять звёзд)",
+    ("active", "renter"): "«верните вовремя» — действие в реальном мире, не в чате",
+}
+
+
+def actions_table():
+    """ACTIONS из дерева разбора: literal_eval вместо импорта модуля."""
+    for node in tree.body:
+        target = None
+        if isinstance(node, ast.AnnAssign):
+            target = getattr(node.target, "id", "")
+        elif isinstance(node, ast.Assign):
+            target = next((getattr(t, "id", "") for t in node.targets), "")
+        if target == "ACTIONS":
+            try:
+                return ast.literal_eval(node.value)
+            except ValueError:
+                return None
+    return None
+
+
+actions = actions_table()
+moves_path = ROOT / "shared" / "next-move.json"
+
+if actions is None or not moves_path.exists():
+    failed = True
+    print("\n✗ Не с чем сверить ходы: ACTIONS или shared/next-move.json не читаются.")
+else:
+    moves = json.loads(io.open(moves_path, encoding="utf-8").read())
+    silent = []
+    for status, roles in moves.items():
+        if status.startswith("_"):
+            continue
+        for role, move in roles.items():
+            if not isinstance(move, dict) or not move.get("yours"):
+                continue
+            if (status, role) in MOVES_WITHOUT_BUTTON:
+                continue
+            if (status, role == "owner") not in actions:
+                silent.append(f"{status}/{role} — «{move.get('title', '?')}»")
+
+    if silent:
+        failed = True
+        print("\n✗ Бот скажет «за вами ход», а кнопки не даст:")
+        for line in silent:
+            print(f"  {line}")
+        print("  Добавьте действие в ACTIONS — либо объясните исключение в")
+        print("  MOVES_WITHOUT_BUTTON, если ходить надо не в чате.")
+    else:
+        print(
+            f"✓ каждому «за вами ход» есть чем ответить "
+            f"({len(actions)} действий, {len(MOVES_WITHOUT_BUTTON)} исключения)"
+        )
+
+
 # ── Модуль должен загружаться, а не только разбираться ───────
 #
 # `ast.parse` выше ловит синтаксис и повторные имена. Импорт ловит другое:
