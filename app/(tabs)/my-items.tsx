@@ -296,7 +296,7 @@ export default function MyItems() {
 
                     {doneCount > 0 ? (
                       <Text style={s.stateCount}>
-                        · сдавали {doneCount} {plural(doneCount, 'раз', 'раза', 'раз')}
+                        · сдавали {plural(doneCount, 'раз', 'раза', 'раз')}
                       </Text>
                     ) : showIdle ? (
                       <Text style={s.stateCount}>· пока не бронировали</Text>

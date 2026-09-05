@@ -117,7 +117,7 @@ export default function Support() {
           <View style={s.limit}>
             <Ionicons name="hourglass-outline" size={18} color={colors.warn} />
             <Text style={s.limitText}>
-              У вас {open} {plural(open, 'обращение', 'обращения', 'обращений')} без ответа.
+              У вас {plural(open, 'обращение', 'обращения', 'обращений')} без ответа.
               Новое можно будет отправить, когда разберут эти — так очередь не забивается
               одним человеком, и ваши прежние вопросы не теряются.
             </Text>

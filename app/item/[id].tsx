@@ -230,7 +230,7 @@ export default function ItemScreen() {
             <Text style={s.ownerMeta}>
               {ratingLabel(item.owner?.rating ?? null, item.owner?.ratings_count ?? 0)}
               {ownerDeals && ownerDeals > 0
-                ? ` · ${ownerDeals} ${plural(ownerDeals, 'сделка', 'сделки', 'сделок')}`
+                ? ` · ${plural(ownerDeals, 'сделка', 'сделки', 'сделок')}`
                 : ''}
             </Text>
           </View>
