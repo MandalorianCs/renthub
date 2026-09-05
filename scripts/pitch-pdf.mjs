@@ -19,7 +19,8 @@
 
 import { execFileSync, spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -183,6 +184,21 @@ if (pages < 5) {
   console.error('  Печать оборвалась. Запустите команду ещё раз.\n');
   process.exit(1);
 }
+
+// Отпечаток деки, из которой напечатан этот файл.
+//
+// Нужен, чтобы проверка свежести работала в CI. Первая версия сравнивала
+// время файлов — и падала на каждом прогоне: git времени не хранит, при
+// клонировании все файлы получают время checkout'а, а их порядок между
+// собой случаен. Проверка, которая падает всегда, учит не читать её
+// вывод.
+//
+// Хеш — то же самое утверждение, но проверяемое где угодно: «этот PDF
+// напечатан вот из этой версии pitch.html».
+writeFileSync(
+  `${OUT}.sha`,
+  `${createHash('sha256').update(readFileSync(join(ROOT, 'landing', 'pitch.html'))).digest('hex')}\n`,
+);
 
 console.log(`\n✓ Дека напечатана: landing/RentHUB-pitch.pdf`);
 console.log(`  ${pages} ${pages % 10 === 1 && pages % 100 !== 11 ? 'страница' : 'страниц'}, ${size} КБ\n`);

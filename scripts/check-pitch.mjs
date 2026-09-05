@@ -22,7 +22,8 @@
 // сама с собой, — падение придёт здесь, а не на защите.
 
 import { createClient } from '@supabase/supabase-js';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -137,11 +138,18 @@ if (!existsSync(pdfPath)) {
   console.log('  ??  PDF деки нет — напечатайте: npm run pitch:pdf');
   failed++;
 } else {
-  const pdfAge = statSync(pdfPath).mtimeMs;
-  const htmlAge = statSync(join(ROOT, 'landing', 'pitch.html')).mtimeMs;
+  // Сверяется отпечаток исходника, а не время файла: git времени не
+  // хранит, и в CI все файлы получают время клонирования — проверка по
+  // mtime падала на каждом прогоне независимо от того, свежий PDF или
+  // нет. Хеш отвечает на тот же вопрос и одинаково отвечает везде.
+  const shaPath = `${pdfPath}.sha`;
+  const printedFrom = existsSync(shaPath) ? readFileSync(shaPath, 'utf8').trim() : null;
+  const deckNow = createHash('sha256')
+    .update(readFileSync(join(ROOT, 'landing', 'pitch.html')))
+    .digest('hex');
 
-  if (pdfAge < htmlAge) {
-    console.log('  ??  PDF старше деки — судьи получат вчерашние числа');
+  if (printedFrom !== deckNow) {
+    console.log('  ??  PDF напечатан из другой версии деки — судьи получат вчерашние числа');
     console.log('      напечатать заново: npm run pitch:pdf');
     failed++;
   } else {
