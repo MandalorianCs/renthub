@@ -260,10 +260,50 @@ console.log(
   `  Писем в час       ${current.rate_limit_email_sent}` +
     (mailLow ? '  ← потолок встроенной отправки, поднимается только своим SMTP' : ''),
 );
+
+// Хук Send SMS — то, на чём держится вход по коду в Telegram.
+//
+// До сих пор он смотрелся только вокруг правки: снимали состояние до PATCH
+// и сверяли после. Это защищало от нас самих, но не от всего остального —
+// хук можно выключить в панели, у него может истечь секрет, функция может
+// не развернуться после переименования.
+//
+// Отказ при этом молчаливый и полный: человек жмёт «Получить код», Supabase
+// зовёт хук, хука нет — и на экране английская строка, которую он не читал
+// и понять не может. Заметить это можно было только жалобой участника.
+//
+// Строка печатается всегда, когда есть токен: одна проверка на каждый
+// запуск дешевле одного потерянного входа.
+const hookOk =
+  current.hook_send_sms_enabled &&
+  Boolean(current.hook_send_sms_uri) &&
+  Boolean(current.hook_send_sms_secrets);
+
+console.log(
+  hookOk
+    ? `  Коды в Telegram   хук включён, ${current.hook_send_sms_uri.split('/').pop()}`
+    : `  Коды в Telegram   ! ${
+        !current.hook_send_sms_enabled
+          ? 'хук выключен — вход по коду не работает'
+          : !current.hook_send_sms_uri
+            ? 'у хука нет адреса функции'
+            : 'у хука нет секрета — Supabase не сможет подписать вызов'
+      }`,
+);
 console.log(`  Redirect URLs     ${listed.length ? listed.join(', ') : '(пусто)'}`);
 
+if (!hookOk) {
+  // Отдельным сообщением, а не строчкой в списке: это единственный отказ
+  // здесь, который ломает вход прямо сейчас, а не портит впечатление.
+  console.log('\n! Вход по коду в Telegram сломан.');
+  console.log('  Панель → Authentication → Hooks → Send SMS:');
+  console.log(`  адрес ${url}/functions/v1/telegram-otp, секрет из функции.`);
+  console.log('  Развернуть саму функцию: npx supabase functions deploy telegram-otp\n');
+  process.exitCode = 1;
+}
+
 if (!siteWrong && missing.length === 0 && !otpWrong) {
-  console.log('\n✓ В панели всё уже стоит правильно.\n');
+  console.log(hookOk ? '\n✓ В панели всё уже стоит правильно.\n' : '');
   process.exit(0);
 }
 
