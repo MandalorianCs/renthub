@@ -243,6 +243,25 @@ class NewPrice(StatesGroup):
     waiting = State()
 
 
+class NewPickup(StatesGroup):
+    """
+    Смена ориентира «где забирать» — второе исключение рядом с ценой.
+
+    Аргумент против правки объявления из чата записан в NewPrice: показать
+    все значения и дать выбрать, какое менять, — это уже экран. Для
+    описания и фото он верен. Для ориентира — нет, по тем же признакам,
+    что и у цены: текущее значение в одну строку, новое — один ответ.
+
+    Признак, которого нет у цены: шаг «где забирать» в публикации можно
+    ПРОПУСТИТЬ, и кнопку «Пропустить» предлагаем мы сами. Первое живое
+    объявление платформы вышло на витрину без ориентира — рядом с восемью
+    демонстрационными, у которых он есть. Дверь, которую мы открыли,
+    обязана открываться в обе стороны.
+    """
+
+    waiting = State()
+
+
 class NewItem(StatesGroup):
     """
     Шаги публикации.
@@ -2127,6 +2146,17 @@ def my_item_line(row: dict) -> str:
 
     line = f"<b>{esc(row['title'])}</b>\n{price} ₸ / сутки · {state}"
 
+    # Ориентир — не украшение строки, а ответ на «что у меня сейчас».
+    # Без него кнопка ниже была бы вопросом без контекста: владелец не
+    # помнит, писал он район или пропустил шаг, и нажал бы наугад.
+    #
+    # Отсутствие называется словами, а не пустотой. Пустое место читается
+    # как «здесь ничего не бывает», а это поле как раз бывает — и на
+    # витрине его отсутствие видит арендатор, решающий, ехать ли за вещью
+    # через весь город.
+    area = row.get("pickup_area")
+    line += f"\n📍 {esc(area)}" if area else "\n📍 Ориентир не указан"
+
     # Причина показывается прямо здесь: в чате нет карточки объявления,
     # куда можно было бы отправить человека посмотреть, что исправлять.
     if row["moderated"] and row.get("moderated_why"):
@@ -2146,10 +2176,17 @@ def item_keyboard(row: dict) -> InlineKeyboardMarkup | None:
     label = "👁 Вернуть в каталог" if hidden else "⏸ Снять с публикации"
     action = "show" if hidden else "hide"
 
+    # Подпись зависит от того, есть ли ориентир. «Изменить» на пустом поле
+    # предлагает править то, чего нет, и владелец решает, что кнопка не про
+    # него; «Добавить» на заполненном прячет правку. Разница в одном слове
+    # стоит ровно того, ради чего кнопка появилась.
+    pickup = "📍 Изменить ориентир" if row.get("pickup_area") else "📍 Добавить ориентир"
+
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=label, callback_data=f"i:{action}:{row['id']}")],
             [InlineKeyboardButton(text="💰 Изменить цену", callback_data=f"i:price:{row['id']}")],
+            [InlineKeyboardButton(text=pickup, callback_data=f"i:pickup:{row['id']}")],
         ]
     )
 
@@ -2277,6 +2314,123 @@ async def on_price_wrong_input(message: Message) -> None:
     await message.answer("Здесь нужна новая цена числом. Или /отмена.")
 
 
+# ── Ориентир: где забирать вещь ───────────────────────────────
+#
+# Шаг «где забирать» при публикации можно пропустить — кнопку предлагаем
+# мы сами, — а пути назад в чате не было. Первое живое объявление
+# платформы вышло на витрину без ориентира, рядом с восемью
+# демонстрационными, у которых он есть.
+#
+# Правил бот здесь не знает: владельца проверяет item_set_pickup_area
+# через assert_item_owner, длину — ограничение таблицы. Проверка длины
+# ниже стоит не вместо них, а раньше: отказ базы после отправленного
+# текста читается хуже, чем подсказка до.
+
+
+async def start_pickup(query: CallbackQuery, state: FSMContext, item_id: str) -> None:
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, query.from_user.id)
+        if user is None:
+            await ask_link_query(query)
+            return
+
+        try:
+            rows = await rest_rpc(client, "bot_my_items", {"p_actor": user["id"]})
+        except RentHubError as error:
+            await query.answer(str(error), show_alert=True)
+            return
+
+    item = next((r for r in rows if r["id"] == item_id), None)
+    if item is None:
+        await query.answer("Объявление не найдено", show_alert=True)
+        return
+
+    await state.set_state(NewPickup.waiting)
+    await state.update_data(item_id=item_id, title=item["title"])
+    await query.answer()
+
+    area = item.get("pickup_area")
+    if area:
+        head = f"Сейчас у «{esc(item['title'])}» указано: <b>{esc(area)}</b>."
+    else:
+        head = f"У «{esc(item['title'])}» ориентира нет."
+
+    # Кнопка «убрать» показывается только тогда, когда есть что убирать.
+    # Пустая кнопка на пустом поле — это выбор без разницы, и человек
+    # тратит внимание, чтобы понять, что она ничего не делает.
+    keyboard = None
+    if area:
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Убрать ориентир", callback_data=f"i:nopickup:{item_id}")]
+            ]
+        )
+
+    await query.message.answer(
+        head + "\n\n"
+        "Напишите район или ориентир — «мкр. Васильковский», «возле "
+        "вокзала». Точный адрес не нужен: его скажете тому, чью бронь "
+        "подтвердите.\n\n"
+        "Это видно в каталоге и помогает выбрать: вещь надо забрать и "
+        "вернуть.\n\n"
+        "Передумали — /отмена.",
+        parse_mode="HTML",
+        reply_markup=keyboard,
+    )
+
+
+@dp.message(NewPickup.waiting, F.text)
+async def on_new_pickup(message: Message, state: FSMContext) -> None:
+    if (message.text or "").strip().startswith("/"):
+        await message.answer("Идёт правка ориентира. Напишите район или /отмена.")
+        return
+
+    area = (message.text or "").strip()
+
+    # Границы те же, что в ограничении items_pickup_area_check и на шаге
+    # публикации. Третьей копии чисел это не заводит: в базе они одни, а
+    # здесь — та же вежливость, что и там.
+    if len(area) < 2:
+        await message.answer("Слишком коротко — напишите район или ориентир.")
+        return
+    if len(area) > 80:
+        await message.answer("Слишком длинно. Хватит района или заметного ориентира.")
+        return
+
+    data = await state.get_data()
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        user = await user_by_telegram(client, message.from_user.id)
+        if user is None:
+            await state.clear()
+            await ask_link(message)
+            return
+
+        try:
+            await rest_rpc(
+                client,
+                "bot_set_item_pickup",
+                {"p_actor": user["id"], "p_item_id": data["item_id"], "p_area": area},
+            )
+        except RentHubError as error:
+            # Состояние не сбрасываем: отказ — повод написать другой текст,
+            # а не проходить путь до кнопки заново.
+            await message.answer(str(error))
+            return
+
+    await state.clear()
+    await message.answer(
+        f"Готово: забирать «{esc(data['title'])}» — {esc(area)}.\n"
+        "Это увидят в каталоге.",
+        parse_mode="HTML",
+    )
+
+
+@dp.message(NewPickup.waiting)
+async def on_pickup_wrong_input(message: Message) -> None:
+    await message.answer("Здесь нужен район или ориентир текстом. Или /отмена.")
+
+
 @dp.message(F.text.in_({"/profile", "/профиль"}))
 async def on_profile(message: Message) -> None:
     async with httpx.AsyncClient(timeout=20) as client:
@@ -2373,13 +2527,41 @@ async def on_item_action(query: CallbackQuery, state: FSMContext) -> None:
         await start_price(query, state, item_id)
         return
 
-    status = "hidden" if action == "hide" else "active"
+    if action == "pickup":
+        await start_pickup(query, state, item_id)
+        return
 
     async with httpx.AsyncClient(timeout=20) as client:
         user = await user_by_telegram(client, query.from_user.id)
         if user is None:
             await ask_link_query(query)
             return
+
+        # «Убрать ориентир» — та же функция, что и правка, с пустой
+        # строкой: база читает её как «поле не заполнено». Отдельной
+        # функции удаления нет намеренно — она была бы вторым местом, где
+        # решают, чем пустой ориентир отличается от отсутствующего.
+        if action == "nopickup":
+            try:
+                await rest_rpc(
+                    client,
+                    "bot_set_item_pickup",
+                    {"p_actor": user["id"], "p_item_id": item_id, "p_area": ""},
+                )
+            except RentHubError as error:
+                await query.answer(str(error), show_alert=True)
+                return
+
+            await state.clear()
+            await query.answer("Убрал")
+            await query.message.edit_reply_markup(reply_markup=None)
+            await query.message.answer(
+                "Ориентир убран. В каталоге объявление останется, но арендатор "
+                "не увидит, куда ехать за вещью."
+            )
+            return
+
+        status = "hidden" if action == "hide" else "active"
 
         try:
             await rest_rpc(
@@ -2391,19 +2573,27 @@ async def on_item_action(query: CallbackQuery, state: FSMContext) -> None:
             await query.answer(str(error), show_alert=True)
             return
 
+        # Клавиатура пересобирается тем же item_keyboard(), что рисовал её
+        # в первый раз. До 05.09.2026 здесь стоял свой набор кнопок с
+        # ОДНОЙ кнопкой в нём — и после паузы объявление теряло «Изменить
+        # цену» до следующего /вещи. Кнопка, до которой нельзя
+        # дотянуться, ничем не лучше отсутствующей, а вторая копия
+        # правила «какие кнопки у объявления» разошлась с первой ровно в
+        # тот день, когда кнопок стало три.
+        #
+        # Строка перечитывается, а не собирается из того, что мы помним:
+        # подпись кнопки ориентира зависит от поля, которого у нас здесь
+        # нет, а угаданная подпись — это та же копия правила, только тише.
+        try:
+            rows = await rest_rpc(client, "bot_my_items", {"p_actor": user["id"]})
+        except RentHubError:
+            rows = []
+
     await query.answer("Готово")
 
-    # Кнопка меняется на обратную, а не исчезает: пауза обратима, и
-    # человек чаще всего хочет вернуть вещь тем же движением.
-    back = "👁 Вернуть в каталог" if action == "hide" else "⏸ Снять с публикации"
-    back_action = "show" if action == "hide" else "hide"
-    await query.message.edit_reply_markup(
-        reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text=back, callback_data=f"i:{back_action}:{item_id}")]
-            ]
-        )
-    )
+    row = next((r for r in rows if r["id"] == item_id), None)
+    if row is not None:
+        await query.message.edit_reply_markup(reply_markup=item_keyboard(row))
     await query.message.answer(
         "Вещь снята с публикации. Новых броней не будет; уже подтверждённые остаются."
         if action == "hide"

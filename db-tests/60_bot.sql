@@ -493,6 +493,60 @@ begin
 end $$;
 
 
+-- ── Ориентир: правится оттуда же, откуда публиковали ──────────
+--
+-- Шаг «где забирать» в /сдать предлагает кнопку «Пропустить», и первое
+-- живое объявление платформы вышло на витрину без ориентира. Пути назад
+-- в чате не было: /вещи умел паузу и цену. Проверяем обе стороны — что
+-- ориентир появляется и что его можно убрать.
+
+do $$
+declare v_area text;
+begin
+  perform bot_set_item_pickup(t.id('owner'), t.id('item'), '  возле вокзала  ');
+
+  select pickup_area into v_area from items where id = t.id('item');
+  perform t.assert(v_area = 'возле вокзала',
+    'ориентир записан из чата и обрезан по краям');
+
+  -- Пустая строка означает «убрать», а не «записать пустоту»: иначе
+  -- ограничение таблицы отклонило бы её именем constraint, а человек
+  -- прочитал бы это как поломку.
+  perform bot_set_item_pickup(t.id('owner'), t.id('item'), '   ');
+
+  select pickup_area into v_area from items where id = t.id('item');
+  perform t.assert(v_area is null,
+    'пустой ответ убирает ориентир, а не пишет пробелы');
+end $$;
+
+-- Границы держит ограничение таблицы, а не вторая копия чисел в функции.
+-- Проверяется именно оно: перевод для него уже лежит в обеих дверях.
+do $$
+declare v_err text;
+begin
+  begin
+    perform bot_set_item_pickup(t.id('owner'), t.id('item'), repeat('а', 81));
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+  perform t.assert(v_err like '%items_pickup_area_check%',
+    'ориентир длиннее восьмидесяти символов отклонён ограничением таблицы');
+end $$;
+
+-- Чужой ориентир из чата не поменять — та же проверка владельца.
+do $$
+declare v_err text;
+begin
+  begin
+    perform bot_set_item_pickup(t.id('renter'), t.id('item'), 'мой двор');
+    v_err := 'без ошибки';
+  exception when others then v_err := sqlerrm;
+  end;
+  perform t.assert(v_err like '%принадлежит другому участнику%',
+    'чужой ориентир не поменять — проверка владельца общая');
+end $$;
+
+
 -- ── Обращение в поддержку ─────────────────────────────────────
 --
 -- До этого человек, написавший боту «не могу вернуть вещь», получал
