@@ -17,12 +17,13 @@ import { DetailSkeleton } from '../../src/components/Skeleton';
 import { Badge, Button, Card, Empty, ErrorState, Row, tap } from '../../src/components/ui';
 import {
   createBooking,
+  fetchDealsCount,
   fetchItem,
   fetchItemCalendar,
   fetchSimilarItems,
 } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
-import { formatDateRange, formatTenge, ratingLabel } from '../../src/lib/format';
+import { formatDateRange, formatTenge, plural, ratingLabel } from '../../src/lib/format';
 import { calcPrice, countDays, INSURANCE_FEE } from '../../src/lib/pricing';
 import { shareItem } from '../../src/lib/share';
 import { DEMO_NOTICE, isDemoOwner } from '../../src/lib/demo';
@@ -51,6 +52,16 @@ export default function ItemScreen() {
   const [error, setError] = useState<string | null>(null);
   const [shared, setShared] = useState(false);
   const [similar, setSimilar] = useState<Item[]>([]);
+  // Сколько сделок владелец довёл до конца.
+  //
+  // Рейтинг у нового владельца пуст — «Пока нет отзывов», — и это всё, что
+  // человек узнавал о нём перед тем, как отдать двадцать тысяч депозита.
+  // Число доведённых сделок отвечает на другой вопрос: не «хвалят ли его»,
+  // а «делал ли он это раньше вообще».
+  //
+  // Экран владельца это число показывает с 26.08, но чтобы его увидеть,
+  // надо нажать и уйти с карточки. Решение принимается здесь.
+  const [ownerDeals, setOwnerDeals] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -66,6 +77,13 @@ export default function ItemScreen() {
         fetchSimilarItems(found.category, found.id)
           .then(setSimilar)
           .catch(() => setSimilar([]));
+
+        // Своим заходом и своим catch, как и похожие: счётчик — украшение
+        // доверия, и его сбой не должен уронить карточку. Не сосчитался —
+        // строка просто не появится.
+        fetchDealsCount(found.owner_id)
+          .then(setOwnerDeals)
+          .catch(() => setOwnerDeals(null));
       }
     } catch (e) {
       setError(humanizeError(e));
@@ -211,6 +229,9 @@ export default function ItemScreen() {
             <Text style={s.ownerName}>{item.owner?.full_name ?? 'Без имени'}</Text>
             <Text style={s.ownerMeta}>
               {ratingLabel(item.owner?.rating ?? null, item.owner?.ratings_count ?? 0)}
+              {ownerDeals && ownerDeals > 0
+                ? ` · ${ownerDeals} ${plural(ownerDeals, 'сделка', 'сделки', 'сделок')}`
+                : ''}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
