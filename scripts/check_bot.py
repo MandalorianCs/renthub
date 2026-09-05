@@ -265,14 +265,19 @@ def module_loads():
         return module, None
     except SystemExit:
         return None, "нет окружения"
+    except ModuleNotFoundError as error:
+        # Нет aiogram или httpx — значит проверку запускают там, где бота не
+        # ставили: в CI, на чужой машине. Это не поломка кода, и валить сборку
+        # из-за неё нельзя. Настоящие ошибки импорта ловит ветка ниже.
+        return None, f"нет зависимостей бота ({error.name})"
     except Exception as error:  # noqa: BLE001 — сюда и целимся
         return None, f"{type(error).__name__}: {error}"
 
 
 loaded, why = module_loads()
 
-if why == "нет окружения":
-    print("?  bot.py не загрузить: не хватает bot/.env — проверка пропущена")
+if why and why.startswith(("нет окружения", "нет зависимостей")):
+    print(f"?  bot.py не загрузить: {why} — проверка пропущена")
 elif loaded is None:
     failed = True
     print(f"\n✗ bot.py разбирается, но не загружается: {why}")
