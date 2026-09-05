@@ -101,19 +101,23 @@ if (stale.length) {
 
 if (bad.length === 0 && stale.length === 0) {
   console.log('\n✓ Каждое ограничение объяснено по-русски или объявлено внутренним.\n');
-  process.exit(0);
-}
+  // exitCode, а не exit(): см. scripts/exit.mjs — обрыв процесса при живом
+  // соединении supabase-js даёт на Windows код 127 вместо нуля, и цепочка
+  // `npm run check` считает успешную проверку провалом.
+  process.exitCode = 0;
+} else {
 
-if (bad.length) {
-  console.log(`\n✗ Без перевода: ${bad.length}\n`);
-  for (const r of bad) {
-    console.log(`  ${r.name}`);
-    if (!r.bot) console.log('    бот покажет сырую строку Postgres');
-    if (!r.app) console.log('    приложение покажет сырую строку Postgres');
+  if (bad.length) {
+    console.log(`\n✗ Без перевода: ${bad.length}\n`);
+    for (const r of bad) {
+      console.log(`  ${r.name}`);
+      if (!r.bot) console.log('    бот покажет сырую строку Postgres');
+      if (!r.app) console.log('    приложение покажет сырую строку Postgres');
+    }
+    console.log('\n  Добавьте фразу в CONSTRAINT_MESSAGES (bot/bot.py) и в humanizeError');
+    console.log('  (src/lib/supabase.ts) — либо внесите имя в NOT_FOR_HUMANS здесь,');
+    console.log('  объяснив, почему человек до него не дотягивается.\n');
   }
-  console.log('\n  Добавьте фразу в CONSTRAINT_MESSAGES (bot/bot.py) и в humanizeError');
-  console.log('  (src/lib/supabase.ts) — либо внесите имя в NOT_FOR_HUMANS здесь,');
-  console.log('  объяснив, почему человек до него не дотягивается.\n');
-}
 
-process.exit(1);
+  process.exitCode = 1;
+}

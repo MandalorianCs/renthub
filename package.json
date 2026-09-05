@@ -40,6 +40,7 @@
     "build:pages": "node scripts/build-pages.mjs",
     "icons": "node scripts/make-icons.mjs",
     "queue": "node scripts/queue.mjs",
+    "check": "npm run typecheck && npm run check:bot && npm run check:pitch && npm run check:errors",
     "check:bot": "python scripts/check_bot.py",
     "check:pitch": "node scripts/check-pitch.mjs",
     "check:errors": "node scripts/check-errors.mjs",
