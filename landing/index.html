@@ -644,6 +644,34 @@ h2 {
 }
 @media (hover: hover) { .hero .card:hover { transform: rotate(0deg) translateY(-4px); } }
 
+/* Калькулятор дохода.
+   Считается в браузере и без отправки: это не форма, а способ подставить
+   своё число в чужой пример. Поля крупные — их трогают пальцем на телефоне,
+   где и читают лендинг. */
+.calc {
+  margin-top: 28px; padding: 22px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+}
+.calc-head { font-weight: 800; font-size: 17px; letter-spacing: -.01em; margin-bottom: 16px; }
+.calc-rows { display: grid; gap: 10px; }
+.calc-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  font-size: 15px; color: var(--muted);
+}
+.calc-input { display: inline-flex; align-items: center; gap: 6px; }
+.calc-input input {
+  width: 116px; padding: 10px 12px; text-align: right;
+  font: inherit; font-weight: 700; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+}
+.calc-input input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.calc-input i { font-style: normal; color: var(--muted); font-size: 14px; min-width: 34px; }
+.calc-out { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.calc-out-row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; font-size: 15px; }
+.calc-out-row b { font-size: 26px; font-weight: 800; letter-spacing: -.02em; color: var(--green); }
+.calc-out-row.muted { color: var(--muted); font-size: 14px; }
+.calc-note { margin-top: 14px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+
 /* Стикер с цифрой заработка — единственное место, где акцент выходит за
    пределы блока. Он держит взгляд на числе, ради которого владелец пришёл. */
 .sticker {
@@ -1213,6 +1241,48 @@ h2 {
         <div class="v" style="color:var(--green)">8 400 ₸</div>
         <div class="l">получает владелец<br>за вещь из кладовки</div>
       </div>
+    </div>
+
+    <!-- Калькулятор: тот же расчёт, но с числом владельца.
+         Схема выше отвечает на «сколько заработаю» чужим примером —
+         перфоратором за 3 500. У человека в кладовке лежит своя вещь и своя
+         цена, и перевести одно в другое в уме он не станет: 20 процентов от
+         неровного числа считаются хуже, чем кажется.
+         Три поля, никакой отправки — счёт идёт в браузере. -->
+    <div class="calc" id="calc">
+      <div class="calc-head">Посчитайте на своей вещи</div>
+      <div class="calc-rows">
+        <label class="calc-row">
+          <span>Цена за сутки</span>
+          <span class="calc-input"><input id="calc-price" type="number" inputmode="numeric" min="100" max="1000000" step="100" value="3500" aria-label="Цена за сутки в тенге"><i>₸</i></span>
+        </label>
+        <label class="calc-row">
+          <span>Сдаёте раз в месяц</span>
+          <span class="calc-input"><input id="calc-times" type="number" inputmode="numeric" min="1" max="30" step="1" value="2" aria-label="Сколько раз в месяц"><i>раз</i></span>
+        </label>
+        <label class="calc-row">
+          <span>Средняя аренда</span>
+          <span class="calc-input"><input id="calc-days" type="number" inputmode="numeric" min="1" max="30" step="1" value="3" aria-label="Суток за одну аренду"><i>сут.</i></span>
+        </label>
+      </div>
+      <div class="calc-out">
+        <div class="calc-out-row">
+          <span>Ваш доход в месяц</span>
+          <b id="calc-owner">16 800 ₸</b>
+        </div>
+        <div class="calc-out-row muted">
+          <span>из них комиссия платформы</span>
+          <span id="calc-fee">4 200 ₸</span>
+        </div>
+        <div class="calc-out-row muted">
+          <span>за год, если так же</span>
+          <span id="calc-year">201 600 ₸</span>
+        </div>
+      </div>
+      <p class="calc-note">
+        Депозит сюда не входит: он блокируется у арендатора и возвращается
+        целиком. Комиссия берётся только с состоявшихся сделок.
+      </p>
     </div>
 
     <div class="grid g3">
@@ -1838,6 +1908,68 @@ h2 {
     update();
     window.addEventListener('scroll', update, { passive: true });
     window.addEventListener('resize', update);
+  })();
+
+  // Калькулятор дохода владельца.
+  //
+  // Комиссия — 20 процентов, то же число, что в app_settings, в pricing.ts и
+  // в схеме выше по странице. Здесь оно записано ещё раз, и это четвёртая
+  // копия — поэтому npm run check:pitch сверяет их между собой и с живой
+  // базой. Разойдётся — проверка скажет.
+  //
+  // Депозит в расчёт не входит намеренно: он не доход, а замороженные
+  // деньги арендатора, и смешать одно с другим значило бы обещать то, чего
+  // владелец не получит.
+  (function () {
+    var COMMISSION = 0.20;
+
+    var price = document.getElementById('calc-price');
+    var times = document.getElementById('calc-times');
+    var days  = document.getElementById('calc-days');
+    var outOwner = document.getElementById('calc-owner');
+    var outFee   = document.getElementById('calc-fee');
+    var outYear  = document.getElementById('calc-year');
+    if (!price || !times || !days || !outOwner) return;
+
+    // Неразрывный пробел между разрядами и перед знаком: «16 800 ₸» не
+    // должно переноситься по строке, иначе число распадается пополам.
+    function money(value) {
+      return Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0') + '\u00a0₸';
+    }
+
+    // Границы те же, что у полей ввода. Пустое поле или буквы дают NaN —
+    // берём минимум, чтобы на экране не появилось «NaN ₸».
+    function read(input, min, max) {
+      var n = Number(input.value);
+      if (!isFinite(n)) return min;
+      return Math.min(max, Math.max(min, n));
+    }
+
+    function update() {
+      var perDay = read(price, 100, 1000000);
+      var perMonth = read(times, 1, 30);
+      var perRent = read(days, 1, 30);
+
+      var gross = perDay * perRent * perMonth;
+      var fee = gross * COMMISSION;
+
+      outOwner.textContent = money(gross - fee);
+      outFee.textContent = money(fee);
+      outYear.textContent = money((gross - fee) * 12);
+    }
+
+    [price, times, days].forEach(function (input) {
+      input.addEventListener('input', update);
+      // blur возвращает поле в границы: человек мог стереть всё или набрать
+      // ноль, и пустое поле рядом с посчитанным доходом читается как сбой.
+      input.addEventListener('blur', function () {
+        var min = Number(input.min), max = Number(input.max);
+        input.value = String(Math.min(max, Math.max(min, Number(input.value) || min)));
+        update();
+      });
+    });
+
+    update();
   })();
 </script>
 </body>
