@@ -44,6 +44,7 @@
     "check:bot": "python scripts/check_bot.py",
     "check:pitch": "node scripts/check-pitch.mjs",
     "pitch:pdf": "node scripts/pitch-pdf.mjs",
+    "pitch:pptx": "python scripts/pitch-pptx.py",
     "check:errors": "node scripts/check-errors.mjs",
     "check:price": "node scripts/check-price.mjs",
     "check:lint": "node scripts/check-lint.mjs",

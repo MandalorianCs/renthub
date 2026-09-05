@@ -695,6 +695,54 @@ html[data-draft] .todo b { display: block; margin-bottom: 4px; }
 .timing table { min-width: 420px; }
 .timing td:last-child, .timing th:last-child { text-align: right; }
 
+/* ── Один слайд во весь экран: /pitch/?slide=5 ─────────────────
+   Нужен двоим. Человеку — чтобы показать деку по слайдам, не листая
+   длинную страницу; сборщику PPTX — чтобы снять каждый слайд картинкой
+   ровно 16:9 и сложить их в презентацию.
+
+   Второе и есть причина, по которой режим появился. PPTX собирается из
+   этой же страницы, а не рисуется заново: вторая копия деки разошлась бы
+   с первой в первый же вечер правок — ровно то, чего мы избегаем и с
+   PDF, и с числами.                                                  */
+html[data-slide] { background: var(--bg); }
+html[data-slide] body { overflow: hidden; }
+html[data-slide] header,
+html[data-slide] .ticker,
+html[data-slide] footer,
+html[data-slide] body::after { display: none !important; }
+
+html[data-slide] section { display: none; }
+html[data-slide] section[data-current] {
+  display: flex;
+  align-items: center;
+  min-height: 100vh;
+  padding: 4vh 0;
+}
+/* Ширина под экран, а не под чтение с руки. У страницы .wrap рассчитан
+   на длинный текст в колонке; на проекторе 1920 точек та же колонка
+   оставляет треть экрана пустой, и слайд читается как обрезанный. */
+html[data-slide] section[data-current] .wrap {
+  width: 100%;
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 0 64px;
+}
+
+/* Анимации появления в этом режиме гасятся: слайд снимают сразу, и
+   половина блоков уехала бы в картинку прозрачной — та же ловушка, что
+   съела три страницы первого PDF. */
+html[data-slide] .reveal,
+html[data-slide] .reveal.is-in {
+  opacity: 1 !important;
+  transform: none !important;
+}
+html[data-slide] *,
+html[data-slide] *::before,
+html[data-slide] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
 /* ── Печать: та же дека, раздаткой для судей ───────────────────
    Судьям нужен файл, который открывается без интернета. Делать ради
    этого вторую копию презентации нельзя: числа разъедутся в первый же
@@ -1305,9 +1353,20 @@ html[data-draft] .todo b { display: block; margin-bottom: 4px; }
      Поэтому названа не оценка, а ПОТОЛОК: выручка с первой же сделки —
      2 100 ₸, и привлечение дороже этого не окупается за одну аренду.
      Порог проверяем: он вытекает из комиссии, а не из веры в неё. -->
+<!-- Резервный слайд: в тайминг ИНК он не входит.
+     Регламент даёт 180 секунд и расписывает их по разделам до секунды —
+     заставка 5, клиент 10, проблема 10, решение 30, рынок 20,
+     конкуренты 20, до инкубации с результатами 40, экспортные контракты
+     15, план 15, команда 10, визитка 5. Юнит-экономики среди них нет, и
+     двадцать секунд на неё выбивают деку из регламента ровно на эти
+     двадцать.
+     Но вопрос «а сколько стоит привести клиента» судья задаёт почти
+     всегда — и задаёт ПОСЛЕ выступления, когда время уже не тикает.
+     Поэтому слайд остаётся, а тайминг не трогается: это ответ на
+     вопрос, а не часть трёхминутной речи. -->
 <section id="unit">
   <div class="wrap">
-    <div class="slide-num"><b>6</b> Юнит-экономика <span>· 20 секунд</span></div>
+    <div class="slide-num"><b>6</b> Юнит-экономика <span>· резерв, вне трёх минут</span></div>
     <h2>Одна аренда окупает<br>привлечение целиком</h2>
 
     <p class="lead">
@@ -1806,6 +1865,27 @@ html[data-draft] .todo b { display: block; margin-bottom: 4px; }
     window.addEventListener('scroll', onScroll, { passive: true });
   }
 })();
+</script>
+<script>
+  // Один слайд во весь экран: /pitch/?slide=5.
+  //
+  // Номер — тот же, что видит человек в углу слайда, а не индекс с нуля:
+  // просят «покажи шестой», а не «покажи пятый, считая с нуля».
+  //
+  // Ставится до отрисовки, как и черновой режим ниже: иначе остальные
+  // двенадцать слайдов успели бы мигнуть.
+  (function () {
+    var match = location.search.match(/[?&]slide=(\d+)/);
+    if (!match) return;
+
+    document.documentElement.setAttribute('data-slide', match[1]);
+
+    document.addEventListener('DOMContentLoaded', function () {
+      var sections = document.querySelectorAll('section');
+      var index = Number(match[1]) - 1;
+      if (sections[index]) sections[index].setAttribute('data-current', '1');
+    });
+  })();
 </script>
 <script>
   // Черновой режим: /pitch/?draft показывает заметки «заполнить перед
