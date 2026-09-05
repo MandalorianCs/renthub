@@ -46,6 +46,7 @@
     "pitch:pdf": "node scripts/pitch-pdf.mjs",
     "check:errors": "node scripts/check-errors.mjs",
     "check:price": "node scripts/check-price.mjs",
+    "check:lint": "node scripts/check-lint.mjs",
     "health": "node scripts/health.mjs",
     "auth": "node scripts/auth.mjs",
     "nudge": "node scripts/nudge.mjs",

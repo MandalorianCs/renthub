@@ -254,6 +254,7 @@ npm run auth                                   # адрес возврата и 
 npm run nudge                                  # кому написать про Telegram и каким текстом
 npm run check:errors                           # ошибки базы объяснены по-русски?
 npm run check:price                            # деньги и сроки против настроек базы
+npm run check:lint                             # анализатор схемы Supabase: только новое
 npm run pages                                  # кто публикует сайт
 ```
 
