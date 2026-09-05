@@ -238,6 +238,47 @@ else:
         print(f"✓ normalize_phone одинаков в трёх языках ({len(PHONE_CASES)} номеров)")
 
 
+# ── Сценарии стенда против таблицы в README ──────────────────
+#
+# README перечисляет сценарии `db-tests` таблицей: имя файла и что он
+# проверяет. Таблица — обещание читателю, что список полон.
+#
+# 05.09.2026 он не был полон: `60_bot.sql` появился раньше, а в таблицу не
+# попал, и рядом стояло «проезжает четыре сценария» при пяти. Абзац с
+# числами заодно утверждал «накатывает три миграции», когда их было 56.
+#
+# Числа из текста убраны — они стареют молча. Полнота списка проверяется
+# здесь: каждый сценарий назван, каждое имя в таблице существует.
+#
+# Служебные файлы пропускаются: 00_platform_shim подделывает платформу,
+# 10_helpers держит общие функции, 90_smoke_live не запускается стендом
+# вовсе. Они описаны в README отдельно и в таблице сценариев им не место.
+BENCH_SERVICE = ("00_", "10_", "90_")
+
+bench_files = {
+    path.stem
+    for path in sorted((ROOT / "db-tests").glob("*.sql"))
+    if not path.name.startswith(BENCH_SERVICE)
+}
+
+readme_text = io.open(ROOT / "README.md", encoding="utf-8").read()
+listed = set(re.findall(r"\| `(\d\d_\w+)` \|", readme_text))
+
+missing = sorted(bench_files - listed)
+extra = sorted(listed - bench_files)
+
+if missing or extra:
+    failed = True
+    print("\n✗ Таблица сценариев в README разошлась со стендом:")
+    for name in missing:
+        print(f"  {name} — есть в db-tests, но не описан")
+    for name in extra:
+        print(f"  {name} — описан, но файла нет")
+    print("  Таблица обещает читателю, что список полон.")
+else:
+    print(f"✓ все сценарии стенда описаны в README ({len(bench_files)})")
+
+
 # ── Суммы: чат против экрана ─────────────────────────────────
 #
 # money() в боте и formatTenge() в приложении показывают одни и те же
