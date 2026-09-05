@@ -21,7 +21,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { missingSecretMessage, readEnvFile, readSecret } from './env.mjs';
+import { missingSecretMessage, readEnvFile, readGithubToken, readSecret } from './env.mjs';
 import { isServiceAccount } from './phone.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -230,6 +230,67 @@ if (total > 0) {
       : `${brokenPhotos} из ${total} не открываются (${[...new Set(photoChecks.filter((r) => r !== 'ok'))].join(', ')})`,
     brokenPhotos > 0,
   );
+}
+
+// ── Проверки в CI ────────────────────────────────────────────
+//
+// Появилась после трёх дней красного CI, которого никто не видел.
+// Проверка свежести деки падала на каждом прогоне из-за переводов строк
+// — на машине CRLF, в репозитории LF, — и сообщала о поломке там, где её
+// не было. Локально всё было зелёным, а смотреть на Actions было некому:
+// health показывал живое состояние платформы и молчал про то, проходят
+// ли собственные проверки.
+//
+// Это ровно тот случай, о котором написан весь этот файл: тишина и успех
+// выглядят одинаково. Здесь тишиной был красный крестик на чужой
+// странице.
+//
+// Токен не нужен: репозиторий публичный, история прогонов открыта. С
+// токеном тот же запрос просто не упирается в лимит анонимных обращений.
+const ciHeaders = {
+  Accept: 'application/vnd.github+json',
+  'X-GitHub-Api-Version': '2022-11-28',
+  ...(readGithubToken() ? { Authorization: `Bearer ${readGithubToken()}` } : {}),
+};
+
+try {
+  const res = await fetch(
+    'https://api.github.com/repos/MandalorianCs/renthub/actions/runs?per_page=15',
+    { headers: ciHeaders },
+  );
+
+  if (!res.ok) {
+    say('проверки CI', `GitHub ответил ${res.status} — состояние неизвестно`, false);
+  } else {
+    const { workflow_runs: allRuns = [] } = await res.json();
+
+    // Берём последний ЗАВЕРШЁННЫЙ прогон каждой работы: идущий сейчас
+    // ничего не говорит, а «в процессе» вместо ответа — это та же
+    // тишина, ради которой строка и появилась.
+    const latest = new Map();
+    for (const run of allRuns) {
+      if (run.status !== 'completed') continue;
+      if (!latest.has(run.name)) latest.set(run.name, run);
+    }
+
+    const broken = [...latest.values()].filter((r) => r.conclusion !== 'success');
+
+    if (latest.size === 0) {
+      say('проверки CI', 'завершённых прогонов не найдено', false);
+    } else if (broken.length === 0) {
+      say('проверки CI', `все зелёные (${latest.size})`, false);
+    } else {
+      say(
+        'проверки CI',
+        broken.map((r) => `${r.name}: ${r.conclusion}`).join('; '),
+        true,
+      );
+    }
+  }
+} catch {
+  // Нет сети — не повод падать: остальные строки отчёта уже собраны, и
+  // человеку полезнее увидеть их, чем сообщение об обрыве.
+  say('проверки CI', 'не удалось спросить GitHub', false);
 }
 
 // ── Люди ─────────────────────────────────────────────────────
@@ -449,6 +510,10 @@ if (alarms.length === 0) {
       'на витрине только демонстрационные вещи. Реклама приведёт человека к тому,\n' +
       '      что никто не отдаст: нужны живые объявления или npm run demo:clear',
     'заявки на участие': 'npm run queue, дальше npm run invite',
+    'проверки CI':
+      'красный прогон означает, что что-то из проверок не проходит на чистой\n' +
+      '      машине — даже если локально всё зелено. Открыть лог: вкладка Actions\n' +
+      '      в репозитории, либо npm run check и npm run test:db у себя',
     'признак демо':
       'демонстрационные объявления помечаются по имени владельца, и оно разошлось\n' +
       '      с shared/demo-owner.json. Значка «ДЕМО» на карточках нет, блок\n' +
