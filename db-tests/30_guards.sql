@@ -1797,3 +1797,73 @@ begin
   perform t.assert(v_count >= 16,
     'функций с p_actor найдено ' || v_count || ' — соглашение об имени живо');
 end $$;
+
+
+-- ── Инструменты проверок тоже надо проверять ─────────────────
+--
+-- Две функции существуют не для продукта, а для наблюдения за ним:
+--
+--   platform_health()    на неё опирается npm run health
+--   constraint_names()   на неё опирается npm run check:errors
+--
+-- 05.09.2026 сверка показала, что стенд не упоминает ни одну. Это тихая
+-- дыра: сломается такая функция — сломается не продукт, а способ узнать о
+-- продукте правду. Проверка перестанет проверять, отчёт останется зелёным
+-- или исчезнет совсем, и заметить это будет нечем.
+--
+-- Тот же день дал живой пример: constraint_names() брала только check и
+-- unique, пропуская EXCLUDE, то есть пересечение дат брони — самое частое
+-- ограничение из всех. Нашлось случайно, по расхождению со списком
+-- исключений.
+
+do $$
+declare
+  v_rows  integer;
+  v_names text[];
+begin
+  -- platform_health возвращает набор строк, и каждая — часть с состоянием.
+  -- Пустой ответ означал бы, что health печатает пустую таблицу и человек
+  -- читает её как «всё тихо».
+  select count(*) into v_rows from platform_health();
+  perform t.assert(v_rows >= 2,
+    'platform_health() отвечает ' || v_rows || ' строками');
+
+  -- constraint_names должна видеть все три вида ограничений: check, unique
+  -- и exclude. Проверяем по представителям, которые есть в схеме с первого
+  -- дня и никуда не денутся, пока жив продукт.
+  select array_agg(name) into v_names from constraint_names() as name;
+
+  perform t.assert(
+    'items_title_check' = any (v_names),
+    'constraint_names() видит check-ограничения'
+  );
+
+  perform t.assert(
+    'users_phone_key' = any (v_names),
+    'constraint_names() видит unique-ограничения'
+  );
+
+  -- Вот из-за этого правила и заведён тест: первая версия функции их не
+  -- возвращала, и пересечение дат в проверку не попадало.
+  perform t.assert(
+    'bookings_no_overlap' = any (v_names),
+    'constraint_names() видит exclude-ограничения'
+  );
+end $$;
+
+-- Обе закрыты сессионным ролям: список ограничений и состояние платформы
+-- участнику ни к чему, а лишний грант однажды окажется лишним.
+do $$
+declare v_open text[];
+begin
+  select array_agg(p.proname::text) into v_open
+    from pg_proc p
+   where p.pronamespace = 'public'::regnamespace
+     and p.proname in ('platform_health', 'constraint_names')
+     and (has_function_privilege('anon', p.oid, 'EXECUTE')
+       or has_function_privilege('authenticated', p.oid, 'EXECUTE'));
+
+  perform t.assert(v_open is null,
+    'инструменты наблюдения закрыты сессионным ролям; открыты: '
+      || coalesce(array_to_string(v_open, ', '), '—'));
+end $$;
