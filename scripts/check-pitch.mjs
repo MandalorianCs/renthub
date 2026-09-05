@@ -22,7 +22,7 @@
 // сама с собой, — падение придёт здесь, а не на защите.
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -117,6 +117,38 @@ console.log('\n── Единица экономики ──');
 ok('цена за сутки × 3 = чек', perDay * 3, total, ' ₸');
 ok('чек × комиссия = сбор платформы', Math.round((total * commissionDb) / 100), fee, ' ₸');
 ok('покупка − аренда = цена проблемы', price - total, problem, ' ₸');
+
+// ── Дека файлом: не отстал ли PDF ─────────────────────────────
+//
+// PDF лежит в репозитории, а не собирается при публикации: печать в CI
+// не давалась — Chromium на runner'е то висел до таймаута, то молча не
+// создавал файл, и сайт трижды выходил с 404 на месте деки под зелёной
+// галочкой. Локально она печатается за двенадцать секунд.
+//
+// Цена решения известна: файл в репозитории устаревает молча. Поэтому
+// его свежесть проверяется здесь — рядом с числами, которые он показывает
+// судьям. Отстал по времени от pitch.html — значит показывает не то, что
+// проверил этот же скрипт строкой выше.
+const pdfPath = join(ROOT, 'landing', 'RentHUB-pitch.pdf');
+
+console.log('\n── Дека файлом ──');
+
+if (!existsSync(pdfPath)) {
+  console.log('  ??  PDF деки нет — напечатайте: npm run pitch:pdf');
+  failed++;
+} else {
+  const pdfAge = statSync(pdfPath).mtimeMs;
+  const htmlAge = statSync(join(ROOT, 'landing', 'pitch.html')).mtimeMs;
+
+  if (pdfAge < htmlAge) {
+    console.log('  ??  PDF старше деки — судьи получат вчерашние числа');
+    console.log('      напечатать заново: npm run pitch:pdf');
+    failed++;
+  } else {
+    const pages = (readFileSync(pdfPath).toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+    console.log(`  ok  PDF свежий, ${pages} страниц`);
+  }
+}
 
 // ── Юнит-экономика ────────────────────────────────────────────
 //
