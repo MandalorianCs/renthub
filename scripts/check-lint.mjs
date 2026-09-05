@@ -68,6 +68,56 @@ const ACCEPTED = {
     'item_busy_dates: календарь занятости нужен до входа',
   'anon_security_definer_function_executable_public_user_deals_count_p_user_id uuid':
     'user_deals_count: «сдавал N раз» решает, отдать ли вещь незнакомцу',
+
+  // ── Производительность ──────────────────────────────────────
+  //
+  // Четыре индекса «не использованы» ровно потому, что данных мало и
+  // запросов почти не было: пять живых людей, девять объявлений, ноль
+  // броней. Удалить их сейчас значит принять статистику пилота за
+  // приговор — и остаться без них там, где они и нужны.
+  unused_index_public_users_users_telegram_idx:
+    'users_telegram_idx: по нему бот ищет привязку — данных пока мало, не повод удалять',
+  unused_index_public_users_users_blocked_idx:
+    'users_blocked_idx: блокировок ещё не было, индекс нужен на вырост',
+  unused_index_public_users_users_verified_idx:
+    'users_verified_idx: то же, статистика пилота из пяти человек не приговор',
+  unused_index_public_items_items_moderated_idx:
+    'items_moderated_idx: модерация ещё не снимала объявлений',
+
+  // Шесть индексов под внешние ключи, созданных 06.09.2026 миграцией
+  // 20260906030000. Анализатор считает их неиспользованными сразу же —
+  // и будет прав ровно до первого удаления объявления или человека с
+  // историей: они нужны не чтению, а проверке on delete restrict,
+  // которая без них идёт полным проходом по таблице.
+  //
+  // Иначе говоря, эти шесть попадут в «использованные» только в тот
+  // день, когда без них стало бы больно. Ждать этого дня, чтобы
+  // убедиться, — плохая сделка.
+  unused_index_public_disputes_disputes_opened_by_idx:
+    'disputes_opened_by_idx: под внешний ключ, нужен проверке on delete',
+  unused_index_public_favorites_favorites_item_idx:
+    'favorites_item_idx: без него удаление объявления сканирует всё избранное',
+  unused_index_public_items_items_category_idx:
+    'items_category_idx: под внешний ключ категории',
+  unused_index_public_notifications_notifications_booking_idx:
+    'notifications_booking_idx: под внешний ключ сделки',
+  unused_index_public_reviews_reviews_from_user_idx:
+    'reviews_from_user_idx: под внешний ключ автора отзыва',
+  unused_index_public_support_messages_support_messages_user_idx:
+    'support_messages_user_idx: под внешний ключ автора обращения',
+
+  // Пары политик SELECT: участник и модератор на одной таблице. Слить их
+  // в одну означало бы написать «свои строки ИЛИ ты модератор» одним
+  // выражением и потерять то, ради чего они разделены: каждая читается
+  // отдельно и отвечает на свой вопрос.
+  multiple_permissive_policies_public_bookings_authenticated_SELECT:
+    'bookings: участник и модератор — две политики намеренно, каждая про своё',
+  multiple_permissive_policies_public_disputes_authenticated_SELECT:
+    'disputes: то же разделение',
+  multiple_permissive_policies_public_items_authenticated_SELECT:
+    'items: то же разделение',
+  multiple_permissive_policies_public_support_messages_authenticated_SELECT:
+    'support_messages: то же разделение',
 };
 
 const token = readAccessToken();
@@ -79,16 +129,26 @@ if (!token) {
   process.exit(1);
 }
 
-const res = await fetch(`https://api.supabase.com/v1/projects/${PROJECT}/advisors/security`, {
-  headers: { Authorization: `Bearer ${token}` },
-});
+// Отчётов два, и оба важны по-разному. Безопасность говорит, что видно
+// снаружи; производительность — что станет дорого, когда данных станет
+// больше. Второе на пилоте из пяти человек не болит, и потому именно его
+// легче всего не заметить: шесть внешних ключей без индексов нашлись
+// именно так, 06.09.2026, вместе с первым запуском этой команды.
+const lints = [];
 
-if (!res.ok) {
-  console.error(`\n✗ Supabase ответил ${res.status} — анализатор недоступен.\n`);
-  process.exit(1);
+for (const kind of ['security', 'performance']) {
+  const res = await fetch(`https://api.supabase.com/v1/projects/${PROJECT}/advisors/${kind}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    console.error(`\n✗ Supabase ответил ${res.status} на отчёт «${kind}».\n`);
+    process.exit(1);
+  }
+
+  const body = await res.json();
+  lints.push(...(body.lints ?? []));
 }
-
-const { lints = [] } = await res.json();
 
 // Замечания про authenticated не считаем: «вошедший может позвать
 // функцию для вошедших» — это описание продукта, а не находка. Роль
