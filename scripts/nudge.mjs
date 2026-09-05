@@ -19,6 +19,7 @@
 // с ним получается про его дело, а не про нашу метрику.
 
 import { createClient } from '@supabase/supabase-js';
+import { readFileSync } from 'node:fs';
 import { missingSecretMessage, readEnvFile, readSecret } from './env.mjs';
 import { isServiceAccount } from './phone.mjs';
 
@@ -128,8 +129,92 @@ for (const u of ranked) {
 }
 
 console.log('─'.repeat(64));
+
+// ── Второй разговор: объявление вышло неполным ────────────────
+//
+// Тот же приём, что и выше, но повод другой. 05.09.2026 первое живое
+// объявление платформы вышло на витрину без ориентира «где забирать» —
+// шаг в /сдать можно пропустить, и кнопку «Пропустить» предлагаем мы
+// сами. Рядом с восемью демонстрационными, у которых ориентир есть,
+// единственная настоящая вещь выглядела хуже нарисованных.
+//
+// Дотянуться до владельца изнутри продукта опять нельзя — точнее,
+// можно, но нечем: уведомление «допишите ориентир» это не событие
+// сделки, а наша просьба, и слать её тем же каналом значит приучить
+// человека закрывать уведомления не глядя.
+//
+// Поэтому и здесь скрипт не пишет, а готовит. Проверяются три вещи,
+// каждая видна арендатору на карточке: куда ехать, что в комплекте и
+// сколько снимков. Ни одна не обязательна — потому и напоминаем словами,
+// а не запретом на публикацию.
+const demoOwner = JSON.parse(
+  readFileSync(new URL('../shared/demo-owner.json', import.meta.url), 'utf8'),
+);
+
+const { data: items } = await admin
+  .from('items')
+  .select('title, pickup_area, description, condition_photos, owner_id, users!items_owner_id_fkey(full_name, phone)')
+  .eq('status', 'active');
+
+const thin = (items ?? [])
+  .filter((i) => i.users?.full_name !== demoOwner.fullName)
+  .map((i) => ({
+    ...i,
+    gaps: [
+      !i.pickup_area && 'не указано, где забирать',
+      !i.description && 'нет описания',
+      (i.condition_photos ?? []).length < 2 && 'только одно фото',
+    ].filter(Boolean),
+  }))
+  .filter((i) => i.gaps.length);
+
+if (thin.length) {
+  console.log('\nОбъявления, которым чего-то не хватает\n');
+
+  for (const item of thin) {
+    console.log('─'.repeat(64));
+    console.log(`${item.users?.full_name ?? 'без имени'}  ${item.users?.phone ?? ''}`);
+    console.log(`  «${item.title}» — ${item.gaps.join(', ')}`);
+    console.log('');
+
+    const name = (item.users?.full_name ?? '').split(' ')[0];
+
+    // Текст говорит о выгоде владельца, а не о нашей аккуратности:
+    // «допишите, у нас поля пустые» человек читает как придирку, а
+    // «иначе не поймут, ехать ли» — как совет.
+    console.log(`  ${name}, это RentHUB. Спасибо, что выложили «${item.title}».`);
+    console.log('');
+
+    if (item.gaps.includes('не указано, где забирать')) {
+      console.log('  В объявлении не хватает одного — где вещь забирать. Это первое,');
+      console.log('  на что смотрят: «через дорогу» и «через весь город» решают');
+      console.log('  сильнее, чем двести тенге в цене. Точный адрес не нужен, хватит');
+      console.log('  района или ориентира вроде «возле вокзала».');
+      console.log('');
+      console.log('  Добавить — в боте: /вещи → «Добавить ориентир».');
+      console.log('');
+    }
+
+    if (item.gaps.includes('только одно фото')) {
+      console.log('  И если несложно — добавьте ещё пару снимков. Они же фото «до»:');
+      console.log('  по ним сверяют состояние вещи при возврате, и это защищает');
+      console.log('  вас, а не нас.');
+      console.log('');
+    }
+
+    if (item.gaps.includes('нет описания')) {
+      console.log('  Пара строк про комплект и состояние тоже помогает: человек');
+      console.log('  чаще пишет тому, у кого понятно, что именно он получит.');
+      console.log('');
+    }
+  }
+
+  console.log('─'.repeat(64));
+}
+
 console.log('\nОтправьте каждому его текст тем же способом, каким приглашали.');
-console.log('Проверить, что подействовало: npm run health, строка «Telegram привязан».\n');
+console.log('Проверить, что подействовало: npm run health, строки «Telegram привязан»');
+console.log('и «живые объявления».\n');
 
 /** Склонение — то же правило, что на экранах: «1 уведомлений» читается как сбой. */
 function plural(n, one, few, many) {

@@ -122,7 +122,8 @@ npm run check:pitch                 сходятся ли числа деки м
 npm run pitch:pdf                   дека файлом для судей (13 страниц)
 npm run health                      планировщик, очередь уведомлений, витрина, заявки
 npm run auth                        адрес возврата и срок кода; `-- --apply` чинит
-npm run nudge                       кому написать про Telegram и готовый текст
+npm run nudge                       кому написать: про Telegram и про неполные
+                                    объявления, с готовым текстом на каждого
 npm run pages                       кто публикует сайт; `-- --apply` чинит
 npm run check:errors                каждое ограничение базы объяснено по-русски?
 npm run demo:fill                   демо-объявления из demo-photos/
