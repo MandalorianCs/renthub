@@ -12,7 +12,7 @@ import {
   setItemStatus,
 } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
-import { BOOKING_STATUS, formatDate, formatDateRange, formatTenge } from '../../src/lib/format';
+import { BOOKING_STATUS, formatDate, formatDateRange, formatTenge, plural } from '../../src/lib/format';
 import { shareItem } from '../../src/lib/share';
 import { nextMove } from '../../src/lib/nextMove';
 import { humanizeError } from '../../src/lib/supabase';
@@ -239,6 +239,26 @@ export default function MyItems() {
             const activeBooking = bookings.find(
               (b) => b.item_id === item.id && ['pending', 'confirmed', 'active'].includes(b.status),
             );
+
+            // Сколько раз вещь уже сдали.
+            //
+            // Экран показывал цену и «свободно» — то есть состояние, но не
+            // результат. Владелец публикует, чтобы вещь работала, и главный
+            // его вопрос через месяц не «занята ли она сейчас», а «взял ли
+            // её хоть кто-нибудь».
+            //
+            // Считается по тем же броням, что уже загружены для блока
+            // «требует решения»: ни одного лишнего запроса. Завершённые —
+            // это completed; спор и отмена сделкой не считаются, потому что
+            // денег владельцу не принесли.
+            const doneCount = bookings.filter(
+              (b) => b.item_id === item.id && b.status === 'completed',
+            ).length;
+
+            // Молчим первую неделю. Объявление, которое висит второй день,
+            // «ещё не бронировали» не сообщает ничего, кроме тревоги.
+            const ageDays = (Date.now() - new Date(item.created_at).getTime()) / 86400000;
+            const showIdle = doneCount === 0 && ageDays >= 7;
             return (
               <Pressable
                 key={item.id}
@@ -273,6 +293,14 @@ export default function MyItems() {
                         ? `занято до ${formatDate(activeBooking.end_date)}`
                         : 'свободно'}
                     </Text>
+
+                    {doneCount > 0 ? (
+                      <Text style={s.stateCount}>
+                        · сдавали {doneCount} {plural(doneCount, 'раз', 'раза', 'раз')}
+                      </Text>
+                    ) : showIdle ? (
+                      <Text style={s.stateCount}>· пока не бронировали</Text>
+                    ) : null}
                   </View>
 
                   {/* Причина показывается здесь, а не только в уведомлении:
@@ -399,6 +427,7 @@ const s = StyleSheet.create({
     color: colors.danger,
     lineHeight: 16,
   },
+  stateCount: { fontSize: 12, fontFamily: typeface[500], color: colors.textMuted },
   stateText: { fontSize: 12, fontFamily: typeface[600], color: colors.textMuted },
   note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
   error: { fontSize: 14, fontFamily: typeface[400], color: colors.danger },
