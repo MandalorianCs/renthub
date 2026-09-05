@@ -19,11 +19,11 @@
 
 import { execFileSync, spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { deckFingerprint } from './deck.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'landing', 'RentHUB-pitch.pdf');
@@ -195,12 +195,10 @@ if (pages < 5) {
 //
 // Хеш — то же самое утверждение, но проверяемое где угодно: «этот PDF
 // напечатан вот из этой версии pitch.html».
-writeFileSync(
-  `${OUT}.sha`,
-  `${createHash('sha256').update(readFileSync(join(ROOT, 'landing', 'pitch.html'))).digest('hex')}\n`,
-);
+writeFileSync(`${OUT}.sha`, `${deckFingerprint(ROOT)}\n`);
 
 console.log(`\n✓ Дека напечатана: landing/RentHUB-pitch.pdf`);
 console.log(`  ${pages} ${pages % 10 === 1 && pages % 100 !== 11 ? 'страница' : 'страниц'}, ${size} КБ\n`);
 console.log('  Числа деки сверяет npm run check:pitch — он же следит, чтобы');
 console.log('  напечатанное совпадало с кодом и с базой.\n');
+

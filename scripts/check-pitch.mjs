@@ -22,8 +22,10 @@
 // сама с собой, — падение придёт здесь, а не на защите.
 
 import { createClient } from '@supabase/supabase-js';
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
+// Отпечаток считает тот же код, что его записывает: две реализации
+// «одинаковости» разошлись бы первыми.
+import { deckFingerprint } from './deck.mjs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -189,9 +191,7 @@ if (!existsSync(pdfPath)) {
   // нет. Хеш отвечает на тот же вопрос и одинаково отвечает везде.
   const shaPath = `${pdfPath}.sha`;
   const printedFrom = existsSync(shaPath) ? readFileSync(shaPath, 'utf8').trim() : null;
-  const deckNow = createHash('sha256')
-    .update(readFileSync(join(ROOT, 'landing', 'pitch.html')))
-    .digest('hex');
+  const deckNow = deckFingerprint(ROOT);
 
   if (printedFrom !== deckNow) {
     console.log('  ??  PDF напечатан из другой версии деки — судьи получат вчерашние числа');
