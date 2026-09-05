@@ -210,10 +210,66 @@ if (!threshold) {
   }
 }
 
+// ── Сроки: числом в базе, обещанием на лендинге ───────────────
+//
+// grace_period_hours и damage_claim_window_hours — два срока, по которым
+// работает планировщик: сколько ждать опоздавшего до автоспора и сколько
+// живёт окно на претензию. Оба лежат в app_settings, и README называет
+// их «безопасными»: клиент их не считает, только называет словами.
+//
+// «Только называет словами» и есть повод сверять. Лендинг обещает
+// «даётся 12 часов» и «окно на претензию — 48 часов» — это обещание
+// человеку, который по нему планирует: вернуть вещь вечером или утром,
+// подать претензию сегодня или завтра. Смена настройки в базе оставит
+// текст прежним, и обещание станет ложью молча.
+const { data: rows } = await admin
+  .from('app_settings')
+  .select('key, value')
+  .in('key', ['grace_period_hours', 'damage_claim_window_hours']);
+
+const hours = Object.fromEntries((rows ?? []).map((r) => [r.key, Number(r.value)]));
+const landing = read('landing', 'index.html');
+
+console.log('\nСроки на лендинге против базы\n');
+
+const promises = [
+  ['опоздание, «даётся N часов»', /даётся (\d+) часов на опоздание/, 'grace_period_hours'],
+  ['опоздание, второй раз', /аренды даётся (\d+) часов/, 'grace_period_hours'],
+  ['окно претензии', /окно на претензию — (\d+) часов/, 'damage_claim_window_hours'],
+  ['окно претензии, второй раз', /за (\d+) часов\. Вас дёргают/, 'damage_claim_window_hours'],
+];
+
+for (const [where, pattern, key] of promises) {
+  const expected = hours[key];
+  const match = landing.match(pattern);
+
+  if (!expected) {
+    failed += 1;
+    console.log(`  ✗   ${where.padEnd(28)} ${key} не прочитан из базы`);
+    continue;
+  }
+  if (!match) {
+    failed += 1;
+    console.log(`  ✗   ${where.padEnd(28)} обещание не найдено — образец сломан`);
+    continue;
+  }
+
+  const said = Number(match[1]);
+  if (said === expected) {
+    console.log(`  ok  ${where.padEnd(28)} ${said} ч`);
+  } else {
+    failed += 1;
+    console.log(`  ✗   ${where.padEnd(28)} обещает ${said} ч при ${expected} ч в базе`);
+  }
+}
+
 if (failed === 0) {
   console.log(
-    `\n✓ Расчёт сходится на ${CASES.length} наборах, потолок цены одинаков ` +
+    `
+✓ Расчёт сходится на ${CASES.length} наборах, потолок цены одинаков ` +
       `во всех ${ceilings.length} местах.` +
+      `
+  Порог автоспора и сроки на лендинге совпадают с настройками базы.` +
       '\n  Человек увидит на экране ровно то, что начислит база.\n',
   );
   process.exitCode = 0;
