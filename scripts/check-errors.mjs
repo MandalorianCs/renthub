@@ -21,7 +21,7 @@
 // заставляет принять решение, а не забыть.
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { missingSecretMessage, readEnvFile, readSecret } from './env.mjs';
@@ -94,12 +94,62 @@ for (const r of rows) {
   console.log(`  ${mark} ${r.name.padEnd(34)} ${where}`);
 }
 
+// ── Отказы, брошенные голым кодом ─────────────────────────────
+//
+// Ограничения таблиц — половина того, что видит человек. Вторая половина
+// это наши собственные отказы, и у них правило записано в bot/README.md
+// словами: «Пишете новый отказ в базе — дайте ему русский хвост»
+// (`RENTHUB_КОД: текст для человека`). Тогда переводить нечего, обе двери
+// показывают его как есть.
+//
+// Семь мест это правило не выполняют — бросают `raise exception
+// 'RENTHUB_FORBIDDEN'` без хвоста. Пока для них есть запасные фразы в
+// обеих картах, человек видит их по-русски. Но правило держится на том,
+// что кто-то помнит про обе карты, а помнить про две вещи сразу — это и
+// есть определение того, что однажды забудут: 03.09.2026 в приложении
+// было двенадцать переводов, в боте пять, и разошлись они молча.
+//
+// Проверка простая: каждый код, брошенный без хвоста, обязан найтись в
+// карте приложения И в карте бота. Новый отказ без перевода уронит
+// npm run check, а не дойдёт до человека словом «FORBIDDEN».
+const migrations = readdirSync(join(ROOT, 'supabase', 'migrations'))
+  .filter((f) => f.endsWith('.sql'))
+  .map((f) => readFileSync(join(ROOT, 'supabase', 'migrations', f), 'utf8'))
+  .join('\n');
+
+const bareCodes = [
+  ...new Set(
+    [...migrations.matchAll(/raise exception '(RENTHUB_[A-Z_]+)'/g)].map((m) => m[1]),
+  ),
+].sort();
+
+// Карта приложения хранит коды без приставки — она отрезана регуляркой
+// в humanizeError. Карта бота хранит целиком. Сверяем каждую по-своему,
+// а не приводим одну к другой: приставка в двух местах живёт по-разному
+// намеренно, и подгонка спрятала бы это различие.
+const bareBad = bareCodes.filter((code) => {
+  const short = code.replace('RENTHUB_', '');
+  const inApp = new RegExp(`\\b${short}: '`).test(appText);
+  const inBot = appText && botText.includes(`"${code}"`);
+  return !inApp || !inBot;
+});
+
+console.log(`\nОтказы без русского хвоста (${bareCodes.length})\n`);
+
+for (const code of bareCodes) {
+  const short = code.replace('RENTHUB_', '');
+  const inApp = new RegExp(`\\b${short}: '`).test(appText);
+  const inBot = botText.includes(`"${code}"`);
+  const where = [inBot ? 'бот' : '— бот', inApp ? 'приложение' : '— приложение'].join(' / ');
+  console.log(`  ${inApp && inBot ? '✓' : '✗'} ${code.padEnd(30)} ${where}`);
+}
+
 if (stale.length) {
   console.log(`\n! В списке исключений есть то, чего в базе больше нет: ${stale.join(', ')}`);
   console.log('  Ограничение убрали — уберите и запись, иначе список начнёт врать.');
 }
 
-if (bad.length === 0 && stale.length === 0) {
+if (bad.length === 0 && stale.length === 0 && bareBad.length === 0) {
   console.log('\n✓ Каждое ограничение объяснено по-русски или объявлено внутренним.\n');
   // exitCode, а не exit(): см. scripts/exit.mjs — обрыв процесса при живом
   // соединении supabase-js даёт на Windows код 127 вместо нуля, и цепочка
@@ -117,6 +167,14 @@ if (bad.length === 0 && stale.length === 0) {
     console.log('\n  Добавьте фразу в CONSTRAINT_MESSAGES (bot/bot.py) и в humanizeError');
     console.log('  (src/lib/supabase.ts) — либо внесите имя в NOT_FOR_HUMANS здесь,');
     console.log('  объяснив, почему человек до него не дотягивается.\n');
+  }
+
+  if (bareBad.length) {
+    console.log(`\n✗ Отказ без русского хвоста и без запасной фразы: ${bareBad.length}\n`);
+    for (const code of bareBad) console.log(`  ${code}`);
+    console.log('\n  Либо допишите хвост в самой миграции — `RENTHUB_КОД: текст`,');
+    console.log('  тогда переводить нечего, — либо добавьте фразу в BARE_CODE_MESSAGES');
+    console.log('  (bot/bot.py) и в fallbacks humanizeError (src/lib/supabase.ts).\n');
   }
 
   process.exitCode = 1;
