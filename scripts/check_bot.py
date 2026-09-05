@@ -823,4 +823,80 @@ for name, function, pattern, what in PAIRS:
     else:
         print(f"✓ {name} совпадает с {where_sql} ({len(mine)} статусов)")
 
+# ── Справочник инструмента против категорий базы ─────────────
+#
+# shared/tools.json — 1399 написаний названий и 59 марок, разложенных по
+# категориям. Читают его двое: форма публикации в приложении (подсказки
+# под полем «Название») и шаг названия в /сдать.
+#
+# Категории там свои, ключами. Разойдись они с базой — и у новой
+# категории просто не будет подсказок: ни в форме, ни в чате. Ошибка
+# тихая вдвойне, потому что и форма, и бот при этом работают, а человек
+# видит пустое место там, где у остальных категорий появляются примеры.
+#
+# Сверяется именно с миграцией, а не с живой базой: check:bot работает
+# без секретного ключа, в том числе в CI.
+
+import json
+
+tools = json.loads((ROOT / "shared" / "tools.json").read_text(encoding="utf-8"))
+in_catalog = set(tools["categories"])
+
+seed = next(
+    (
+        f.read_text(encoding="utf-8")
+        for f in sorted(MIGRATIONS.glob("*.sql"), reverse=True)
+        if "insert into categories" in f.read_text(encoding="utf-8")
+    ),
+    None,
+)
+
+if seed is None:
+    failed = True
+    print("\n✗ Не нашёл миграцию, которая наполняет categories — образец сломан")
+else:
+    body = seed[seed.index("insert into categories"):]
+    body = body[: body.index(";")]
+    in_db = set(re.findall(r"\('([a-z_]+)'", body))
+
+    if in_catalog != in_db:
+        failed = True
+        print("\n✗ Справочник инструмента разошёлся с категориями базы:")
+        print(f"  в shared/tools.json: {', '.join(sorted(in_catalog))}")
+        print(f"  в базе:              {', '.join(sorted(in_db))}")
+        only_db = in_db - in_catalog
+        only_json = in_catalog - in_db
+        if only_db:
+            print(f"  без подсказок останутся: {', '.join(sorted(only_db))}")
+        if only_json:
+            print(f"  подсказки некуда показать: {', '.join(sorted(only_json))}")
+    else:
+        # Категория без types и popular — то же самое, что её отсутствие:
+        # подсказок нет, а сверка выше зеленеет. Проверяем содержимое, а
+        # не факт наличия ключа.
+        empty = sorted(
+            k
+            for k, v in tools["categories"].items()
+            if not v.get("types") or not v.get("popular")
+        )
+        if empty:
+            failed = True
+            print(f"\n\u2717 В справочнике есть категории без названий или без примеров: {', '.join(empty)}")
+        else:
+            # Считаем то, что лежит в файле, а не то, что из него
+            # получится: варианты подсказок строятся перемножением типов
+            # на марки в src/lib/tools.ts, и повторять эту формулу здесь
+            # значило бы завести вторую копию правила ради красивого
+            # числа в выводе.
+            #
+            # Первая версия печатала «28 названий» — это было число
+            # КЛЮЧЕЙ в словарях категорий (example, types, popular,
+            # brands), то есть величина, не значащая ничего. Число в
+            # выводе проверки читают как измеренное, и врать им нельзя.
+            types = sum(len(v["types"]) for v in tools["categories"].values())
+            print(
+                f"\u2713 справочник инструмента покрывает все категории базы "
+                f"({len(in_db)} категорий, {types} типов инструмента)"
+            )
+
 sys.exit(1 if failed else 0)
