@@ -1,14 +1,39 @@
 import { Platform } from 'react-native';
 
 /**
- * Палитра взята из брендинга RentHUB (деки и лендинга): светлая тема,
- * кремовый фон, приглушённая терракота как акцент, тёмно-зелёный —
- * для «всё в порядке» состояний.
+ * Оформление выбирается переменной EXPO_PUBLIC_THEME.
+ *
+ * Вариантов три, и все они — ОДИН бренд. Палитра из деки не меняется:
+ * кремовый фон, приглушённая терракота, тёмно-зелёный для «всё в
+ * порядке». DESIGN.md на этом настаивает прямо — «не заменять бренд
+ * готовым UI-китом», — и запрет остаётся в силе.
+ *
+ * Меняется пластика: сколько воздуха между блоками, насколько круглые
+ * карточки, есть ли под ними тень, насколько крупный текст. Это то, что
+ * человек замечает раньше цвета и о чём говорит «выглядит дороже» или
+ * «выглядит проще», не умея объяснить, что именно увидел.
+ *
+ *   warm  (по умолчанию)  то, что было: мягкие тени, средние скругления
+ *   calm                  больше воздуха, крупнее скругления, тени почти
+ *                         нет — граница вместо неё
+ *   sharp                 плотнее и контрастнее: тонкие рамки, малые
+ *                         скругления, крупные заголовки
+ *
+ * Собираются они в разные адреса — /app, /app2, /app3, — чтобы их можно
+ * было открыть рядом и сравнить, а не помнить, как было вчера.
  */
+const VARIANT = (process.env.EXPO_PUBLIC_THEME ?? 'warm') as 'warm' | 'calm' | 'sharp';
+
+export const themeName = VARIANT;
+
 export const colors = {
   bg: '#FAF7F2',
   surface: '#FFFFFF',
-  border: '#E7E0D6',
+
+  // Граница в sharp заметнее: там она несёт то, что в остальных
+  // вариантах делает тень. Плоский интерфейс без границ читается как
+  // недорисованный, а не как минималистичный.
+  border: VARIANT === 'sharp' ? '#D8CEC0' : VARIANT === 'calm' ? '#EDE7DE' : '#E7E0D6',
   text: '#1A1917',
   textMuted: '#6E675E',
   accent: '#C2603C', // терракота — основное действие
@@ -39,7 +64,20 @@ export const colors = {
   onScrim: '#FFFFFF',
 } as const;
 
-export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
+/**
+ * Отступы. В calm их больше на четверть — это и есть «воздух», из-за
+ * которого один и тот же экран выглядит спокойнее; в sharp меньше на
+ * восьмую, чтобы на экран помещалось больше карточек.
+ *
+ * Числа, а не множитель по месту: множитель пришлось бы помнить в каждом
+ * файле, а забытый однажды даёт экран, собранный из двух ритмов.
+ */
+export const spacing =
+  VARIANT === 'calm'
+    ? ({ xs: 5, sm: 10, md: 15, lg: 20, xl: 30, xxl: 40 } as const)
+    : VARIANT === 'sharp'
+      ? ({ xs: 4, sm: 7, md: 11, lg: 14, xl: 21, xxl: 28 } as const)
+      : ({ xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const);
 
 /**
  * Тень задаётся токеном, а не по месту: карточка объявления и карточка сделки
@@ -76,12 +114,52 @@ const web = {
   raised: { boxShadow: '0 10px 22px rgba(26, 25, 23, 0.14)' },
 };
 
-export const elevation = Platform.OS === 'web' ? web : native;
+/**
+ * Тени по вариантам.
+ *
+ * В calm карточка почти не отрывается от фона: тень едва заметна, а
+ * «предмет» держится скруглением и воздухом вокруг. В sharp тени нет
+ * вовсе — её работу делает граница, и это осознанный выбор, а не
+ * упрощение: DESIGN.md говорит, что плоская рамка сообщает «это
+ * область», а тень — «это объект». В sharp мы говорим первое.
+ */
+const flat = { card: {}, raised: {} };
+
+const soft =
+  Platform.OS === 'web'
+    ? {
+        card: { boxShadow: '0 4px 14px rgba(26, 25, 23, 0.04)' },
+        raised: { boxShadow: '0 8px 20px rgba(26, 25, 23, 0.09)' },
+      }
+    : {
+        card: {
+          shadowColor: '#1A1917',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.04,
+          shadowRadius: 14,
+          elevation: 1,
+        },
+        raised: {
+          shadowColor: '#1A1917',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.09,
+          shadowRadius: 20,
+          elevation: 4,
+        },
+      };
+
+export const elevation =
+  VARIANT === 'sharp' ? flat : VARIANT === 'calm' ? soft : Platform.OS === 'web' ? web : native;
 
 // xl — для карточек, которые человек воспринимает как предмет: витрина
 // каталога, карточка объявления. Мелкое скругление на большой плоскости
 // читается как прямоугольник со срезанными углами, а не как объект.
-export const radius = { sm: 8, md: 12, lg: 16, xl: 22, pill: 999 } as const;
+export const radius =
+  VARIANT === 'calm'
+    ? ({ sm: 12, md: 18, lg: 24, xl: 32, pill: 999 } as const)
+    : VARIANT === 'sharp'
+      ? ({ sm: 4, md: 6, lg: 10, xl: 12, pill: 999 } as const)
+      : ({ sm: 8, md: 12, lg: 16, xl: 22, pill: 999 } as const);
 
 /**
  * Начертания Manrope — тот же шрифт, что на лендинге, чтобы сайт и
@@ -100,10 +178,37 @@ export const typeface = {
   800: 'Manrope_800ExtraBold',
 } as const;
 
-export const font = {
-  h1: { fontSize: 28, fontFamily: typeface[800] },
-  h2: { fontSize: 20, fontFamily: typeface[700] },
-  body: { fontSize: 15, fontFamily: typeface[400] },
-  small: { fontSize: 13, fontFamily: typeface[400] },
-  label: { fontSize: 12, fontFamily: typeface[600] },
-} as const;
+/**
+ * Размеры. Правило иерархии из DESIGN.md — «крупнее то, по чему
+ * решают» — не меняется ни в одном варианте: меняется только разрыв
+ * между уровнями.
+ *
+ * В sharp он больше: заголовок крупнее, подпись мельче, и экран читается
+ * быстрее — взгляд цепляется за главное с большего расстояния. В calm
+ * разрыв меньше, зато основной текст крупнее: его удобнее читать
+ * подряд.
+ */
+export const font =
+  VARIANT === 'calm'
+    ? ({
+        h1: { fontSize: 29, fontFamily: typeface[800] },
+        h2: { fontSize: 21, fontFamily: typeface[700] },
+        body: { fontSize: 16, fontFamily: typeface[400] },
+        small: { fontSize: 14, fontFamily: typeface[400] },
+        label: { fontSize: 12, fontFamily: typeface[600] },
+      } as const)
+    : VARIANT === 'sharp'
+      ? ({
+          h1: { fontSize: 32, fontFamily: typeface[800] },
+          h2: { fontSize: 21, fontFamily: typeface[800] },
+          body: { fontSize: 15, fontFamily: typeface[400] },
+          small: { fontSize: 12, fontFamily: typeface[400] },
+          label: { fontSize: 11, fontFamily: typeface[700] },
+        } as const)
+      : ({
+          h1: { fontSize: 28, fontFamily: typeface[800] },
+          h2: { fontSize: 20, fontFamily: typeface[700] },
+          body: { fontSize: 15, fontFamily: typeface[400] },
+          small: { fontSize: 13, fontFamily: typeface[400] },
+          label: { fontSize: 12, fontFamily: typeface[600] },
+        } as const);

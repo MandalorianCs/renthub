@@ -20,33 +20,64 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DOCS = join(ROOT, 'docs');
 
-console.log('Собираю веб-версию приложения…');
-
-// --clear обязателен, а не «на всякий случай».
+// ── Три оформления по трём адресам ────────────────────────────
 //
-// Metro вшивает EXPO_PUBLIC_-переменные в момент преобразования модуля и
-// кэширует результат. Правка .env кэш не сбрасывает: сборка проходит
-// успешно, имя бандла не меняется, а внутри остаётся старое значение.
-// Поймано на смене EXPO_PUBLIC_AUTH_MODE с invite на sms — публикация
-// молча уехала бы со старым экраном входа.
+// Приложение одно, тема — переменная (см. src/theme.ts). Собирается оно
+// трижды: /app остаётся тем, что было, /app2 и /app3 — варианты, которые
+// можно открыть рядом и сравнить.
 //
-// Цена — лишняя минута на пересборку. Она дешевле часа поисков причины,
-// по которой «переменную поменяли, а ничего не изменилось».
-execFileSync('npx', ['expo', 'export', '--platform', 'web', '--clear'], {
-  cwd: ROOT,
-  stdio: 'inherit',
-  shell: process.platform === 'win32',
-});
-
-if (!existsSync(join(ROOT, 'dist', 'index.html'))) {
-  console.error('✗ expo export не создал dist/index.html');
-  process.exit(1);
-}
+// Сравнивать по памяти нельзя: «вчера было теснее» — это не наблюдение,
+// а ощущение. Два адреса в соседних вкладках отвечают на вопрос за
+// секунду, и отвечают одинаково для всех, кто спорит.
+//
+// Цена — сборка идёт втрое дольше. Она того стоит ровно до того дня,
+// когда вариант выберут: тогда лишние два адреса убираются одной
+// правкой этого списка.
+const VARIANTS = [
+  { dir: 'app', theme: 'warm', label: 'исходное оформление' },
+  { dir: 'app2', theme: 'calm', label: 'больше воздуха, мягче тени' },
+  { dir: 'app3', theme: 'sharp', label: 'плотнее, контрастнее, без теней' },
+];
 
 rmSync(DOCS, { recursive: true, force: true });
-mkdirSync(join(DOCS, 'app'), { recursive: true });
+mkdirSync(DOCS, { recursive: true });
 
-cpSync(join(ROOT, 'dist'), join(DOCS, 'app'), { recursive: true });
+for (const variant of VARIANTS) {
+  console.log(`\nСобираю ${variant.dir} — ${variant.label}…`);
+
+  // --clear обязателен, а не «на всякий случай».
+  //
+  // Metro вшивает EXPO_PUBLIC_-переменные в момент преобразования модуля
+  // и кэширует результат. Правка .env кэш не сбрасывает: сборка проходит
+  // успешно, имя бандла не меняется, а внутри остаётся старое значение.
+  // Поймано на смене EXPO_PUBLIC_AUTH_MODE с invite на sms — публикация
+  // молча уехала бы со старым экраном входа.
+  //
+  // Здесь он обязателен вдвойне: три сборки подряд отличаются ровно
+  // одной переменной, и без сброса вторая и третья вышли бы копиями
+  // первой — с другим адресом и тем же оформлением.
+  execFileSync('npx', ['expo', 'export', '--platform', 'web', '--clear'], {
+    cwd: ROOT,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+    env: {
+      ...process.env,
+      EXPO_PUBLIC_THEME: variant.theme,
+      // baseUrl вшивается в бандл: он определяет, откуда приложение
+      // грузит свои же файлы. Для /app2 он обязан отличаться, иначе
+      // вторая версия будет тянуть бандл первой и покажет её оформление.
+      EXPO_BASE_URL: `/renthub/${variant.dir}`,
+    },
+  });
+
+  if (!existsSync(join(ROOT, 'dist', 'index.html'))) {
+    console.error(`✗ expo export не создал dist/index.html для ${variant.dir}`);
+    process.exit(1);
+  }
+
+  mkdirSync(join(DOCS, variant.dir), { recursive: true });
+  cpSync(join(ROOT, 'dist'), join(DOCS, variant.dir), { recursive: true });
+}
 cpSync(join(ROOT, 'landing', 'index.html'), join(DOCS, 'index.html'));
 
 // Страницы схем публикуются отдельными адресами. На питче ссылку открыть
@@ -176,15 +207,22 @@ const APP_META = `${BUILD_META}
     <meta name="twitter:description" content="Витрина аренды строительного инструмента в Кокшетау: цена за сутки, депозит, календарь занятости." />
     <meta name="twitter:image" content="${SITE}assets/og.png" />`;
 
+// Теги вставляются во ВСЕ три оформления, а не только в основное.
+// Ссылку на вариант тоже пересылают — «посмотри, как стало», — и без
+// карточки она приходит в чат голым адресом.
 const appHtmlPath = join(DOCS, 'app', 'index.html');
-const appHtml = readFileSync(appHtmlPath, 'utf8');
 
-if (appHtml.includes('og:title')) {
-  // Экспорт когда-нибудь начнёт добавлять теги сам — тогда две карточки
-  // подряд собьют превью, и лучше узнать об этом сразу.
-  console.warn('⚠ В index.html приложения уже есть og:title — теги не добавлены');
-} else {
-  writeFileSync(appHtmlPath, appHtml.replace('</head>', `${APP_META}\n  </head>`));
+for (const variant of VARIANTS) {
+  const htmlPath = join(DOCS, variant.dir, 'index.html');
+  const html = readFileSync(htmlPath, 'utf8');
+
+  if (html.includes('og:title')) {
+    // Экспорт когда-нибудь начнёт добавлять теги сам — тогда две карточки
+    // подряд собьют превью, и лучше узнать об этом сразу.
+    console.warn(`\u26a0 В index.html ${variant.dir} уже есть og:title — теги не добавлены`);
+  } else {
+    writeFileSync(htmlPath, html.replace('</head>', `${APP_META}\n  </head>`));
+  }
 }
 
 // Приложение — SPA с маршрутизацией на клиенте. Прямой заход на
