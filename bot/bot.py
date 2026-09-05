@@ -126,6 +126,19 @@ POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "15"))
 # пустой при полной базе.
 PILOT_CITY = os.environ.get("EXPO_PUBLIC_PILOT_CITY", "kokshetau").strip() or "kokshetau"
 
+# Потолок цены за сутки — тот же миллион, что стоит ограничением
+# `items_daily_price_max` в базе и проверкой в `assert_item_price()`.
+#
+# Константа потерялась при появлении: 03.09.2026 в `on_item_price` добавили
+# `if price > MAX_DAILY_PRICE`, а само значение не объявили. Два дня шаг
+# цены в `/сдать` падал с NameError, и человек видел «Не получилось
+# связаться с сервером» — сообщение о сети там, где сети ничего не мешало.
+#
+# Нашлось только когда участник дошёл до этого шага и прислал скриншот.
+# Ни разбор дерева, ни импорт модуля такого не ловят: имя внутри функции
+# проверяется в момент вызова. Теперь ловит `npm run check:bot`.
+MAX_DAILY_PRICE = 1_000_000
+
 APP_URL = "https://mandaloriancs.github.io/renthub/app/"
 
 

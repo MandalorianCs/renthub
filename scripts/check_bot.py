@@ -238,6 +238,108 @@ else:
         print(f"✓ normalize_phone одинаков в трёх языках ({len(PHONE_CASES)} номеров)")
 
 
+# ── Имена, которых нет ───────────────────────────────────────
+#
+# 05.09.2026 участник дошёл до шага цены в `/сдать` и трижды получил «Не
+# получилось связаться с сервером». Сети ничего не мешало: в обработчике
+# стояло `if price > MAX_DAILY_PRICE`, а самой константы в модуле не было.
+# Появилась она 03.09 — вернее, появилось только её использование.
+#
+# Два дня дефект ждал человека, который пройдёт этот путь до конца. Ни
+# разбор дерева, ни импорт модуля его не видят: имя внутри функции
+# проверяется в момент вызова, и до вызова файл безупречен.
+#
+# Проверка простая и потому надёжная: собрать всё, что модуль определяет
+# на верхнем уровне, и поискать в телах функций заглавные имена, которых
+# там нет. Заглавные — потому что это соглашение о константах, и именно
+# они пишутся один раз далеко от места использования. Локальные имена,
+# аргументы и встроенное отсеиваются.
+def undefined_constants():
+    module_level = set(dir(builtins))
+
+    # Обходим тело модуля рекурсивно, но не заходя в функции и классы:
+    # константы часто объявляются внутри with open(...) или try, и это
+    # такой же верхний уровень. Первая версия проверки этого не учла и
+    # обвинила TOOLS, NEXT_MOVE и DEMO_OWNER_NAME — все три читаются из
+    # общих файлов внутри with.
+    def module_nodes(body):
+        for item in body:
+            yield item
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            for field in ("body", "orelse", "finalbody"):
+                yield from module_nodes(getattr(item, field, []) or [])
+            for handler in getattr(item, "handlers", []) or []:
+                yield from module_nodes(handler.body)
+
+    for node in module_nodes(tree.body):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                module_level.add((alias.asname or alias.name).split(".")[0])
+        elif isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    module_level.add(target.id)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            module_level.add(node.target.id)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            module_level.add(node.name)
+        elif isinstance(node, ast.With):
+            for item in node.items:
+                if isinstance(item.optional_vars, ast.Name):
+                    module_level.add(item.optional_vars.id)
+        elif isinstance(node, ast.For) and isinstance(node.target, ast.Name):
+            module_level.add(node.target.id)
+
+    missing = []
+    for func in ast.walk(tree):
+        if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+
+        # Всё, что функция объявляет сама: аргументы, присваивания, циклы,
+        # with, except, comprehension-переменные.
+        local = {a.arg for a in func.args.args + func.args.kwonlyargs}
+        if func.args.vararg:
+            local.add(func.args.vararg.arg)
+        if func.args.kwarg:
+            local.add(func.args.kwarg.arg)
+
+        for inner in ast.walk(func):
+            if isinstance(inner, ast.Name) and isinstance(inner.ctx, (ast.Store, ast.Del)):
+                local.add(inner.id)
+            elif isinstance(inner, ast.ExceptHandler) and inner.name:
+                local.add(inner.name)
+            elif isinstance(inner, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                local.add(inner.name)
+
+        for inner in ast.walk(func):
+            if (
+                isinstance(inner, ast.Name)
+                and isinstance(inner.ctx, ast.Load)
+                and inner.id.isupper()
+                and inner.id not in local
+                and inner.id not in module_level
+            ):
+                missing.append((func.name, inner.id, inner.lineno))
+
+    return missing
+
+
+import builtins
+
+nameless = undefined_constants()
+
+if nameless:
+    failed = True
+    print("\n✗ Используются константы, которых в модуле нет:")
+    for func_name, missing_name, line in nameless:
+        print(f"  {missing_name} — строка {line}, в {func_name}()")
+    print("  Файл разберётся и импортируется: имя проверяется в момент вызова.")
+    print("  Человек увидит «Не получилось связаться с сервером».")
+else:
+    print("✓ все константы, которые бот использует, определены")
+
+
 # ── Сценарии стенда против таблицы в README ──────────────────
 #
 # README перечисляет сценарии `db-tests` таблицей: имя файла и что он
