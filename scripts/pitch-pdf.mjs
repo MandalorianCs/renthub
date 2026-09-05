@@ -96,7 +96,8 @@ await new Promise((resolve) => server.listen(PORT, '127.0.0.1', resolve));
 // на месте деки.
 const sandbox = process.platform === 'win32' ? [] : ['--no-sandbox', '--disable-dev-shm-usage'];
 
-execFileSync(
+try {
+  execFileSync(
   browser,
   [
     '--headless=new',
@@ -113,8 +114,18 @@ execFileSync(
     '--virtual-time-budget=12000',
     `http://127.0.0.1:${PORT}/pitch.html`,
   ],
-  { stdio: 'ignore' },
-);
+  // Таймаут и глушение ошибки — не перестраховка, а разница между
+  // платформами. На Windows Chromium форкается и возвращает управление
+  // сразу; на Linux в CI он остаётся жить и не выходит сам — шаг
+  // публикации висел три минуты и падал по таймауту, оставляя сайт без
+  // деки. К этому моменту файл уже напечатан: проверяем его ниже, а
+  // зависший процесс просто снимаем.
+  { stdio: 'ignore', timeout: 60_000, killSignal: 'SIGKILL' },
+  );
+} catch {
+  // Снятый по таймауту браузер — обычный исход на Linux, а не сбой.
+  // Судит о результате проверка файла, а не код возврата.
+}
 
 // Сервер НЕ закрывается здесь, и это главное место скрипта.
 //
