@@ -43,6 +43,7 @@
     "check": "npm run typecheck && npm run check:bot && npm run check:pitch && npm run check:errors",
     "check:bot": "python scripts/check_bot.py",
     "check:pitch": "node scripts/check-pitch.mjs",
+    "pitch:pdf": "node scripts/pitch-pdf.mjs",
     "check:errors": "node scripts/check-errors.mjs",
     "health": "node scripts/health.mjs",
     "auth": "node scripts/auth.mjs",

@@ -64,6 +64,24 @@ cpSync(join(ROOT, 'landing', 'assets'), join(DOCS, 'assets'), { recursive: true 
 mkdirSync(join(DOCS, 'pitch'), { recursive: true });
 cpSync(join(ROOT, 'landing', 'pitch.html'), join(DOCS, 'pitch', 'index.html'));
 
+// Та же дека файлом — /pitch/RentHUB-pitch.pdf.
+//
+// На защите ссылка означает чужой вайфай и чужой браузер, а файл
+// открывается без интернета и пересылается целиком. Печатает его
+// npm run pitch:pdf из этой же страницы: второй копии деки в проекте
+// нет и не будет — числа сверяет npm run check:pitch, и сверяет он
+// разметку landing/pitch.html.
+//
+// Если файла нет, сборка не падает: PDF производный, и его отсутствие
+// не повод не публиковать сайт. Молча пропустить тоже нельзя — скажем
+// об этом строкой, иначе судьи получат ссылку на 404.
+const pitchPdf = join(ROOT, 'landing', 'RentHUB-pitch.pdf');
+if (existsSync(pitchPdf)) {
+  cpSync(pitchPdf, join(DOCS, 'pitch', 'RentHUB-pitch.pdf'));
+} else {
+  console.log('  ! PDF деки не найден — соберите: npm run pitch:pdf');
+}
+
 // robots.txt и sitemap.xml.
 //
 // Приложение из индекса исключено намеренно: это одностраничное приложение

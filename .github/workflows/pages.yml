@@ -53,6 +53,19 @@ jobs:
       # Переопределить (например, после смены ключа) можно переменными:
       # Settings → Secrets and variables → Actions → Variables. Заданная
       # переменная побеждает значение по умолчанию.
+      # Дека файлом — /pitch/RentHUB-pitch.pdf.
+      #
+      # Печатается из landing/pitch.html тем же Chromium, что стоит на
+      # runner'е: второй копии презентации в проекте нет, и числа деки
+      # сверяет npm run check:pitch по этой же разметке.
+      #
+      # Шаг не обязателен для сайта: если браузера не окажется, сборка
+      # продолжится без файла и скажет об этом строкой. Судьи в худшем
+      # случае откроют ту же деку по ссылке.
+      - name: Напечатать деку в PDF
+        continue-on-error: true
+        run: npm run pitch:pdf
+
       - name: Собрать сайт
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL || 'https://owfsfwqwulpossjbnprp.supabase.co' }}
