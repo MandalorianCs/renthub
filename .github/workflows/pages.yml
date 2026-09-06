@@ -62,6 +62,12 @@ jobs:
           EXPO_PUBLIC_TELEGRAM_BOT: ${{ vars.EXPO_PUBLIC_TELEGRAM_BOT || 'renthub_kokshetau_bot' }}
         run: npm run build:pages
 
+      # Вес сборки: тот самый мегабайт, который качает судья с телефона.
+      # Проверяется здесь, а не в общих сверках, потому что до сборки
+      # проверять нечего.
+      - name: Вес приложения
+        run: npm run check:size
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs

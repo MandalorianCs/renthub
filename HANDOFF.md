@@ -122,6 +122,7 @@ npm run check:pitch                 сходятся ли числа деки м
 npm run check:sql                   опасные операции в новых миграциях (Squawk)
 npm run check:secrets               ключи, случайно попавшие в репозиторий (secretlint)
 npm run check:links                 живые ли ссылки на сайте (linkinator, нужна сеть)
+npm run check:size                  не растолстела ли сборка приложения
 landing/pitch.html?present=1        режим докладчика: таймер по регламенту, стрелки листают
 npm run pitch:deck                  оба файла деки: PDF и PPTX
 npm run pitch:pdf                   только раздатка в PDF
