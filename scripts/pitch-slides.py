@@ -505,6 +505,9 @@ def build_pdf(shots):
     if not numbers_survived():
         return False
 
+    if not qr_works():
+        return False
+
     # Отпечаток исходника рядом с файлом: по нему npm run check:pitch
     # понимает, не отстала ли раздатка от деки. Сравнение по времени
     # файлов не работает — git времени не хранит.
@@ -554,6 +557,64 @@ def numbers_survived():
         print("  Похоже, в кадр попала анимация чисел. Запустите сборку ещё раз.\n")
         return False
 
+    return True
+
+
+def qr_works():
+    """QR со слайда должен читаться камерой, а не просто выглядеть кодом.
+
+    Код рисуется в разметку скриптом npm run qr, потом снимается вместе со
+    слайдом, потом жмётся в JPEG и уменьшается до 1600 точек. На любом из
+    этих шагов он может стать нечитаемым — и снаружи это не отличить:
+    квадрат с узором выглядит одинаково рабочим и сломанным.
+
+    Поэтому проверяем не наличие картинки, а результат: рендерим страницу
+    и декодируем то, что получилось, как это сделает камера судьи. Адрес
+    должен совпасть с тем, что записано в разметке.
+
+    Нет OpenCV — проверка молча пропускается: она полезная, но не повод
+    ронять сборку на машине без лишней библиотеки.
+    """
+    try:
+        import cv2
+        import fitz
+        import numpy as np
+    except ImportError:
+        return True
+
+    html = DECK.read_text(encoding="utf-8")
+    wanted = re.findall(r'data-qr="([^"]+)"', html)
+    if not wanted:
+        return True
+
+    doc = fitz.open(str(OUT_PDF))
+    detector = cv2.QRCodeDetector()
+    seen = set()
+
+    for index in range(doc.page_count):
+        # Тройное увеличение: камера смотрит на проектор с расстояния, а
+        # детектору нужны различимые ячейки. Меньший масштаб даёт ложные
+        # «не прочитал» на странице, которая человеком читается нормально.
+        pix = doc[index].get_pixmap(matrix=fitz.Matrix(3, 3))
+        frame = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR if pix.n == 4 else cv2.COLOR_RGB2BGR)
+
+        value, _points, _straight = detector.detectAndDecode(frame)
+        if value:
+            seen.add(value)
+
+    doc.close()
+
+    missing = [url for url in wanted if url not in seen]
+
+    if missing:
+        print("\n✗ QR в PDF не читается или ведёт не туда: " + ", ".join(missing))
+        if seen:
+            print("  Прочитано вместо этого: " + ", ".join(sorted(seen)))
+        print("  Перерисовать код: npm run qr, затем собрать заново.\n")
+        return False
+
+    print(f"  QR проверен камерой: {', '.join(sorted(seen))}")
     return True
 
 
