@@ -712,11 +712,20 @@ html[data-slide] footer,
 html[data-slide] body::after { display: none !important; }
 
 html[data-slide] section { display: none; }
+
+/* Слайд занимает ровно экран, ни больше ни меньше.
+   height вместо min-height: с min-height высокая секция вылезала за
+   нижний край, и снимок обрезал её на полуслове — на слайде «Рынок»
+   так потерялся целый блок про верхнюю границу рынка. Теперь высота
+   фиксирована, а содержимое ужимается скриптом ниже. */
 html[data-slide] section[data-current] {
   display: flex;
   align-items: center;
-  min-height: 100vh;
-  padding: 4vh 0;
+  justify-content: center;
+  height: 100vh;
+  min-height: 0;
+  padding: 3vh 0;
+  overflow: hidden;
 }
 /* Ширина под экран, а не под чтение с руки. У страницы .wrap рассчитан
    на длинный текст в колонке; на проекторе 1920 точек та же колонка
@@ -743,155 +752,126 @@ html[data-slide] *::after {
   transition: none !important;
 }
 
-/* ── Печать: та же дека, раздаткой для судей ───────────────────
-   Судьям нужен файл, который открывается без интернета. Делать ради
-   этого вторую копию презентации нельзя: числа разъедутся в первый же
-   вечер правок, а npm run check:pitch сверяет разметку ЭТОЙ страницы.
-   Поэтому PDF печатается из неё.
+/* ── Раздатка: страница = слайд ────────────────────────────────
+   Печать переделана 06.09.2026, и вот с чего.
 
-   Формат — альбомный A4, а не 16:9. Причина измерена: при ширине
-   страницы слайды деки имеют высоту от 421 до 2145 пикселей, и
-   «слайд на страницу» для самых плотных означал бы масштаб 0.3, то
-   есть текст, который на защите никто не прочтёт. Здесь другое
-   правило: каждый слайд НАЧИНАЕТСЯ с новой страницы, а если не
-   помещается — продолжается на следующей, не ломая таблиц и плиток
-   посередине.
+   До этого дека печаталась потоком: длинная страница резалась там, где
+   кончался лист. Каждое следствие лечилось отдельной заплаткой — общий
+   zoom 0.9, запреты разрыва, потолки высоты схем, отмена отступов у
+   последних блоков, — и на каждой заплатке всплывало следующее. Итог
+   Глеб описал точно: «pdf кривые, херово видно» — на четвёртой странице
+   схема наезжала на заголовок.
 
-   Собрать: npm run pitch:pdf                                     */
-@page {
-  size: A4 landscape;
-  margin: 12mm 14mm;
+   Лечилось не то. Слайдовая презентация, напечатанная потоком, — это две
+   разные вещи, склеенные скотчем. Здесь страница СДЕЛАНА слайдом:
+   1600×900 CSS-пикселей, то есть ровно 16:9 при 96 dpi, столько же,
+   сколько у снимка для PPTX. Ни одна заплатка выше больше не нужна —
+   удалены все.
+
+   Режим включается адресом: pitch.html?print=1. Это не мелочь, а способ
+   проверки — печатный вид открывается в браузере и смотрится глазами до
+   того, как уйдёт в файл. Раньше единственным способом увидеть будущий
+   PDF было напечатать PDF.                                           */
+html[data-print] {
+  background: #fff;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
+html[data-print] body { overflow-x: hidden; }
+
+/* Фоновые слои в раздатке не нужны, и они дороги: Edge растеризует
+   каждый fixed-слой под КАЖДУЮ страницу отдельно — первый PDF весил
+   43 МБ, из них сорок с лишним приходилось на копии одного зерна. */
+html[data-print] header,
+html[data-print] .ticker,
+html[data-print] .scroll-hint,
+html[data-print] footer,
+html[data-print] body::before,
+html[data-print] body::after { display: none !important; }
+
+html[data-print] section {
+  box-sizing: border-box;
+  width: 1600px;
+  height: 900px;
+  margin: 0 auto;
+  padding: 44px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--bg);
+  break-after: page;
+  page-break-after: always;
+}
+/* Лишний разрыв в конце даёт пустую страницу — тот самый брак, из-за
+   которого разрывы когда-то убрали совсем. */
+html[data-print] section:last-of-type {
+  break-after: auto;
+  page-break-after: auto;
+}
+
+html[data-print] section > .wrap {
+  width: 100%;
+  max-width: 1500px;
+  padding: 0 60px;
+  margin: 0;
+}
+
+/* На экране (не в печати) слайды разделяются линией — чтобы при
+   проверке было видно, где кончается страница. В PDF её нет. */
+html[data-print] section { border-bottom: 1px dashed rgba(26,25,23,0.18); }
+@media print { html[data-print] section { border-bottom: 0; } }
+
+html[data-print] .reveal,
+html[data-print] .reveal.is-in {
+  opacity: 1 !important;
+  transform: none !important;
+}
+html[data-print] *,
+html[data-print] *::before,
+html[data-print] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+html[data-print] .tile,
+html[data-print] .card,
+html[data-print] .band,
+html[data-print] .fact,
+html[data-print] .step,
+html[data-print] .person,
+html[data-print] .flow-box { box-shadow: none !important; }
+
+/* ── Схемы ужимаются раньше текста ─────────────────────────────
+   Слайд не влезает — что-то должно уступить. Уступать должна схема:
+   она рисованная и остаётся понятной вдвое меньше, а текст, ужатый
+   вдвое, просто не читается. Без этого правила подгон тянул вниз весь
+   слайд разом, включая буквы. */
+html[data-print] figure.diagram svg,
+html[data-slide] figure.diagram svg {
+  max-height: 640px;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  margin: 0 auto;
+}
+html[data-print] figure.diagram,
+html[data-slide] figure.diagram { margin-top: 20px !important; }
+html[data-print] .diagram-scroll,
+html[data-slide] .diagram-scroll { overflow: visible; }
 
 @media print {
-  html, body {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-    background: #fff;
+  /* Лист ровно в размер слайда: 1600×900 CSS-пикселей при 96 dpi. Тот
+     же кадр 16:9, что снимает сборщик PPTX, — раздатка и презентация
+     показывают судьям одно и то же. */
+  @page {
+    size: 16.667in 9.375in;
+    margin: 0;
   }
 
-  /* Общий масштаб 0,9. Дека свёрстана под экран, где высота не
-     кончается; на листе крупные блоки — схема «петля сделки», расчёт
-     рынка — не влезали в остаток страницы и уезжали целиком, оставляя
-     за собой пустые листы. Уменьшение на четверть убирает выталкивание и
-     не трогает читаемость: 10pt основного текста против 8,5pt. */
-  body { zoom: 0.9; }
-
-  /* Фоновые слои — экранный приём, и на печати они дороги: Edge
-     растеризует КАЖДЫЙ fixed-слой под каждую страницу отдельно.
-     Первый PDF весил 43 МБ, из них сорок с лишним — сорок четыре
-     копии одного и того же зерна и градиента. Без них — 0,6 МБ. */
-  body::before, body::after { display: none !important; }
-
-  /* Липкая шапка на бумаге ложится поверх первого слайда, а ссылки
-     навигации никуда не ведут. */
-  header, .ticker, .scroll-hint { display: none !important; }
-
-  /* Слайд начинается с новой страницы — это и делает раздатку
-     раздаткой, а не распечаткой сайта. */
-  /* Слайд НЕ начинается с новой страницы, и это выбор, а не упущение.
-     Принудительный разрыв давал пять пустых страниц из двадцати двух:
-     схемы «петля сделки» и «расчёт рынка» выше половины листа, и
-     Chrome выталкивал их целиком, оставляя за собой белый лист.
-
-     Раздатке разрывы и не нужны: номер слайда и заголовок видно, а
-     пустая страница посреди презентации читается как брак печати —
-     дороже, чем слайд, начавшийся с середины листа. */
-  section {
-    padding: 0 0 8mm !important;
-    min-height: 0;
-  }
-
-
-
-  /* Нижний отступ последнего блока секции вылезает за край страницы и
-     тянет за собой пустой лист: у Chrome «пустая страница» — это чаще
-     всего чей-то margin, а не контент. Проверено на трёх пустых
-     страницах из двадцати. */
-  section > .wrap > *:last-child,
-  section > *:last-child { margin-bottom: 0 !important; }
-  section { padding-bottom: 0 !important; }
-
-  .wrap { max-width: none; padding: 0; }
-
-  /* Рвать таблицу, плитку или строку пополам нельзя: половина
-     аргумента на одной странице и половина на следующей читается как
-     брак печати. Секцию целиком не запрещаем — иначе плотный слайд
-     оставил бы предыдущую страницу пустой. */
-  /* Запрет разрыва — только для того, что мельче страницы. Крупные
-     контейнеры (.band, .flow-box, .card) под тем же запретом давали
-     пять ПУСТЫХ страниц из двадцати трёх: блок не влезал в остаток и
-     выталкивался целиком, оставляя за собой белый лист. Запрет,
-     который создаёт пустые страницы, вредит ровно тому, ради чего
-     ставился. */
-  /* Строку рвать нельзя, таблицу целиком — можно и нужно: таблица
-     юнит-экономики в девять строк не влезала в остаток страницы и
-     уезжала целиком, оставляя за собой пустой лист. */
-  tr { break-inside: avoid; page-break-inside: avoid; }
-  table, tbody, .table-wrap { break-inside: auto; page-break-inside: auto; }
-
-  /* Схемы на слайдах «Решение» и «Рынок» рисуются во всю ширину
-     экрана; на бумаге без потолка они распирают страницу и уводят
-     следующий блок на новую. */
-  /* Только ширина. Первая версия ставила ещё max-height и height:auto —
-     и SVG с viewBox схлопывался в нулевую высоту: схема «петля сделки»
-     исчезала со слайда «Решение» целиком, а за ней оставалась пустая
-     страница. Правка, сделанная ради вёрстки, стёрла содержание. */
-  svg, img { max-width: 100%; }
-
-  /* Схема выше страницы разбита быть не может — Chrome выталкивает её
-     целиком и оставляет за собой пустой лист. Потолок ставится
-     контейнеру, а не самому SVG: height:auto на элементе с viewBox
-     схлопывает его в ноль, и схема исчезает вовсе (проверено — на
-     слайде «Решение» пропала «петля сделки»). */
-  .flow-box, .flow, .scheme, figure {
-    max-height: 145mm;
-    overflow: hidden;
-  }
-  .flow-box svg, .scheme svg, figure svg { max-height: 140mm; }
-
-  /* Цепочки break-after: avoid здесь нет намеренно. «Не отрывай
-     заголовок от текста» звучит разумно, но у метки слайда, за ней h2,
-     за ним lead — Chrome тащит всю цепочку на следующую страницу и
-     оставляет предыдущую почти пустой. Одна пустая страница из
-     одиннадцати стоит дороже, чем заголовок внизу листа. */
-
-  /* Анимации в PDF застывают на случайном кадре. */
-  *, *::before, *::after {
-    animation: none !important;
-    transition: none !important;
-  }
-
-  /* Блоки появляются по прокрутке: .reveal держит opacity: 0, пока
-     IntersectionObserver не отметит элемент видимым. При печати
-     страница не прокручивается — и всё, что ниже первого экрана,
-     уходит в PDF ПРОЗРАЧНЫМ. Выглядит это как пустые страницы
-     посреди презентации, и охота на них стоила часа: виноваты были
-     то разрывы, то отступы, то схемы, а виновата анимация.
-     Инструмент врёт чаще кода — здесь врал сам браузер печати. */
-  .reveal, .reveal.is-in {
-    opacity: 1 !important;
-    transform: none !important;
-  }
-
-  /* Размеры считаются от ширины окна печати, а не экрана. */
-  h1 { font-size: 32pt !important; }
-  h2 { font-size: 21pt !important; }
-  .lead { font-size: 11pt !important; }
-  body, p, td, th, li { font-size: 10pt !important; }
-  table { font-size: 9pt !important; }
-  .tile p, .point p, .fact .l, .stat-l { font-size: 9pt !important; }
-  .slide-num { font-size: 8pt !important; }
-
-  /* Тень на бумаге даёт серую кайму вместо объёма. */
-  .tile, .card, .band, .fact, .step, .person, .flow-box {
-    box-shadow: none !important;
-  }
-
-  /* Ссылки в раздатке остаются текстом: подчёркивание без адреса
-     обещает переход, которого на бумаге не будет. */
+  html, body { background: #fff; }
   a { text-decoration: none !important; color: inherit !important; }
 }
+
 </style>
 </head>
 <body>
@@ -1054,6 +1034,14 @@ html[data-slide] *::after {
         закрывает сделку. Владельца дёргают дважды: подтвердить бронь и принять вещь.</p>
       </div>
     </div>
+
+  </div>
+</section>
+
+<section id="solution-loop" data-cont>
+  <div class="wrap">
+    <div class="slide-num"><b>4</b> Решение <span>· продолжение</span></div>
+    <h2>Шесть шагов сделки,<br>и каждый проверяет база</h2>
 
     <figure class="diagram" style="margin-top:36px">
       <div class="diagram-scroll">
@@ -1252,6 +1240,14 @@ html[data-slide] *::after {
       </div>
     </div>
 
+  </div>
+</section>
+
+<section id="market-money" data-cont>
+  <div class="wrap">
+    <div class="slide-num"><b>5</b> Рынок <span>· продолжение</span></div>
+    <h2>Куда уходят деньги одной сделки</h2>
+
     <figure class="diagram" style="margin-top:36px">
       <div class="diagram-scroll">
       <svg viewBox="0 0 1120 780" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pmoney-flow-title pmoney-flow-desc">
@@ -1409,6 +1405,14 @@ html[data-slide] *::after {
       </table>
     </div>
 
+  </div>
+</section>
+
+<section id="unit-why" data-cont>
+  <div class="wrap">
+    <div class="slide-num"><b>6</b> Юнит-экономика <span>· продолжение</span></div>
+    <h2>Что стоит за этими числами</h2>
+
     <div class="grid g3" style="margin-top:28px">
       <div class="tile">
         <h3>Почему CAC назван потолком, а не цифрой</h3>
@@ -1439,6 +1443,14 @@ html[data-slide] *::after {
         </p>
       </div>
     </div>
+
+  </div>
+</section>
+
+<section id="unit-model" data-cont>
+  <div class="wrap">
+    <div class="slide-num"><b>6</b> Юнит-экономика <span>· продолжение</span></div>
+    <h2>На чём зарабатываем —<br>и на чём принципиально нет</h2>
 
     <!-- Из чего доход и чем платформа НЕ зарабатывает.
          Вопрос «а на чём вы зарабатываете» judge задаёт всегда, и второй
@@ -1534,6 +1546,14 @@ html[data-slide] *::after {
         </tbody>
       </table>
     </div>
+
+  </div>
+</section>
+
+<section id="metrics-formula" data-cont>
+  <div class="wrap">
+    <div class="slide-num"><b>7</b> Метрики <span>· продолжение</span></div>
+    <h2>Формула целиком —<br>и чего в ней пока нет</h2>
 
     <div class="grid g2" style="margin-top:28px">
       <div class="tile">
@@ -1646,6 +1666,14 @@ html[data-slide] *::after {
         </div>
       </div>
     </div>
+
+  </div>
+</section>
+
+<section id="done-proof" data-cont>
+  <div class="wrap">
+    <div class="slide-num"><b>10</b> Результаты инкубации <span>· продолжение</span></div>
+    <h2>Что именно работает<br>и как это проверить</h2>
 
     <div class="points" style="margin-top:36px">
       <div class="point"><span class="point-dot"></span><p>
@@ -1812,6 +1840,14 @@ html[data-slide] *::after {
       </div>
     </div>
 
+  </div>
+</section>
+
+<section id="card-timing" data-cont>
+  <div class="wrap">
+    <div class="slide-num"><b>14</b> Хронометраж <span>· продолжение</span></div>
+    <h2>Три минуты по секундам</h2>
+
     <div class="timing">
       <h3 style="margin-bottom:16px">Хронометраж — 180 секунд</h3>
       <div class="table-wrap">
@@ -1954,15 +1990,95 @@ html[data-slide] *::after {
   // Ставится до отрисовки, как и черновой режим ниже: иначе остальные
   // двенадцать слайдов успели бы мигнуть.
   (function () {
+    // Подгон слайда под кадр — общий для обоих режимов.
+    //
+    // Слайды деки очень разной плотности: заставка — это заголовок и две
+    // кнопки, а «Результаты» — три цифры и пять пунктов. Один масштаб на
+    // всех даёт либо обрезанный низ у плотных, либо пустой экран у
+    // коротких.
+    //
+    // Ужимаем, но не раздуваем. Раздутый слайд выглядит как ошибка вёрстки
+    // — буквы в половину экрана, — а пустое поле снизу читается нормально
+    // и даже помогает: взгляд не мечется.
+    //
+    // Нижняя граница 0.62 — не страховка, а сигнал. Если слайд не влез и в
+    // неё, значит на него положено больше одной мысли, и лечится это
+    // разрезом секции, а не масштабом. Именно так и вскрылись семь
+    // перегруженных слайдов 06.09.2026: до разреза подгон уводил их в 0.34,
+    // и текст переставал читаться.
+    function fitSlide(section) {
+      var wrap = section.querySelector('.wrap');
+      if (!wrap) return 1;
+
+      var pad = parseFloat(getComputedStyle(section).paddingTop) || 0;
+      var available = section.clientHeight - 2 * pad;
+      var needed = wrap.scrollHeight;
+      if (!needed || !available) return 1;
+
+      var scale = available / needed;
+
+      if (scale >= 1) {
+        // Короткий слайд тоже надо видеть с задних рядов. «Запрос» и «До
+        // инкубации» занимают четверть кадра — набранные тем же кеглем,
+        // что плотная таблица, они выглядят обронёнными в угол.
+        //
+        // Растим умеренно и только по-настоящему пустые: до четверти и не
+        // выше. Дальше начинается плакат — буквы в ладонь, и слайд читается
+        // как ошибка вёрстки, а не как акцент.
+        if (scale > 1.35) wrap.style.zoom = Math.min(1.25, scale).toFixed(3);
+        return 1;
+      }
+
+      scale = Math.max(0.62, scale);
+
+      // zoom, а не transform: scale — он пересчитывает поток, и текст
+      // остаётся чётким и в снимке, и в печати. transform дал бы
+      // размытые границы на снимке и ничего не изменил бы в PDF.
+      wrap.style.zoom = scale.toFixed(3);
+      return scale;
+    }
+
+    // Раздатка: pitch.html?print=1 — каждая секция страницей 16:9.
+    //
+    // Отдельный режим, а не @media print, ради одного: печатный вид можно
+    // открыть в браузере и посмотреть глазами. Пока правила жили только в
+    // @media print, единственным способом увидеть будущий PDF было его
+    // напечатать — и наезды текста находились уже в готовом файле.
+    if (/[?&]print=1/.test(location.search)) {
+      document.documentElement.setAttribute('data-print', '1');
+
+      window.addEventListener('load', function () {
+        var tight = [];
+
+        document.querySelectorAll('section').forEach(function (section, i) {
+          if (fitSlide(section) <= 0.62) tight.push(i + 1);
+        });
+
+        // Список уехавших в пол — в консоль: сборщик PDF его читает и
+        // говорит вслух, какие слайды пора резать.
+        if (tight.length) {
+          console.warn('слайды на пределе масштаба: ' + tight.join(', '));
+        }
+        document.documentElement.setAttribute('data-slide-ready', '1');
+      });
+      return;
+    }
+
+    // Один слайд во весь экран: pitch.html?slide=5 — из этого собирается PPTX.
     var match = location.search.match(/[?&]slide=(\d+)/);
     if (!match) return;
 
     document.documentElement.setAttribute('data-slide', match[1]);
 
-    document.addEventListener('DOMContentLoaded', function () {
-      var sections = document.querySelectorAll('section');
-      var index = Number(match[1]) - 1;
-      if (sections[index]) sections[index].setAttribute('data-current', '1');
+    window.addEventListener('load', function () {
+      var section = document.querySelectorAll('section')[Number(match[1]) - 1];
+      if (!section) return;
+
+      section.setAttribute('data-current', '1');
+      fitSlide(section);
+
+      // Отметка для сборщика: вёрстка досчитана, можно снимать.
+      document.documentElement.setAttribute('data-slide-ready', '1');
     });
   })();
 </script>

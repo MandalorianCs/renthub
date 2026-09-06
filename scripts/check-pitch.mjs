@@ -211,28 +211,55 @@ ok('сумма секунд = регламенту ИНК', spoken, TIMING_TOTAL
 // судьям. Отстал по времени от pitch.html — значит показывает не то, что
 // проверил этот же скрипт строкой выше.
 const pdfPath = join(ROOT, 'landing', 'RentHUB-pitch.pdf');
+const pptxPath = join(ROOT, 'landing', 'RentHUB-pitch.pptx');
+const slides = (pitch.match(/<section/g) ?? []).length;
 
 console.log('\n── Дека файлом ──');
 
-if (!existsSync(pdfPath)) {
-  console.log('  ??  PDF деки нет — напечатайте: npm run pitch:pdf');
-  failed++;
-} else {
-  // Сверяется отпечаток исходника, а не время файла: git времени не
-  // хранит, и в CI все файлы получают время клонирования — проверка по
-  // mtime падала на каждом прогоне независимо от того, свежий PDF или
-  // нет. Хеш отвечает на тот же вопрос и одинаково отвечает везде.
-  const shaPath = `${pdfPath}.sha`;
-  const printedFrom = existsSync(shaPath) ? readFileSync(shaPath, 'utf8').trim() : null;
-  const deckNow = deckFingerprint(ROOT);
+// Оба файла собираются из одних снимков (npm run pitch:deck), поэтому и
+// проверяются одинаково: отпечаток исходника рядом с файлом отвечает на
+// вопрос «этот файл сделан из ЭТОЙ версии деки».
+const deckNow = deckFingerprint(ROOT);
 
-  if (printedFrom !== deckNow) {
-    console.log('  ??  PDF напечатан из другой версии деки — судьи получат вчерашние числа');
-    console.log('      напечатать заново: npm run pitch:pdf');
+for (const [label, file, command] of [
+  ['PDF', pdfPath, 'npm run pitch:pdf'],
+  ['PPTX', pptxPath, 'npm run pitch:pptx'],
+]) {
+  if (!existsSync(file)) {
+    console.log(`  ??  ${label} деки нет — соберите: ${command}`);
+    failed++;
+    continue;
+  }
+
+  const shaPath = `${file}.sha`;
+  const builtFrom = existsSync(shaPath) ? readFileSync(shaPath, 'utf8').trim() : null;
+
+  if (builtFrom !== deckNow) {
+    console.log(`  ??  ${label} собран из другой версии деки — судьи получат вчерашние числа`);
+    console.log(`      собрать заново: ${command}`);
+    failed++;
+    continue;
+  }
+
+  // Число страниц против числа слайдов.
+  //
+  // Проверка не формальная: 06.09.2026 сборка молча отдавала PDF, где
+  // страниц было меньше, чем слайдов, — часть деки просто не доехала до
+  // судей, а файл открывался и выглядел целым. Считаем то, что можно
+  // сосчитать без внешних утилит: потоки страниц в PDF и файлы слайдов
+  // внутри PPTX (это zip, слайды лежат отдельными записями).
+  const bytes = readFileSync(file);
+  const parts = label === 'PDF'
+    ? (bytes.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length
+    : (bytes.toString('latin1').match(/ppt\/slides\/slide\d+\.xml(?!\.rels)/g) ?? [])
+        .filter((v, i, all) => all.indexOf(v) === i).length;
+
+  if (parts !== slides) {
+    console.log(`  ??  в деке ${slides} слайдов, в ${label} — ${parts}`);
+    console.log(`      пересобрать: ${command}`);
     failed++;
   } else {
-    const pages = (readFileSync(pdfPath).toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length;
-    console.log(`  ok  PDF свежий, ${pages} страниц`);
+    console.log(`  ok  ${label} свежий, ${parts} слайдов`);
   }
 }
 
