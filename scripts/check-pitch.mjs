@@ -258,8 +258,34 @@ for (const [label, file, command] of [
     console.log(`  ??  в деке ${slides} слайдов, в ${label} — ${parts}`);
     console.log(`      пересобрать: ${command}`);
     failed++;
+    continue;
+  }
+
+  console.log(`  ok  ${label} свежий, ${parts} слайдов`);
+
+  // Оглавление и ссылки — только у PDF: PPTX ни того, ни другого не несёт.
+  //
+  // Считаем по сырому файлу, без внешних библиотек. Закладки — записи
+  // /Title в дереве оглавления, переходы — аннотации /Link. Точность здесь
+  // не нужна: вопрос ровно один — они вообще есть?
+  if (label !== 'PDF') continue;
+
+  const raw = bytes.toString('latin1');
+  const marks = (raw.match(/\/Type\s*\/Outlines?\b/g) ?? []).length;
+  const links = (raw.match(/\/Subtype\s*\/Link\b/g) ?? []).length;
+  const deckLinks = (pitch.match(/<a [^>]*href="https?:/g) ?? []).length;
+
+  if (!marks) {
+    console.log('  ??  в PDF нет оглавления — судья листает 21 страницу подряд');
+    console.log(`      пересобрать: ${command}`);
+    failed++;
+  } else if (!links && deckLinks) {
+    console.log(`  ??  в деке ${deckLinks} ссылок, в PDF — ни одной`);
+    console.log('      адреса стали картинкой: их придётся перепечатывать руками');
+    console.log(`      пересобрать: ${command}`);
+    failed++;
   } else {
-    console.log(`  ok  ${label} свежий, ${parts} слайдов`);
+    console.log(`  ok  оглавление на месте, переходов в файле ${links}`);
   }
 }
 

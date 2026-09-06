@@ -32,7 +32,9 @@ landing/pitch.html, а не по этим файлам.
 """
 
 import hashlib
+import html as html_mod
 import io
+import json
 import re
 import subprocess
 import sys
@@ -108,11 +110,63 @@ def deck_fingerprint():
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def slide_titles():
+    """Названия слайдов — для оглавления PDF.
+
+    Берутся из самой деки: метка слайда («5 Рынок») и его заголовок. Второй
+    копии названий в проекте нет, и это то же правило, что с числами —
+    расходиться нечему.
+
+    Оглавление в раздатке не украшение. Двадцать одна страница снимками
+    листается только подряд: искать в ней слайд про юнит-экономику — значит
+    прокручивать всё. С закладками судья открывает нужный за один клик, а
+    во время вопросов это и решает, покажем мы ответ или будем искать.
+    """
+    html = DECK.read_text(encoding="utf-8")
+    out = []
+
+    for num, label, _span, head in re.findall(
+        r'<div class="slide-num"><b>(\d+)</b>\s*([^<]*?)\s*<span>(.*?)</span></div>\s*<h[12]>(.*?)</h[12]>',
+        html,
+        re.S,
+    ):
+        head = " ".join(re.sub(r"<[^>]+>", " ", head).split())
+        if len(head) > 46:
+            head = head[:45].rstrip(" ,—-") + "…"
+        out.append(f"{num}. {label.strip()} — {head}")
+
+    return out
+
+
+def slide_anchors():
+    """id секций по порядку: «#done» → номер страницы в раздатке.
+
+    Внутренние ссылки деки («Что уже работает») в PDF не должны никуда
+    вести из интернета — им место внутри файла. Здесь и берётся
+    соответствие, по которому сборщик кладёт переход на нужную страницу.
+    """
+    html = DECK.read_text(encoding="utf-8")
+    pages = {}
+
+    for i, match in enumerate(re.finditer(r"<section(?=[ >])([^>]*)>", html)):
+        found = re.search(r'id="([^"]+)"', match.group(1))
+        if found:
+            pages[found.group(1)] = i + 1
+
+    return pages
+
+
 def shoot(browser, tmp, n):
-    """Снимок одного слайда. Возвращает путь к PNG."""
+    """Снимок слайда и координаты его ссылок.
+
+    Оба выхода за один запуск браузера: --screenshot пишет картинку,
+    --dump-dom отдаёт готовую разметку в stdout, а в ней — атрибут
+    data-links, который страница заполняет после подгона масштаба.
+    Второй запуск ради координат удвоил бы время сборки на ровном месте.
+    """
     shot = Path(tmp) / f"slide-{n:02d}.png"
 
-    subprocess.run(
+    done = subprocess.run(
         [
             browser,
             "--headless=new",
@@ -125,10 +179,24 @@ def shoot(browser, tmp, n):
             "--hide-scrollbars",
             f"--window-size={SHOT_W},{SHOT_H}",
             f"--screenshot={shot}",
+            # Разметка нужна ради координат ссылок — см. read_links ниже.
+            "--dump-dom",
             # Странице нужно досчитать вёрстку и подгон масштаба. Меньше
             # четырёх секунд — и в кадр попадает слайд до подгона.
             "--virtual-time-budget=6000",
-            f"http://127.0.0.1:{PORT}/pitch.html?slide={n}",
+            # Отпечаток деки в адресе — не украшение, а лекарство.
+            #
+            # Профиль браузера переиспользуется между запусками (иначе
+            # Chromium каждый раз заводит новый и тратит на это секунды), а
+            # вместе с профилем переиспользуется КЕШ. 06.09.2026 это поймано
+            # с поличным: дека была правлена, сборка отработала, файлы
+            # обновились — и в них попали слайды предыдущей версии. Снаружи
+            # не отличить: страниц столько же, отпечаток рядом с файлом
+            # свежий (он считается по исходнику, а не по снятому).
+            #
+            # Адрес со свежим отпечатком кеш не находит и идёт на сервер. Не
+            # менялась дека — не меняется адрес, и кеш работает как раньше.
+            f"http://127.0.0.1:{PORT}/pitch.html?slide={n}&v={deck_fingerprint()[:12]}",
         ],
         capture_output=True,
         timeout=90,
@@ -140,7 +208,96 @@ def shoot(browser, tmp, n):
             break
         time.sleep(0.3)
 
-    return shot if shot.exists() else None
+    if not shot.exists():
+        return None, [], None
+
+    links, viewport = read_links(done.stdout.decode("utf-8", "replace"))
+    return shot, links, viewport
+
+
+def read_links(dom):
+    """Прямоугольники ссылок слайда из разметки, снятой браузером.
+
+    Пусто — не ошибка: на большинстве слайдов ссылок нет. Ошибкой было бы
+    молча потерять их там, где они есть, поэтому разбор ничего не угадывает:
+    нет атрибута или он не разбирается — возвращаем пусто и идём дальше, а
+    слайд остаётся картинкой, как и был.
+    """
+    match = re.search(r'data-links="([^"]*)"', dom)
+    if not match:
+        return [], None
+
+    try:
+        links = json.loads(html_mod.unescape(match.group(1)))
+    except (ValueError, TypeError):
+        return [], None
+
+    # Вьюпорт страницы. Он МЕНЬШЕ кадра снимка: рамка окна съедает по
+    # 24 пикселя вширь и 92 ввысь, а --screenshot отдаёт окно целиком.
+    # Слайд центрирован, поэтому разница делится поровну — по ней и
+    # правятся координаты ссылок.
+    viewport = None
+    vp_match = re.search(r'data-vp="(\d+)x(\d+)', dom)
+    if vp_match:
+        viewport = (int(vp_match.group(1)), int(vp_match.group(2)))
+
+    return links, viewport
+
+
+# Ширина картинки внутри PDF. Снимок делается в 1920 — это ширина, под
+# которую считалась вёрстка слайда, и менять её нельзя: другая ширина даёт
+# другие переносы. А вот хранить в файле такой большой растр незачем: при
+# ширине страницы 13,3 дюйма 1600 точек дают 120 dpi на экране и остаются
+# чёткими при печати на A4.
+PDF_IMAGE_W = 1600
+
+# Публичный адрес сайта. Нужен, чтобы относительные ссылки деки («../app/»)
+# в раздатке вели на живой сайт, а не на localhost, с которого снимался
+# слайд. Значение сверяется с самой декой при сборке — если разойдётся,
+# скрипт скажет об этом вслух, а не подставит молча чужой адрес.
+PUBLIC_SITE = "https://mandaloriancs.github.io/renthub/"
+
+# Качество JPEG. 92 при отключённом субсэмплинге (4:4:4) — проверено на
+# самой мелкой строке деки: увеличенный вдвое кроп неотличим от PNG.
+# Ниже 88 у букв появляется ореол, и это видно на таблицах.
+PDF_JPEG_Q = 92
+
+
+def squeeze(path):
+    """Снимок → JPEG для вставки в PDF. Втрое легче, разницы не видно.
+
+    Почему не PNG. PyMuPDF вставляет PNG, разжимая его в RGB: палитра на
+    256 цветов, которая вдвое уменьшала сам файл снимка, в PDF не доезжает —
+    проверено, страница как была 264 КБ, так и осталась. JPEG он кладёт
+    потоком как есть, поэтому вес, который мы видим здесь, — это вес,
+    который окажется в файле.
+
+    Почему это безопасно для текста. JPEG портит буквы субсэмплингом
+    цветности; при 4:4:4 и качестве 92 портить нечего — дека нарисована
+    плоскими заливками, а не фотографиями. Сравнение кропа таблицы при
+    двукратном увеличении разницы с PNG не показало.
+
+    Не сработает — отдаём файл как есть: лишний мегабайт дешевле, чем
+    сборка, упавшая перед защитой.
+    """
+    try:
+        from PIL import Image
+    except ImportError:
+        return path.read_bytes()
+
+    try:
+        with Image.open(path) as img:
+            frame = img.convert("RGB")
+            if frame.width > PDF_IMAGE_W:
+                height = round(frame.height * PDF_IMAGE_W / frame.width)
+                frame = frame.resize((PDF_IMAGE_W, height), Image.LANCZOS)
+
+            buf = io.BytesIO()
+            frame.save(buf, format="JPEG", quality=PDF_JPEG_Q, subsampling=0, optimize=True)
+            return buf.getvalue()
+    except Exception as err:  # noqa: BLE001 — причина не важна, важен запасной путь
+        print(f"  ! {path.name}: сжать не вышло ({err}), кладу как есть")
+        return path.read_bytes()
 
 
 def build_pdf(shots):
@@ -151,12 +308,93 @@ def build_pdf(shots):
         return False
 
     doc = fitz.open()
-    for _, path in shots:
-        page = doc.new_page(width=PAGE_W, height=PAGE_H)
-        page.insert_image(fitz.Rect(0, 0, PAGE_W, PAGE_H), filename=str(path))
 
-    # deflate жмёт плоские заливки деки вдвое; без него файл уходил за
-    # двадцать мегабайт и не пролезал в мессенджер.
+    # Снимок делался в кадре 1920 точек, страница — 960 пунктов шириной.
+    # Один коэффициент переводит одно в другое: и картинку, и координаты
+    # ссылок поверх неё.
+    k = PAGE_W / SHOT_W
+    anchors = slide_anchors()
+
+    for _, path, _links, _vp in shots:
+        page = doc.new_page(width=PAGE_W, height=PAGE_H)
+        page.insert_image(fitz.Rect(0, 0, PAGE_W, PAGE_H), stream=squeeze(path))
+
+    # Ссылки — вторым проходом, когда все страницы уже созданы.
+    #
+    # Порядок здесь не стилистический. Переход внутри файла PyMuPDF молча
+    # выбрасывает, если страницы-цели ещё нет: на первом слайде кнопка «Что
+    # уже работает» ведёт на пятнадцатую страницу, а её в тот момент не
+    # существует. Ошибки нет, ссылки тоже — поймано сверкой готового файла,
+    # а не выводом сборки.
+    for index, (_, _path, links, viewport) in enumerate(shots):
+        page = doc[index]
+
+        # Страница мерила себя в своём вьюпорте, снимок сделан в кадре
+        # побольше. Слайд центрирован — значит разница легла поровну.
+        dx = (SHOT_W - viewport[0]) / 2 if viewport else 0
+        dy = (SHOT_H - viewport[1]) / 2 if viewport else 0
+
+        for link in links:
+            box = fitz.Rect(
+                (link["x"] + dx) * k,
+                (link["y"] + dy) * k,
+                (link["x"] + dx + link["w"]) * k,
+                (link["y"] + dy + link["t"]) * k,
+            )
+
+            href = (link.get("h") or "").strip()
+            if not href:
+                continue
+
+            if href.startswith("#"):
+                # Внутренний якорь — переход по страницам самого файла.
+                target = anchors.get(href[1:])
+                if target:
+                    # to и zoom обязательны, хотя выглядят необязательными:
+                    # без точки назначения PyMuPDF 1.28 переход молча не
+                    # создаёт — ни ошибки, ни ссылки. Полчаса ушло на поиск
+                    # виновного, потому что искали его в номере страницы.
+                    page.insert_link({
+                        "kind": fitz.LINK_GOTO,
+                        "from": box,
+                        "page": target - 1,
+                        "to": fitz.Point(0, 0),
+                        "zoom": 0,
+                    })
+                continue
+
+            if href.startswith("http://") or href.startswith("https://"):
+                page.insert_link({"kind": fitz.LINK_URI, "from": box, "uri": href})
+                continue
+
+            # Относительный путь: в раздатке он должен вести на живой сайт.
+            # «../app/» рядом с pitch.html — это /renthub/app/ на Pages.
+            page.insert_link({
+                "kind": fitz.LINK_URI,
+                "from": box,
+                "uri": PUBLIC_SITE + href.lstrip("./").lstrip("/"),
+            })
+
+    # Метаданные видит не только программа: имя файла в мессенджере может
+    # смениться на «document (3).pdf», а заголовок останется. Судья, у
+    # которого открыто восемь вкладок, находит нашу по названию.
+    doc.set_metadata({
+        "title": "RentHUB — питч",
+        "author": "RentHUB, Кокшетау",
+        "subject": "Аренда строительного инструмента между соседями. Питч для защиты.",
+        "keywords": "RentHUB, аренда инструмента, P2P, Кокшетау, MVP",
+        "creator": "scripts/pitch-slides.py",
+    })
+
+    # Оглавление: один уровень, слайд = закладка.
+    titles = slide_titles()
+    if len(titles) == len(shots):
+        doc.set_toc([[1, titles[i], i + 1] for i in range(len(titles))])
+    else:
+        # Разошлось — значит разметка деки изменилась, а разбор нет.
+        # Молча отдать PDF без оглавления хуже: пропажу заметят на защите.
+        print(f"  ! заголовков {len(titles)}, слайдов {len(shots)} — оглавление пропущено")
+
     doc.save(str(OUT_PDF), deflate=True, garbage=3)
     doc.close()
 
@@ -180,7 +418,7 @@ def build_pptx(shots):
     deck.slide_height = Inches(7.5)
     blank = deck.slide_layouts[6]
 
-    for _, path in shots:
+    for _, path, _links, _vp in shots:
         slide = deck.slides.add_slide(blank)
         slide.shapes.add_picture(
             str(path), 0, 0, width=deck.slide_width, height=deck.slide_height
@@ -215,12 +453,13 @@ def main(argv):
         with tempfile.TemporaryDirectory() as tmp:
             shots = []
             for n in range(1, total + 1):
-                shot = shoot(browser, tmp, n)
+                shot, links, viewport = shoot(browser, tmp, n)
                 if not shot:
                     print(f"\n✗ Слайд {n} не снялся.\n")
                     return 1
-                shots.append((n, shot))
-                print(f"  снят слайд {n:2d} — {round(shot.stat().st_size / 1024)} КБ")
+                shots.append((n, shot, links, viewport))
+                note = f", ссылок {len(links)}" if links else ""
+                print(f"  снят слайд {n:2d} — {round(shot.stat().st_size / 1024)} КБ{note}")
 
             if want_pdf and not build_pdf(shots):
                 return 1

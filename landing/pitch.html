@@ -2038,6 +2038,40 @@ html[data-slide] .diagram-scroll { overflow: visible; }
       return scale;
     }
 
+    // Замер — после шрифтов, а не после load.
+    //
+    // К load Manrope ещё не применён: страница показана подстановочным
+    // шрифтом с другой высотой строки. Через мгновение шрифт встаёт, текст
+    // занимает больше места, и всё ниже съезжает вниз. Снимок делается уже
+    // после этого — а если мерить раньше, промахнёшься.
+    //
+    // Промах поймали на ссылках в PDF: прямоугольники переходов стояли на
+    // четверть сантиметра выше своих кнопок. Тот же промах молча портил и
+    // подгон масштаба, только там его не видно — слайд просто оказывался
+    // чуть длиннее кадра.
+    function whenReady(run) {
+      var started = false;
+
+      var go = function (delay) {
+        if (started) return;
+        started = true;
+        // Небольшая пауза вместо кадра анимации. requestAnimationFrame
+        // здесь не годится: в headless-браузере, которым снимаются слайды,
+        // кадры выдаёт композитор, и без него обработчик не вызывается
+        // вовсе. Проверено дорого — сборка молча выдала деку без единой
+        // подогнанной страницы.
+        setTimeout(run, delay);
+      };
+
+      if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+        document.fonts.ready.then(function () { go(120); }, function () { go(120); });
+      }
+
+      // Страховка на случай, если о шрифтах никто не сообщит: без неё
+      // слайд остался бы неизмеренным, а это хуже неточного замера.
+      window.addEventListener('load', function () { setTimeout(function () { go(0); }, 600); });
+    }
+
     // Раздатка: pitch.html?print=1 — каждая секция страницей 16:9.
     //
     // Отдельный режим, а не @media print, ради одного: печатный вид можно
@@ -2047,7 +2081,7 @@ html[data-slide] .diagram-scroll { overflow: visible; }
     if (/[?&]print=1/.test(location.search)) {
       document.documentElement.setAttribute('data-print', '1');
 
-      window.addEventListener('load', function () {
+      whenReady(function () {
         var tight = [];
 
         document.querySelectorAll('section').forEach(function (section, i) {
@@ -2070,15 +2104,75 @@ html[data-slide] .diagram-scroll { overflow: visible; }
 
     document.documentElement.setAttribute('data-slide', match[1]);
 
-    window.addEventListener('load', function () {
+    whenReady(function () {
       var section = document.querySelectorAll('section')[Number(match[1]) - 1];
       if (!section) return;
 
       section.setAttribute('data-current', '1');
       fitSlide(section);
 
-      // Отметка для сборщика: вёрстка досчитана, можно снимать.
-      document.documentElement.setAttribute('data-slide-ready', '1');
+      // Пауза между подгоном и замером обязательна.
+      //
+      // fitSlide ставит .wrap масштаб, и до следующего пересчёта вёрстки
+      // getBoundingClientRect отдаёт координаты по СТАРОМУ масштабу. В
+      // готовом PDF это выглядело как ссылки, съехавшие на полкнопки
+      // вверх: снимок сделан по новому масштабу, координаты сняты по
+      // старому.
+      setTimeout(function () {
+
+      // Координаты ссылок — для сборщика PDF.
+      //
+      // Раздатка собирается из снимков, а снимок ссылок не хранит: адрес
+      // приложения на слайде «Результаты» в PDF был картинкой, и судье
+      // оставалось перепечатывать его руками. Здесь мы отдаём сборщику
+      // прямоугольники всех ссылок слайда, и он кладёт поверх картинки
+      // настоящие переходы.
+      //
+      // Считается ПОСЛЕ подгона: zoom меняет положение всего на слайде, и
+      // прямоугольник, снятый до него, промахнулся бы мимо текста.
+      var links = [];
+
+      section.querySelectorAll('a[href]').forEach(function (a) {
+        var r = a.getBoundingClientRect();
+        // Ссылки нулевого размера бывают у скрытых блоков: класть их в PDF
+        // значит расставить невидимые ловушки для курсора.
+        if (r.width < 6 || r.height < 6) return;
+
+        // Отдаём адрес КАК НАПИСАН в разметке, а не как его понял браузер.
+        //
+        // Разница решает: снимок делается с локального сервера, и «#done»
+        // браузер разворачивает в http://127.0.0.1:8901/pitch.html…#done.
+        // Такая ссылка, попав в раздатку, ведёт судью в никуда — это уже
+        // случилось однажды и было поймано в готовом файле. Что делать с
+        // «#done» и «../app/», решает сборщик: у него есть и список
+        // слайдов, и публичный адрес сайта.
+        links.push({
+          h: a.getAttribute('href'),
+          x: Math.round(r.left), y: Math.round(r.top),
+          w: Math.round(r.width), t: Math.round(r.height),
+        });
+      });
+
+        document.documentElement.setAttribute('data-links', JSON.stringify(links));
+        // Размер вьюпорта — сборщику PDF, и это не отладка.
+        //
+        // Страница видит вьюпорт меньше, чем кадр снимка: при
+        // --window-size=1920,1080 ей достаётся 1896×988, а --screenshot
+        // отдаёт полные 1920×1080 — разницу съедает рамка окна. Слайд
+        // центрирован, поэтому разница ложится поровну сверху и снизу, и
+        // прямоугольники ссылок без поправки встают на 46 пикселей выше
+        // своих кнопок. Именно так и было в первой раздатке со ссылками.
+        //
+        // Отдаём размер, а не готовую поправку: рамка окна на другой
+        // машине другая, и подобранная здесь константа там соврала бы.
+        document.documentElement.setAttribute(
+          'data-vp',
+          innerWidth + 'x' + innerHeight + '@' + devicePixelRatio
+        );
+
+        // Отметка для сборщика: вёрстка досчитана, можно снимать.
+        document.documentElement.setAttribute('data-slide-ready', '1');
+      }, 80);
     });
   })();
 </script>
