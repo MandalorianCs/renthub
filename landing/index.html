@@ -814,7 +814,13 @@ h2 {
         <div>
           <div class="card-title">Перфоратор Bosch GBH 2-26</div>
           <div class="card-sub">Кокшетау · 3 500 ₸ / сутки · депозит 20 000 ₸</div>
-          <div class="card-sub" style="margin-top:6px">★ 4,9 · 23 сделки</div>
+          <!-- Здесь стояло «★ 4,9 · 23 сделки». Сделок в продукте ноль, и
+               приложение честно пишет на каждой карточке «Пока нет отзывов».
+               Судья открывает лендинг, потом каталог — и ловит нас на
+               приукрашивании ровно там, где вся остальная дека держится на
+               «эту цифру можно пересчитать». Рейтинг, который нельзя
+               проверить, стоит дороже, чем он украшает. -->
+          <div class="card-sub" style="margin-top:6px">Пока нет отзывов · пилот идёт</div>
         </div>
       </div>
 
@@ -1020,18 +1026,25 @@ h2 {
       </a>
     </div>
 
-    <div class="shelf">
+    <!-- Полка заполняется из базы скриптом внизу страницы.
+
+         Разметка ниже — не «пример вёрстки», а запасной вариант: то, что
+         увидит человек, если база не ответит или лендинг открыт из файла.
+         Поэтому в ней нет ни одной цифры, которой нет в продукте: цены
+         взяты с реальных объявлений витрины, а на месте рейтинга стоит то
+         же, что в приложении, — «Пока нет отзывов». Сделок ноль, и
+         лендинг говорит об этом теми же словами, что и продукт. -->
+    <div class="shelf" data-shelf>
       <article class="goods">
         <div class="goods-img">
           <svg aria-hidden="true" width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#8A7C6A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
           </svg>
-          <span class="goods-badge">4 фото</span>
         </div>
         <div class="goods-body">
-          <div class="goods-price">3 500 ₸ <span>/ сутки</span></div>
+          <div class="goods-price">3 500 ₸ <span>/ сутки</span></div>
           <div class="goods-name">Перфоратор Bosch GBH 2-26</div>
-          <div class="goods-meta"><span>★ 4,9 · 23 сделки</span><span>депозит 20 000 ₸</span></div>
+          <div class="goods-meta"><span>Пока нет отзывов</span><span>депозит 20 000 ₸</span></div>
         </div>
       </article>
 
@@ -1040,12 +1053,11 @@ h2 {
           <svg aria-hidden="true" width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#8A7C6A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/>
           </svg>
-          <span class="goods-badge">6 фото</span>
         </div>
         <div class="goods-body">
-          <div class="goods-price">2 000 ₸ <span>/ сутки</span></div>
+          <div class="goods-price">2 000 ₸ <span>/ сутки</span></div>
           <div class="goods-name">УШМ Makita 125 мм с дисками</div>
-          <div class="goods-meta"><span>★ 5,0 · 8 сделок</span><span>депозит 12 000 ₸</span></div>
+          <div class="goods-meta"><span>Пока нет отзывов</span><span>депозит 12 000 ₸</span></div>
         </div>
       </article>
 
@@ -1054,17 +1066,16 @@ h2 {
           <svg aria-hidden="true" width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#8A7C6A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 21V8l8-5 8 5v13M4 21h16M9 21v-6h6v6"/>
           </svg>
-          <span class="goods-badge">3 фото</span>
         </div>
         <div class="goods-body">
-          <div class="goods-price">5 000 ₸ <span>/ сутки</span></div>
+          <div class="goods-price">5 000 ₸ <span>/ сутки</span></div>
           <div class="goods-name">Строительные леса, 4 секции</div>
-          <div class="goods-meta"><span>★ 4,7 · 15 сделок</span><span>депозит 30 000 ₸</span></div>
+          <div class="goods-meta"><span>Пока нет отзывов</span><span>депозит 30 000 ₸</span></div>
         </div>
       </article>
     </div>
 
-    <div class="disclaimer">
+    <div class="disclaimer" data-shelf-note>
       Карточки нарисованы теми же цветами и размерами, что в приложении, а не
       сняты скриншотом. Скриншот устаревает молча: интерфейс правится, картинка
       остаётся, и лендинг начинает обещать то, чего в продукте уже нет.
@@ -1980,5 +1991,98 @@ h2 {
     update();
   })();
 </script>
+<script>
+  /* Живая витрина: три объявления прямо из базы.
+
+     Зачем. Лендинг обещает работающий продукт, и самое дешёвое
+     доказательство — показать его товар. Нарисованная полка этого не
+     делает: она стареет вместе с ценами и в худшем случае обещает то,
+     чего в каталоге нет.
+
+     Адрес и публичный ключ подставляет сборщик (scripts/build-pages.mjs)
+     из .env — того же ключа, что лежит в бандле приложения. Он публичный
+     по назначению: доступ ограничивает не он, а политики базы. Каталог
+     открыт без регистрации, поэтому анонимный запрос видит ровно то же,
+     что видит человек в приложении, — и ни строкой больше.
+
+     Если ключа нет (лендинг открыт из файла) или база не ответила,
+     остаётся запасная полка из разметки. Пустой витрины на месте
+     доказательства не будет никогда. */
+  (function () {
+    var conf = window.RENTHUB_PUBLIC;
+    var shelf = document.querySelector('[data-shelf]');
+    if (!conf || !conf.url || !conf.key || !shelf) return;
+
+    var city = conf.city || 'Кокшетау';
+    var query = '/rest/v1/items'
+      + '?select=id,title,daily_price,deposit_amount,condition_photos'
+      + '&status=eq.active'
+      + '&city=eq.' + encodeURIComponent(city)
+      + '&order=created_at.desc'
+      + '&limit=3';
+
+    // Пять секунд — предел ожидания. Лендинг не должен зависеть от
+    // доступности базы: медленный ответ хуже отсутствующего, потому что
+    // человек в это время смотрит на пустое место.
+    var stop = new AbortController();
+    var timer = setTimeout(function () { stop.abort(); }, 5000);
+
+    fetch(conf.url + query, {
+      headers: { apikey: conf.key, authorization: 'Bearer ' + conf.key },
+      signal: stop.signal,
+    })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (items) {
+        clearTimeout(timer);
+        if (!Array.isArray(items) || items.length < 3) return;
+
+        var money = function (n) {
+          return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₸';
+        };
+        var safe = function (s) {
+          return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+          });
+        };
+
+        shelf.innerHTML = items.map(function (it) {
+          var photos = it.condition_photos || [];
+          // Название и фото приходят от владельцев — это чужой текст на
+          // нашей странице, и вставляется он экранированным. Первая же
+          // публикация с кавычкой в названии иначе сломала бы разметку.
+          var img = photos[0]
+            ? '<img src="' + safe(photos[0]) + '" alt="" loading="lazy" '
+              + 'style="width:100%;height:100%;object-fit:cover">'
+            : '<svg aria-hidden="true" width="46" height="46" viewBox="0 0 24 24" fill="none" '
+              + 'stroke="#8A7C6A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">'
+              + '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 '
+              + '7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
+
+          var badge = photos.length > 1
+            ? '<span class="goods-badge">' + photos.length + ' фото</span>'
+            : '';
+
+          return '<a class="goods" href="app/?item=' + safe(it.id) + '" '
+            + 'style="display:block;color:inherit;text-decoration:none">'
+            + '<div class="goods-img">' + img + badge + '</div>'
+            + '<div class="goods-body">'
+            + '<div class="goods-price">' + money(it.daily_price) + ' <span>/ сутки</span></div>'
+            + '<div class="goods-name">' + safe(it.title) + '</div>'
+            + '<div class="goods-meta"><span>Пока нет отзывов</span>'
+            + '<span>депозит ' + money(it.deposit_amount) + '</span></div>'
+            + '</div></a>';
+        }).join('');
+
+        var note = document.querySelector('[data-shelf-note]');
+        if (note) {
+          note.textContent = 'Это не макет: три объявления выше пришли из той же базы, '
+            + 'что показывает приложение, и меняются вместе с каталогом. '
+            + 'Отзывов пока нет ни у одного — пилот идёт, сделки впереди.';
+        }
+      })
+      .catch(function () { clearTimeout(timer); });
+  })();
+</script>
+
 </body>
 </html>

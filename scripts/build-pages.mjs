@@ -16,6 +16,7 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readEnvFile } from './env.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DOCS = join(ROOT, 'docs');
@@ -78,7 +79,37 @@ for (const variant of VARIANTS) {
   mkdirSync(join(DOCS, variant.dir), { recursive: true });
   cpSync(join(ROOT, 'dist'), join(DOCS, variant.dir), { recursive: true });
 }
-cpSync(join(ROOT, 'landing', 'index.html'), join(DOCS, 'index.html'));
+// ── Лендинг: витрина берётся из базы ──────────────────────────
+//
+// В разметке лендинга полка заполняется скриптом, которому нужны адрес
+// проекта и публичный ключ. Подставляются они здесь, а не лежат в
+// index.html, по той же причине, по которой их не пишут в исходники
+// приложения: значения приходят из .env и меняются вместе с проектом.
+//
+// Ключ публичный по назначению — тот же, что уже лежит в бандле
+// приложения в этой же папке docs. Доступ ограничивает не он, а политики
+// базы: анонимный запрос видит ровно то, что видит человек в открытом
+// каталоге. Секретный ключ здесь появиться не может — он читается другой
+// функцией и в сборку не попадает.
+//
+// Нет .env — лендинг всё равно собирается: в разметке лежит запасная
+// полка с настоящими ценами и честным «Пока нет отзывов». Витрина не
+// исчезнет, просто перестанет обновляться сама.
+const publicUrl = readEnvFile('EXPO_PUBLIC_SUPABASE_URL');
+const publicKey = readEnvFile('EXPO_PUBLIC_SUPABASE_ANON_KEY');
+const pilotCity = readEnvFile('EXPO_PUBLIC_PILOT_CITY');
+
+let landing = readFileSync(join(ROOT, 'landing', 'index.html'), 'utf8');
+
+if (publicUrl && publicKey) {
+  const conf = JSON.stringify({ url: publicUrl, key: publicKey, city: pilotCity ?? 'Кокшетау' });
+  landing = landing.replace('</head>', `  <script>window.RENTHUB_PUBLIC=${conf};</script>
+  </head>`);
+} else {
+  console.log('  ! Нет EXPO_PUBLIC_SUPABASE_* — витрина лендинга останется запасной');
+}
+
+writeFileSync(join(DOCS, 'index.html'), landing);
 
 // Страницы схем публикуются отдельными адресами. На питче ссылку открыть
 // быстрее, чем искать картинку в переписке, а сами страницы самодостаточны:
