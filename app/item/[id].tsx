@@ -176,6 +176,8 @@ export default function ItemScreen() {
                   style={{ width: galleryWidth, height: galleryWidth * 0.68 }}
                   contentFit="cover"
                   transition={220}
+                  alt={`Фото ${i + 1} из ${item.condition_photos.length}: ${item.title}`}
+                  priority={i === 0 ? 'high' : 'normal'}
                 />
               </Pressable>
             ))}
@@ -414,6 +416,7 @@ export default function ItemScreen() {
                     style={s.similarPhoto}
                     contentFit="cover"
                     transition={180}
+                    alt={`Фото: ${other.title}`}
                   />
                 ) : (
                   <View style={[s.similarPhoto, s.similarPhotoEmpty]}>

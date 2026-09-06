@@ -120,6 +120,8 @@ npm run check                       всё разом: typecheck, бот, пит
 npm run check:bot                   имена, загрузка модуля, списки против базы
 npm run check:pitch                 сходятся ли числа деки между собой и с кодом
 npm run check:sql                   опасные операции в новых миграциях (Squawk)
+npm run check:secrets               ключи, случайно попавшие в репозиторий (secretlint)
+npm run check:links                 живые ли ссылки на сайте (linkinator, нужна сеть)
 landing/pitch.html?present=1        режим докладчика: таймер по регламенту, стрелки листают
 npm run pitch:deck                  оба файла деки: PDF и PPTX
 npm run pitch:pdf                   только раздатка в PDF

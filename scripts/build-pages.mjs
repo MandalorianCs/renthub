@@ -234,6 +234,25 @@ try {
 const BUILD_META = `
     <meta name="renthub-build" content="${BUILD_REF}" />`;
 
+/**
+ * Заблаговременное соединение с базой.
+ *
+ * Приложение открывается и сразу идёт за объявлениями и их фотографиями —
+ * оба запроса к одному домену Supabase. Пока браузер только начинает
+ * рукопожатие, витрина пустая: Lighthouse на живом сайте оценил эту паузу
+ * в 300 мс, а на мобильном интернете она заметно больше.
+ *
+ * Адрес читается из .env — того же, из которого он попадает в бандл. Нет
+ * его — подсказка просто не появится, сборка от этого не страдает.
+ */
+function supabaseHints() {
+  const url = readEnvFile('EXPO_PUBLIC_SUPABASE_URL');
+  if (!url) return '';
+
+  return `<link rel="preconnect" href="${url}" crossorigin />
+    <link rel="dns-prefetch" href="${url}" />`;
+}
+
 const APP_META = `${BUILD_META}
     <meta name="description" content="Витрина аренды строительного инструмента в Кокшетау: цена за сутки, депозит, календарь занятости." />
     <meta property="og:type" content="website" />
@@ -245,7 +264,8 @@ const APP_META = `${BUILD_META}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="RentHUB — аренда инструмента у соседей" />
     <meta name="twitter:description" content="Витрина аренды строительного инструмента в Кокшетау: цена за сутки, депозит, календарь занятости." />
-    <meta name="twitter:image" content="${SITE}assets/og.png" />`;
+    <meta name="twitter:image" content="${SITE}assets/og.png" />
+    ${supabaseHints()}`;
 
 // Теги вставляются во ВСЕ три оформления, а не только в основное.
 // Ссылку на вариант тоже пересылают — «посмотри, как стало», — и без

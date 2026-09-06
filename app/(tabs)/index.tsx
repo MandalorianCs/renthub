@@ -502,12 +502,17 @@ export default function Catalog() {
               }
             />
           }
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <ItemCard
               item={item}
               favorite={favorites.includes(item.id)}
               href={`/item/${item.id}`}
               onFavorite={() => flipFavorite(item.id)}
+              // Первый экран — четыре карточки: их фотографии и есть тот
+              // «самый крупный элемент», по которому браузер меряет
+              // скорость открытия. Остальные грузятся в обычном порядке,
+              // иначе приоритет теряет смысл.
+              priority={index < 4}
             />
           )}
           onScroll={onScroll}
@@ -554,11 +559,13 @@ function ItemCard({
   favorite,
   href,
   onFavorite,
+  priority = false,
 }: {
   item: ItemWithOwner;
   favorite: boolean;
   href: string;
   onFavorite: () => void;
+  priority?: boolean;
 }) {
   const photo = item.condition_photos[0];
 
@@ -583,6 +590,13 @@ function ItemCard({
             style={s.photo}
             contentFit="cover"
             transition={220}
+            // Подпись для скринридера и для тега alt на вебе. Без неё
+            // витрина читается как «изображение, изображение, 4 000 ₸».
+            alt={`Фото: ${item.title}`}
+            // Первые карточки грузятся первыми: на вебе именно они —
+            // самый крупный элемент экрана, и Lighthouse мерил по ним
+            // 8,3 секунды, пока они ждали своей очереди.
+            priority={priority ? 'high' : 'normal'}
             // Без этого при прокрутке сетки на месте нового фото на миг
             // остаётся предыдущее: FlatList переиспользует вью.
             recyclingKey={item.id}

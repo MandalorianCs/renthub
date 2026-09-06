@@ -51,6 +51,8 @@
     "check:errors": "node scripts/check-errors.mjs",
     "check:price": "node scripts/check-price.mjs",
     "check:sql": "node scripts/check-sql.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "check:links": "node scripts/check-links.mjs",
     "check:lint": "node scripts/check-lint.mjs",
     "health": "node scripts/health.mjs",
     "auth": "node scripts/auth.mjs",

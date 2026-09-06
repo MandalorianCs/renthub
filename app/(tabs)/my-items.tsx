@@ -272,6 +272,7 @@ export default function MyItems() {
                     style={[s.thumb, item.status === 'hidden' && { opacity: 0.45 }]}
                     contentFit="cover"
                     transition={180}
+                    alt={`Фото: ${item.title}`}
                   />
                 ) : (
                   <View style={[s.thumb, s.thumbEmpty]}>
