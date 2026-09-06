@@ -2154,6 +2154,74 @@ html[data-slide] .diagram-scroll { overflow: visible; }
       });
 
         document.documentElement.setAttribute('data-links', JSON.stringify(links));
+
+        // Текст слайда построчно — для невидимого слоя в PDF.
+        //
+        // Снимок текст не хранит, поэтому в раздатке не работали ни поиск,
+        // ни копирование, ни озвучка. Сборщик кладёт эти строки поверх
+        // картинки прозрачными — вид не меняется, а файл перестаёт быть
+        // немой картинкой.
+        //
+        // Обход именно текстовых узлов, а не элементов: у элемента может
+        // быть свой текст вперемешку с текстом потомков, и склеивать их
+        // значит получить строку, которой на слайде нет.
+        var lines = [];
+        var walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT, null);
+        var node;
+
+        while ((node = walker.nextNode())) {
+          var text = node.nodeValue;
+          if (!text || !text.trim()) continue;
+
+          // Внутри SVG у текста своя система координат; там строки берём
+          // целиком по элементу — getClientRects на его узлах врёт.
+          var host = node.parentElement;
+          if (!host || host.closest('[aria-hidden="true"]')) continue;
+
+          var style = getComputedStyle(host);
+          if (style.visibility === 'hidden' || style.display === 'none') continue;
+
+          var range = document.createRange();
+          range.selectNodeContents(node);
+
+          var rects = range.getClientRects();
+          if (!rects.length) continue;
+
+          // Одна строка текста = один прямоугольник. Если строк несколько,
+          // текст режется по ним пропорционально длине: точнее без
+          // посимвольного измерения не выйдет, а для поиска и выделения
+          // этого достаточно.
+          var whole = text.replace(/\s+/g, ' ').trim();
+          var total = 0;
+          var i;
+
+          for (i = 0; i < rects.length; i++) total += rects[i].width;
+          if (!total) continue;
+
+          var used = 0;
+
+          for (i = 0; i < rects.length; i++) {
+            var r = rects[i];
+            if (r.width < 2 || r.height < 2) continue;
+
+            var take = i === rects.length - 1
+              ? whole.length - used
+              : Math.round(whole.length * (r.width / total));
+
+            var part = whole.substr(used, take).trim();
+            used += take;
+            if (!part) continue;
+
+            lines.push({
+              s: part,
+              x: Math.round(r.left), y: Math.round(r.top),
+              w: Math.round(r.width), t: Math.round(r.height),
+              f: Math.round(parseFloat(style.fontSize) || 14),
+            });
+          }
+        }
+
+        document.documentElement.setAttribute('data-text', JSON.stringify(lines));
         // Размер вьюпорта — сборщику PDF, и это не отладка.
         //
         // Страница видит вьюпорт меньше, чем кадр снимка: при

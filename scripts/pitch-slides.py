@@ -220,10 +220,10 @@ def shoot(browser, tmp, n):
         time.sleep(0.3)
 
     if not shot.exists():
-        return None, [], None
+        return None, [], [], None
 
-    links, viewport = read_links(done.stdout.decode("utf-8", "replace"))
-    return shot, links, viewport
+    links, lines, viewport = read_links(done.stdout.decode("utf-8", "replace"))
+    return shot, links, lines, viewport
 
 
 def read_links(dom):
@@ -234,14 +234,17 @@ def read_links(dom):
     нет атрибута или он не разбирается — возвращаем пусто и идём дальше, а
     слайд остаётся картинкой, как и был.
     """
-    match = re.search(r'data-links="([^"]*)"', dom)
-    if not match:
-        return [], None
+    def attr(name):
+        found = re.search(r'data-' + name + r'="([^"]*)"', dom)
+        if not found:
+            return []
+        try:
+            return json.loads(html_mod.unescape(found.group(1)))
+        except (ValueError, TypeError):
+            return []
 
-    try:
-        links = json.loads(html_mod.unescape(match.group(1)))
-    except (ValueError, TypeError):
-        return [], None
+    links = attr("links")
+    lines = attr("text")
 
     # Вьюпорт страницы. Он МЕНЬШЕ кадра снимка: рамка окна съедает по
     # 24 пикселя вширь и 92 ввысь, а --screenshot отдаёт окно целиком.
@@ -252,7 +255,7 @@ def read_links(dom):
     if vp_match:
         viewport = (int(vp_match.group(1)), int(vp_match.group(2)))
 
-    return links, viewport
+    return links, lines, viewport
 
 
 # Ширина картинки внутри PDF. Снимок делается в 1920 — это ширина, под
@@ -267,6 +270,14 @@ PDF_IMAGE_W = 1600
 # слайд. Значение сверяется с самой декой при сборке — если разойдётся,
 # скрипт скажет об этом вслух, а не подставит молча чужой адрес.
 PUBLIC_SITE = "https://mandaloriancs.github.io/renthub/"
+
+# Шрифт для невидимого текстового слоя.
+#
+# Встроенные шрифты PDF кириллицы не знают: слой из них дал бы поиск,
+# который не находит «перфоратор». Manrope уже лежит в зависимостях —
+# им набрана сама дека, и в файл уходит только использованное
+# подмножество, около 60 КБ.
+TEXT_FONT = ROOT / "node_modules" / "@expo-google-fonts" / "manrope" / "400Regular" / "Manrope_400Regular.ttf"
 
 # Качество JPEG. 92 при отключённом субсэмплинге (4:4:4) — проверено на
 # самой мелкой строке деки: увеличенный вдвое кроп неотличим от PNG.
@@ -351,7 +362,7 @@ def build_pdf(shots):
     k = PAGE_W / SHOT_W
     anchors = slide_anchors()
 
-    for _, path, _links, _vp in shots:
+    for _, path, _links, _lines, _vp in shots:
         page = doc.new_page(width=PAGE_W, height=PAGE_H)
         page.insert_image(fitz.Rect(0, 0, PAGE_W, PAGE_H), stream=squeeze(path))
 
@@ -362,13 +373,48 @@ def build_pdf(shots):
     # уже работает» ведёт на пятнадцатую страницу, а её в тот момент не
     # существует. Ошибки нет, ссылки тоже — поймано сверкой готового файла,
     # а не выводом сборки.
-    for index, (_, _path, links, viewport) in enumerate(shots):
+    font = "manrope" if TEXT_FONT.exists() else None
+    if not font:
+        print(f"  ! нет {TEXT_FONT.name} — в PDF не будет поиска по тексту")
+
+    for index, (_, _path, links, lines, viewport) in enumerate(shots):
         page = doc[index]
 
         # Страница мерила себя в своём вьюпорте, снимок сделан в кадре
         # побольше. Слайд центрирован — значит разница легла поровну.
         dx = (SHOT_W - viewport[0]) / 2 if viewport else 0
         dy = (SHOT_H - viewport[1]) / 2 if viewport else 0
+
+        # Невидимый текстовый слой.
+        #
+        # Страница остаётся картинкой — рисуется она снимком. Поверх
+        # ложится тот же текст режимом «не рисовать» (render_mode 3):
+        # его не видно, но он ищется, выделяется и копируется, а
+        # скринридер его читает. Раздатка перестаёт быть немой.
+        #
+        # Строки берутся из деки как есть, поэтому слой всегда совпадает
+        # с картинкой: оба сняты с одной страницы в один заход.
+        for line in lines if font else []:
+            text = line.get("s") or ""
+            if not text.strip():
+                continue
+
+            size = max(4.0, line["f"] * k)
+            # Базовая линия примерно на четверти высоты снизу — точнее без
+            # метрик шрифта не выйдет, а для выделения этого хватает.
+            point = fitz.Point((line["x"] + dx) * k, (line["y"] + dy + line["t"] * 0.78) * k)
+
+            try:
+                page.insert_text(
+                    point,
+                    text,
+                    fontname=font,
+                    fontfile=str(TEXT_FONT),
+                    fontsize=size,
+                    render_mode=3,
+                )
+            except Exception:  # noqa: BLE001 — строка со странным символом не повод падать
+                continue
 
         for link in links:
             box = fitz.Rect(
@@ -454,7 +500,7 @@ def build_pptx(shots):
     deck.slide_height = Inches(7.5)
     blank = deck.slide_layouts[6]
 
-    for _, path, _links, _vp in shots:
+    for _, path, _links, _lines, _vp in shots:
         slide = deck.slides.add_slide(blank)
         slide.shapes.add_picture(
             str(path), 0, 0, width=deck.slide_width, height=deck.slide_height
@@ -489,7 +535,7 @@ def main(argv):
         with tempfile.TemporaryDirectory() as tmp:
             shots = []
             for n in range(1, total + 1):
-                shot, links, viewport = shoot(browser, tmp, n)
+                shot, links, lines, viewport = shoot(browser, tmp, n)
                 if not shot:
                     print(f"\n✗ Слайд {n} не снялся.\n")
                     return 1
@@ -498,7 +544,7 @@ def main(argv):
                     print("  Запустите сборку ещё раз.\n")
                     return 1
 
-                shots.append((n, shot, links, viewport))
+                shots.append((n, shot, links, lines, viewport))
                 note = f", ссылок {len(links)}" if links else ""
                 print(f"  снят слайд {n:2d} — {round(shot.stat().st_size / 1024)} КБ{note}")
 
