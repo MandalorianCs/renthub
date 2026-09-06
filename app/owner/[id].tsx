@@ -11,6 +11,7 @@ import {
   fetchPublicProfile,
   fetchReviewsAbout,
 } from '../../src/lib/api';
+import { categoryIcon } from '../../src/lib/category-icon';
 import { formatDate, formatRating, formatTenge, plural } from '../../src/lib/format';
 import { humanizeError } from '../../src/lib/supabase';
 import type { Item, PublicProfile, ReviewWithAuthor } from '../../src/lib/types';
@@ -184,7 +185,7 @@ export default function OwnerProfile() {
                 />
               ) : (
                 <View style={[s.thumb, s.thumbEmpty]}>
-                  <Ionicons name="image-outline" size={18} color={colors.textMuted} />
+                  <Ionicons name={categoryIcon(item.category)} size={20} color={colors.textMuted} />
                 </View>
               )}
               <View style={{ flex: 1, gap: 2 }}>

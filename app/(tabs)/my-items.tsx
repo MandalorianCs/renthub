@@ -11,6 +11,7 @@ import {
   markNotificationsRead,
   setItemStatus,
 } from '../../src/lib/api';
+import { categoryIcon } from '../../src/lib/category-icon';
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, formatDate, formatDateRange, formatTenge, plural } from '../../src/lib/format';
 import { shareItem } from '../../src/lib/share';
@@ -274,7 +275,7 @@ export default function MyItems() {
                   />
                 ) : (
                   <View style={[s.thumb, s.thumbEmpty]}>
-                    <Ionicons name="image-outline" size={18} color={colors.textMuted} />
+                    <Ionicons name={categoryIcon(item.category)} size={20} color={colors.textMuted} />
                   </View>
                 )}
 

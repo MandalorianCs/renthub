@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { CatalogSkeleton } from '../../src/components/Skeleton';
 import { Empty, ErrorState, ScreenHead, SignedInNote, tap } from '../../src/components/ui';
+import { categoryIcon } from '../../src/lib/category-icon';
 import type { CatalogSort } from '../../src/lib/api';
 import { fetchCatalog, fetchCategories, fetchFavoriteIds, toggleFavorite } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
@@ -588,7 +589,7 @@ function ItemCard({
           />
         ) : (
           <View style={[s.photo, s.photoEmpty]}>
-            <Ionicons name="image-outline" size={26} color={colors.textMuted} />
+            <Ionicons name={categoryIcon(item.category)} size={30} color={colors.textMuted} />
           </View>
         )}
 

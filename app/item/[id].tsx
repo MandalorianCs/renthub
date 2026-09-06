@@ -22,6 +22,7 @@ import {
   fetchItemCalendar,
   fetchSimilarItems,
 } from '../../src/lib/api';
+import { categoryIcon } from '../../src/lib/category-icon';
 import { useAuth } from '../../src/lib/auth';
 import { rememberRoute } from '../../src/lib/returnTo';
 import { formatDateRange, formatTenge, plural, ratingLabel } from '../../src/lib/format';
@@ -416,7 +417,7 @@ export default function ItemScreen() {
                   />
                 ) : (
                   <View style={[s.similarPhoto, s.similarPhotoEmpty]}>
-                    <Ionicons name="image-outline" size={20} color={colors.textMuted} />
+                    <Ionicons name={categoryIcon(other.category)} size={22} color={colors.textMuted} />
                   </View>
                 )}
                 <Text style={s.similarPrice}>{formatTenge(other.daily_price)}</Text>
