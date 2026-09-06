@@ -132,6 +132,14 @@ export function ItemForm({
   }, []);
 
   const price = Number(dailyPrice) || 0;
+
+  // Доход с одной сдачи считается по трём суткам, а не по одним.
+  //
+  // Инструмент так и берут: перфоратор нужен на выходные, а не на час.
+  // Годовой расчёт по суткам занижал бы результат втрое — и отговаривал
+  // бы владельца ровно так же, как завышенный обманывал бы.
+  const perDay = price - Math.round((price * COMMISSION_PCT) / 100);
+  const perRent = perDay * 3;
   /**
    * Подсказки показываются, пока поле в фокусе, и гаснут после выбора.
    *
@@ -312,14 +320,42 @@ export function ItemForm({
         {price > 0 ? (
           <View style={s.payout}>
             <Text style={s.payoutLabel}>Вы получите за сутки</Text>
-            <Text style={s.payoutValue}>
-              {formatTenge(price - Math.round((price * COMMISSION_PCT) / 100))}
-            </Text>
+            <Text style={s.payoutValue}>{formatTenge(perDay)}</Text>
             <Text style={s.payoutNote}>комиссия платформы {COMMISSION_PCT}%</Text>
-            <Text style={s.payoutDays}>
-              за трое суток —{' '}
-              {formatTenge((price - Math.round((price * COMMISSION_PCT) / 100)) * 3)}
-            </Text>
+            <Text style={s.payoutDays}>за трое суток — {formatTenge(perRent)}</Text>
+
+            {/*
+              Сколько это за год.
+
+              «Вы получите за сутки» — правда, но не ответ на вопрос
+              владельца. Его вопрос: стоит ли возиться. Ответ на него —
+              годовая сумма, и она у каждого своя: кто-то сдаст раз в
+              месяц, кто-то каждую неделю. Поэтому три строки вместо одной
+              усреднённой: пусть выберет свою.
+
+              Считается только из его цены и нашей комиссии. Никакого
+              предполагаемого спроса: выдуманная частота сдач превратила бы
+              честный расчёт в обещание, которого мы не можем сдержать.
+            */}
+            <View style={s.yearBox}>
+              <Text style={s.yearTitle}>За год, если сдавать по три дня</Text>
+
+              {[
+                { label: 'раз в месяц', times: 12 },
+                { label: 'дважды в месяц', times: 24 },
+                { label: 'раз в неделю', times: 52 },
+              ].map((row) => (
+                <View key={row.times} style={s.yearRow}>
+                  <Text style={s.yearLabel}>{row.label}</Text>
+                  <Text style={s.yearValue}>{formatTenge(perRent * row.times)}</Text>
+                </View>
+              ))}
+
+              <Text style={s.yearNote}>
+                Считаем от вашей цены и комиссии — спрос не угадываем. Сколько
+                раз вещь уйдёт, зависит от вас и от города.
+              </Text>
+            </View>
           </View>
         ) : null}
       </View>
@@ -461,6 +497,36 @@ const s = StyleSheet.create({
   },
   payoutValue: { fontSize: 38, fontFamily: typeface[800], color: colors.green, letterSpacing: -1.2 },
   payoutNote: { fontSize: 11, fontFamily: typeface[400], color: colors.green, opacity: 0.8 },
+  // Годовая прикидка внутри той же зелёной карточки: она про те же
+  // деньги, просто в другом масштабе времени. Отдельным блоком рядом она
+  // читалась бы как чужой расчёт.
+  yearBox: {
+    alignSelf: 'stretch',
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(47,93,80,0.18)',
+    gap: 6,
+  },
+  yearTitle: {
+    fontSize: 11,
+    fontFamily: typeface[700],
+    color: colors.green,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  yearRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  yearLabel: { fontSize: 13, fontFamily: typeface[400], color: colors.green, opacity: 0.9 },
+  yearValue: { fontSize: 15, fontFamily: typeface[700], color: colors.green },
+  yearNote: {
+    fontSize: 11,
+    fontFamily: typeface[400],
+    color: colors.green,
+    opacity: 0.75,
+    marginTop: 4,
+    lineHeight: 15,
+  },
   payoutDays: {
     fontSize: 13,
     fontFamily: typeface[600],
