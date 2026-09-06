@@ -477,6 +477,28 @@ def build_pdf(shots):
         # Молча отдать PDF без оглавления хуже: пропажу заметят на защите.
         print(f"  ! заголовков {len(titles)}, слайдов {len(shots)} — оглавление пропущено")
 
+    # Как файл откроется у судьи.
+    #
+    # По умолчанию просмотрщик показывает раздатку лентой с прокруткой и
+    # прячет оглавление — то есть ровно так, как её листать неудобно.
+    # Четыре ключа в каталоге это меняют:
+    #
+    #   PageLayout /SinglePage — одна страница на экран, как слайды;
+    #   PageMode /UseOutlines  — оглавление сразу открыто сбоку;
+    #   OpenAction … /Fit      — первый слайд вписан в окно целиком;
+    #   Lang (ru-RU)           — язык документа, его читает скринридер.
+    #
+    # Ключи необязательные: просмотрщик вправе их игнорировать, и ни один
+    # из них ничего не ломает, если проигнорирован.
+    try:
+        catalog = doc.pdf_catalog()
+        doc.xref_set_key(catalog, "PageLayout", "/SinglePage")
+        doc.xref_set_key(catalog, "PageMode", "/UseOutlines")
+        doc.xref_set_key(catalog, "Lang", "(ru-RU)")
+        doc.xref_set_key(catalog, "OpenAction", f"<</Type/Action/S/GoTo/D[{doc[0].xref} 0 R /Fit]>>")
+    except Exception as err:  # noqa: BLE001 — настройки показа не стоят упавшей сборки
+        print(f"  ! не удалось задать вид при открытии ({err})")
+
     doc.save(str(OUT_PDF), deflate=True, garbage=3)
     doc.close()
 
