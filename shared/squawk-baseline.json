@@ -1,0 +1,412 @@
+{
+  "комментарий": [
+    "Замечания линтера Squawk, принятые в уже применённых миграциях.",
+    "",
+    "Миграция — это история, а не код: шестьдесят файлов ниже уже",
+    "развёрнуты на живой базе, и переписать их нельзя. Их замечания",
+    "зафиксированы здесь, чтобы npm run check:sql падал только на новом.",
+    "",
+    "Почему эти замечания приняты. Все они про блокировки на больших",
+    "таблицах: индекс без concurrently, constraint без not valid,",
+    "отсутствующий lock_timeout. Пилот пуст — таблицы в сотни строк",
+    "блокируются на миллисекунды, и цена этих операций сейчас нулевая.",
+    "Но она перестанет быть нулевой после первой тысячи объявлений,",
+    "поэтому правило заведено сейчас: НОВЫЕ миграции обязаны быть",
+    "безопасными.",
+    "",
+    "Как добавлять сюда файл: только руками и только с причиной, почему",
+    "правило неприменимо. Молча принятое замечание ничем не отличается",
+    "от пропущенного."
+  ],
+  "принято": {
+    "20260816120000_schema.sql": {
+      "правила": {
+        "constraint-missing-not-valid": 1,
+        "prefer-bigint-over-int": 16,
+        "prefer-robust-stmts": 22,
+        "require-concurrent-index-creation": 12,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260816120100_trust_score.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260816120200_rls.sql": {
+      "правила": {
+        "prefer-robust-stmts": 9,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260816190000_item_busy_dates.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260816200000_favorites.sql": {
+      "правила": {
+        "prefer-robust-stmts": 3,
+        "require-concurrent-index-creation": 1,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260816210000_public_catalog.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260816220000_public_reviews.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260816230000_pilot_city_kokshetau.sql": {
+      "правила": {
+        "prefer-robust-stmts": 1,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260817100000_deadline_timezone.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260817110000_moderators.sql": {
+      "правила": {
+        "prefer-robust-stmts": 1,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260817120000_moderator_items.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260818100000_phone_format.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260819100000_telegram_link.sql": {
+      "правила": {
+        "disallowed-unique-constraint": 1,
+        "prefer-robust-stmts": 3,
+        "require-concurrent-index-creation": 1,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260819110000_my_profile_execute.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260821100000_moderation_overview.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260821110000_moderation_people.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260825100000_moderation_actions.sql": {
+      "правила": {
+        "prefer-robust-stmts": 3,
+        "require-concurrent-index-creation": 1,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260826100000_user_deals_count.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260828100000_bot_acts_as_user.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260828110000_item_create_rpc.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260828120000_block_hides_items.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260831100000_block_order.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260831110000_lock_cancel_amounts.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260901100000_pickup_area.sql": {
+      "правила": {
+        "prefer-robust-stmts": 1,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260901110000_booking_contact.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260901120000_bot_booking_contact.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260901130000_cancel_confirmed.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260901140000_photo_limit.sql": {
+      "правила": {
+        "constraint-missing-not-valid": 1,
+        "prefer-robust-stmts": 1,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260901150000_lock_profile_fields.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260901160000_notification_read_only.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260901170000_moderator_hold.sql": {
+      "правила": {
+        "prefer-robust-stmts": 3,
+        "require-concurrent-index-creation": 1,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260902090000_system_write_scope.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260902100000_item_status_rpc.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260902120000_join_requests.sql": {
+      "правила": {
+        "prefer-robust-stmts": 4,
+        "require-concurrent-index-creation": 2,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260902130000_join_request_linked.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260902140000_bot_profile.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260902150000_item_price.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260902160000_pending_reviews.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260902170000_people_signals.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260902180000_one_moderator_check.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260902190000_support.sql": {
+      "правила": {
+        "prefer-robust-stmts": 3,
+        "require-concurrent-index-creation": 1,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260903100000_anon_cannot_act_as_others.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260903110000_support_from_app.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260903120000_price_ceiling.sql": {
+      "правила": {
+        "constraint-missing-not-valid": 1,
+        "prefer-robust-stmts": 1,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260904100000_return_only_from_non_return.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260904110000_anon_cannot_move_deals.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260904120000_booking_not_found.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260904130000_moderator_user_not_found.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260904140000_platform_health.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260904150000_health_undeliverable.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260904160000_health_plural.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260905010000_search_path.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260905020000_constraint_names.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260905030000_constraint_names_exclude.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260905040000_rls_initplan.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260905050000_heartbeats.sql": {
+      "правила": {
+        "prefer-robust-stmts": 2,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260905190000_item_pickup_area_edit.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260906001000_item_description_edit.sql": {
+      "правила": {
+        "constraint-missing-not-valid": 1,
+        "prefer-robust-stmts": 1,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260906020000_anon_execute_narrow.sql": {
+      "правила": {
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    },
+    "20260906030000_fk_indexes.sql": {
+      "правила": {
+        "require-concurrent-index-creation": 6,
+        "require-lock-timeout": 1,
+        "require-statement-timeout": 1
+      }
+    }
+  }
+}
