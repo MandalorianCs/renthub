@@ -24,7 +24,17 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "RentHUB — аренда инструмента",
+      "shortName": "RentHUB",
+      "lang": "ru",
+      "description": "Аренда строительного инструмента у соседей в Кокшетау: цена за сутки, депозит, календарь занятости.",
+      "display": "standalone",
+      "orientation": "portrait",
+      "themeColor": "#AE5030",
+      "backgroundColor": "#FAF7F2",
+      "startUrl": "/renthub/app/",
+      "scope": "/renthub/app/"
     },
     "plugins": [
       "expo-router",

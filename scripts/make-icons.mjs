@@ -100,6 +100,21 @@ site_fav = draw_mark(32, CREAM, INK, TERRA, scale=0.62)
 site_fav.save(ROOT + "/landing/assets/favicon-32.png")
 out.append("landing/assets/favicon-32.png 32")
 
+# Иконки для установки с сайта (PWA): 192 и 512.
+#
+# Оба размера обязательны — Chrome без них не предложит «Установить», а
+# именно этим путём владелец в Кокшетау получает приложение: ссылка в
+# Telegram, два касания, иконка на экране. Ни магазина, ни аккаунта
+# Google, ни ожидания модерации.
+#
+# Знак нарисован мельче обычного (0.46 против 0.58): Android обрезает
+# иконку под круг или скруглённый квадрат, и всё, что ближе 10% к краю,
+# может уйти под обрезку.
+for size in (192, 512):
+    pwa = draw_mark(size, CREAM, INK, TERRA, scale=0.46)
+    pwa.save(ROOT + "/landing/assets/app-icon-%d.png" % size)
+    out.append("landing/assets/app-icon-%d.png %d" % (size, size))
+
 # apple-touch-icon: то, что iOS ставит на домашний экран. Без него берётся
 # скриншот страницы - для ярлыка это нечитаемо. Заливка обязательна:
 # прозрачность iOS не поддерживает и подставляет чёрный.
