@@ -521,9 +521,30 @@ if (secret) {
 }
 
 const claimed = find(pitch, /<div class="stat-v">(\d+)<\/div>/, 'число проверок стенда');
+
 console.log('\n── Стенд ──');
-console.log(`  ??  на слайде заявлено ${claimed} проверок`);
-console.log('      сверить: npm run test:db, посчитать строки «ok» в выводе');
+
+// Раньше здесь стояло «сверить вручную: npm run test:db» — подсказка,
+// которую нельзя выполнить без Docker и которую поэтому пролистывали.
+// Теперь стенд оставляет результат файлом, и сверка делается сама.
+const countPath = join(ROOT, 'shared', 'db-tests.json');
+
+if (!existsSync(countPath)) {
+  console.log(`  ??  на слайде заявлено ${claimed} проверок, а замера нет`);
+  console.log('      прогнать стенд: npm run test:db (нужен Docker)');
+  failed++;
+} else {
+  const measured = JSON.parse(readFileSync(countPath, 'utf8'));
+
+  if (measured.проверок !== claimed) {
+    console.log(`  ??  на слайде ${claimed} проверок, на стенде ${measured.проверок} (замер ${measured.прогон})`);
+    console.log('      это единственная цифра деки, которая растёт сама:');
+    console.log('      поправьте stat-v в landing/pitch.html и пересоберите деку');
+    failed++;
+  } else {
+    console.log(`  ok  ${claimed} проверок — столько же прошло на стенде ${measured.прогон}`);
+  }
+}
 
 console.log(
   failed === 0
