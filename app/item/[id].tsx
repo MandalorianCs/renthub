@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -176,8 +176,9 @@ export default function ItemScreen() {
                   style={{ width: galleryWidth, height: galleryWidth * 0.68 }}
                   contentFit="cover"
                   transition={220}
-                  alt={`Фото ${i + 1} из ${item.condition_photos.length}: ${item.title}`}
+                  accessibilityLabel={`Фото ${i + 1} из ${item.condition_photos.length}: ${item.title}`}
                   priority={i === 0 ? 'high' : 'normal'}
+                  loading={i === 0 ? 'eager' : 'lazy'}
                 />
               </Pressable>
             ))}
@@ -416,7 +417,7 @@ export default function ItemScreen() {
                     style={s.similarPhoto}
                     contentFit="cover"
                     transition={180}
-                    alt={`Фото: ${other.title}`}
+                    accessibilityLabel={`Фото: ${other.title}`}
                   />
                 ) : (
                   <View style={[s.similarPhoto, s.similarPhotoEmpty]}>

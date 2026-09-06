@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -182,7 +182,7 @@ export default function OwnerProfile() {
                   style={s.thumb}
                   contentFit="cover"
                   transition={180}
-                  alt={`Фото: ${item.title}`}
+                  accessibilityLabel={`Фото: ${item.title}`}
                 />
               ) : (
                 <View style={[s.thumb, s.thumbEmpty]}>

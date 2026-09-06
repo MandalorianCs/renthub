@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -592,11 +592,19 @@ function ItemCard({
             transition={220}
             // Подпись для скринридера и для тега alt на вебе. Без неё
             // витрина читается как «изображение, изображение, 4 000 ₸».
-            alt={`Фото: ${item.title}`}
+            accessibilityLabel={`Фото: ${item.title}`}
             // Первые карточки грузятся первыми: на вебе именно они —
             // самый крупный элемент экрана, и Lighthouse мерил по ним
             // 8,3 секунды, пока они ждали своей очереди.
             priority={priority ? 'high' : 'normal'}
+            // Первым карточкам — сразу, без ожидания прокрутки.
+            //
+            // expo-image по умолчанию ставит loading="lazy": браузер
+            // откладывает картинку, пока она не подойдёт к экрану. Для
+            // верхних карточек это ожидание пустое — они уже на экране, —
+            // а меряется по ним скорость открытия: Lighthouse показал
+            // 8,3 секунды до самого крупного элемента.
+            loading={priority ? 'eager' : 'lazy'}
             // Без этого при прокрутке сетки на месте нового фото на миг
             // остаётся предыдущее: FlatList переиспользует вью.
             recyclingKey={item.id}

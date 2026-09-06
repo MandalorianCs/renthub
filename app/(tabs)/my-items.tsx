@@ -17,7 +17,7 @@ import { BOOKING_STATUS, formatDate, formatDateRange, formatTenge, plural } from
 import { shareItem } from '../../src/lib/share';
 import { nextMove } from '../../src/lib/nextMove';
 import { humanizeError } from '../../src/lib/supabase';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { useRefresh } from '../../src/lib/useRefresh';
 import type { BookingWithItem, Item, Notification, Payout } from '../../src/lib/types';
@@ -272,7 +272,7 @@ export default function MyItems() {
                     style={[s.thumb, item.status === 'hidden' && { opacity: 0.45 }]}
                     contentFit="cover"
                     transition={180}
-                    alt={`Фото: ${item.title}`}
+                    accessibilityLabel={`Фото: ${item.title}`}
                   />
                 ) : (
                   <View style={[s.thumb, s.thumbEmpty]}>

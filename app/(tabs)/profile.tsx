@@ -5,7 +5,7 @@ import { Badge, Button, Card, ErrorState, Field, Row, ScreenHead, SignedInNote, 
 import { fetchMyBookings, fetchNotifications, updateProfile } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { BOOKING_STATUS, formatDateRange, ratingLabel } from '../../src/lib/format';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import { humanizeError, TELEGRAM_BOT, TELEGRAM_BOT_URL } from '../../src/lib/supabase';
 import { useRefresh } from '../../src/lib/useRefresh';

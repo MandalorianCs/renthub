@@ -3,7 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { BookingTimeline } from '../../src/components/BookingTimeline';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import { Badge, Button, Card, Empty, ErrorState, Field, Row, tap } from '../../src/components/ui';

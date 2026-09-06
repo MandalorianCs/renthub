@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Linking, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { ListSkeleton } from '../src/components/Skeleton';
 import { Empty, ErrorState } from '../src/components/ui';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { fetchNotifications, markNotificationsRead } from '../src/lib/api';
 import { useAuth } from '../src/lib/auth';
 import { formatDateTime } from '../src/lib/format';
