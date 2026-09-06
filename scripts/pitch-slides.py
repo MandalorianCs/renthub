@@ -125,7 +125,7 @@ def slide_titles():
     html = DECK.read_text(encoding="utf-8")
     out = []
 
-    for num, label, _span, head in re.findall(
+    for num, label, span, head in re.findall(
         r'<div class="slide-num"><b>(\d+)</b>\s*([^<]*?)\s*<span>(.*?)</span></div>\s*<h[12]>(.*?)</h[12]>',
         html,
         re.S,
@@ -133,7 +133,18 @@ def slide_titles():
         head = " ".join(re.sub(r"<[^>]+>", " ", head).split())
         if len(head) > 46:
             head = head[:45].rstrip(" ,—-") + "…"
-        out.append(f"{num}. {label.strip()} — {head}")
+
+        # Слайды-продолжения уходят вторым уровнем под свой слайд.
+        #
+        # Семь из двадцати одного — это вторые и третьи экраны одной мысли:
+        # «Рынок» и схема денег, юнит-экономика и бизнес-модель. Плоский
+        # список из двадцати одной строки, где «5. Рынок» встречается
+        # дважды, читается как ошибка нумерации. Вложенный показывает
+        # структуру доклада — и сворачивается до десяти пунктов.
+        if "продолжение" in span:
+            out.append((2, head))
+        else:
+            out.append((1, f"{num}. {label.strip()} — {head}"))
 
     return out
 
@@ -300,6 +311,31 @@ def squeeze(path):
         return path.read_bytes()
 
 
+def looks_blank(path):
+    """Снимок пустой? Тогда это не слайд, а несостоявшаяся отрисовка.
+
+    Браузер иногда отдаёт кадр раньше, чем нарисует страницу: получается
+    ровный фон нужного цвета, файл на месте, размер правдоподобный. В деке
+    это выглядит как потерянный слайд, и заметить его можно только глазами
+    — а смотрят раздатку в первый раз обычно судьи.
+
+    Считаем разброс яркости по сетке точек: у настоящего слайда есть
+    заголовок и текст, то есть тёмное на светлом. Порог низкий намеренно —
+    задача поймать белый лист, а не оценить композицию.
+    """
+    try:
+        from PIL import Image, ImageStat
+    except ImportError:
+        return False
+
+    try:
+        with Image.open(path) as img:
+            stat = ImageStat.Stat(img.convert("L").resize((160, 90)))
+            return stat.stddev[0] < 4
+    except Exception:  # noqa: BLE001 — проверка не должна ронять сборку
+        return False
+
+
 def build_pdf(shots):
     try:
         import fitz  # PyMuPDF
@@ -389,7 +425,7 @@ def build_pdf(shots):
     # Оглавление: один уровень, слайд = закладка.
     titles = slide_titles()
     if len(titles) == len(shots):
-        doc.set_toc([[1, titles[i], i + 1] for i in range(len(titles))])
+        doc.set_toc([[level, name, i + 1] for i, (level, name) in enumerate(titles)])
     else:
         # Разошлось — значит разметка деки изменилась, а разбор нет.
         # Молча отдать PDF без оглавления хуже: пропажу заметят на защите.
@@ -457,6 +493,11 @@ def main(argv):
                 if not shot:
                     print(f"\n✗ Слайд {n} не снялся.\n")
                     return 1
+                if looks_blank(shot):
+                    print(f"\n✗ Слайд {n} снялся пустым — браузер не успел его нарисовать.")
+                    print("  Запустите сборку ещё раз.\n")
+                    return 1
+
                 shots.append((n, shot, links, viewport))
                 note = f", ссылок {len(links)}" if links else ""
                 print(f"  снят слайд {n:2d} — {round(shot.stat().st_size / 1024)} КБ{note}")
