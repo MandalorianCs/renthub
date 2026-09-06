@@ -119,6 +119,7 @@ npm run queue                       очередь заявок на участ�
 npm run check                       всё разом: typecheck, бот, питч, ошибки
 npm run check:bot                   имена, загрузка модуля, списки против базы
 npm run check:pitch                 сходятся ли числа деки между собой и с кодом
+landing/pitch.html?present=1        режим докладчика: таймер по регламенту, стрелки листают
 npm run pitch:deck                  оба файла деки: PDF и PPTX
 npm run pitch:pdf                   только раздатка в PDF
 npm run pitch:pptx                  только презентация для проектора

@@ -297,6 +297,63 @@ for (const [label, file, command] of [
   }
 }
 
+// ── Эквиваленты в долларах ────────────────────────────────────
+//
+// Крупные суммы деки несут рядом пересчёт в доллары: жюри считает рынок
+// в них. Пересчёт делает npm run fx по курсу из shared/fx.json — и
+// именно поэтому его нужно проверять здесь.
+//
+// Курс живёт своей жизнью: сегодня 455 ₸ за доллар, через полгода
+// другой. Цифра «≈ $108 тыс.», посчитанная однажды и забытая, станет
+// такой же неправдой, как выдуманный рейтинг на лендинге, — только
+// незаметнее, потому что выглядит вычисленной.
+const fxPath = join(ROOT, 'shared', 'fx.json');
+
+console.log('\n── Эквиваленты в долларах ──');
+
+if (!existsSync(fxPath)) {
+  console.log('  ??  нет shared/fx.json — обновите курс: npm run fx');
+  failed++;
+} else {
+  const fx = JSON.parse(readFileSync(fxPath, 'utf8'));
+  const days = Math.round((Date.now() - Date.parse(fx.date)) / 86_400_000);
+
+  // Девяносто дней — не строгая граница, а срок, за который курс тенге
+  // успевает уйти настолько, что округление до тысяч перестаёт спасать.
+  if (days > 90) {
+    console.log(`  ??  курс от ${fx.date} — ${days} дней назад, обновите: npm run fx`);
+    failed++;
+  } else {
+    console.log(`  ok  курс свежий: 1 $ = ${fx.usd_kzt} ₸ от ${fx.date} (${days} дн. назад)`);
+  }
+
+  const marks = [...pitch.matchAll(/data-usd="(\d+)"[^>]*>([^<]*)</g)];
+
+  if (!marks.length) {
+    console.log('  ??  в деке нет ни одного эквивалента — а суммы в тенге есть');
+    failed++;
+  }
+
+  for (const [, tenge, shown] of marks) {
+    // Повторяем ту же формулу, что в scripts/fx.mjs: сумма в тенге делится
+    // на курс и округляется до тысяч или миллионов.
+    const value = Number(tenge) / fx.usd_kzt;
+    const want = value >= 1_000_000
+      ? `≈ $${(value / 1_000_000).toFixed(1).replace('.', ',')} млн`
+      : value >= 1000
+        ? `≈ $${Math.round(value / 1000)} тыс.`
+        : `≈ $${Math.round(value)}`;
+
+    if (shown.trim() !== want) {
+      console.log(`  ??  ${Number(tenge).toLocaleString('ru-RU')} ₸ показаны как «${shown.trim()}», а по курсу это «${want}»`);
+      console.log('      пересчитать: npm run fx');
+      failed++;
+    } else {
+      console.log(`  ok  ${Number(tenge).toLocaleString('ru-RU')} ₸ = ${want}`);
+    }
+  }
+}
+
 // ── Юнит-экономика ────────────────────────────────────────────
 //
 // Слайд не хранит ни одного собственного числа: всё выводится из чека и

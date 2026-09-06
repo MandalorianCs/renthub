@@ -508,6 +508,18 @@ h2 {
   padding: 0 .06em;
 }
 
+/* Долларовый эквивалент рядом с суммой в тенге.
+   Тоном тише основной цифры: это подсказка тем, кто считает рынок в
+   долларах, а не второе утверждение о деньгах. Значение пересчитывает
+   npm run fx по курсу из shared/fx.json — рукой такие числа устаревают
+   молча. */
+.usd {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: .92em;
+  white-space: nowrap;
+}
+
 /* Надзаголовок с линией: маленький текст в одиночестве теряется на большом
    экране, линия делает из него отбивку раздела. */
 .eyebrow { display: flex; align-items: center; gap: 12px; }
@@ -750,6 +762,43 @@ html[data-slide] *::before,
 html[data-slide] *::after {
   animation: none !important;
   transition: none !important;
+}
+
+/* ── Режим докладчика ─────────────────────────────────────────
+   Панель внизу экрана: где мы, сколько отведено блоку, сколько осталось
+   от трёх минут. Всё остальное — та же дека, что и в остальных режимах.
+
+   Панель намеренно тёмная и мелкая: на проекторе её видно докладчику с
+   ноутбука, а зал смотрит на слайд. Прятать её совсем нельзя — тогда
+   таймер придётся держать отдельным окном, а это лишнее движение на
+   защите.                                                            */
+html[data-present] .stage {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 20px;
+  background: rgba(26, 25, 23, 0.92);
+  color: #FAF7F2;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+html[data-present] .stage b { font-weight: 800; }
+html[data-present] .stage .grow { flex: 1; }
+html[data-present] .stage .over { color: #F0A08A; }
+html[data-present] .stage .hint { opacity: .55; font-weight: 500; }
+
+/* Полоса времени блока: заполняется, пока идёт отведённое время. */
+html[data-present] .stage-bar {
+  position: fixed;
+  left: 0; bottom: 0;
+  height: 3px;
+  background: var(--accent);
+  z-index: 61;
+  transition: width .3s linear;
 }
 
 /* ── Раздатка: страница = слайд ────────────────────────────────
@@ -1213,7 +1262,7 @@ html[data-slide] .diagram-scroll { overflow: visible; }
       <div class="tile">
         <h3>Годовой оборот пилота</h3>
         <p><strong>≈28 млн ₸</strong> оборота, из них <strong>≈5,6 млн ₸</strong> — выручка
-        платформы.</p>
+        платформы <span class="usd" data-usd="5600000">≈ $12 тыс.</span>.</p>
       </div>
     </div>
 
@@ -1235,7 +1284,8 @@ html[data-slide] .diagram-scroll { overflow: visible; }
       <div class="l">
         Верхняя граница той же арифметикой: 13 млн ÷ 3,3 человека на домохозяйство —
         это <strong>3,9 млн домохозяйств</strong>, при 0,3% проникновения и том же
-        чеке <strong>≈49 млн ₸</strong> выручки. Доля намеренно консервативна:
+        чеке <strong>≈49 млн ₸</strong> <span class="usd" data-usd="49000000">≈ $108 тыс.</span>
+        выручки. Доля намеренно консервативна:
         двусторонний маркетплейс раскачивается медленно.
       </div>
     </div>
@@ -2084,6 +2134,143 @@ html[data-slide] .diagram-scroll { overflow: visible; }
       // Страховка на случай, если о шрифтах никто не сообщит: без неё
       // слайд остался бы неизмеренным, а это хуже неточного замера.
       window.addEventListener('load', function () { setTimeout(function () { go(0); }, 600); });
+    }
+
+    // Режим докладчика: pitch.html?present=1.
+    //
+    // Приём подсмотрен у Bento (MIT): дека, которая носит презентер внутри
+    // себя, а не требует стороннего приложения. Нам это подходит по той же
+    // причине, по которой PDF печатается из этой же страницы, — один
+    // источник, который проверяется одной командой.
+    //
+    // Секунды берутся из самой разметки: они уже стоят в метке каждого
+    // слайда, и их же сверяет npm run check:pitch с регламентом ИНК.
+    // Второго списка таймингов в проекте не появляется.
+    if (/[?&]present=1/.test(location.search)) {
+      var sections = [].slice.call(document.querySelectorAll('section'));
+      var root = document.documentElement;
+
+      root.setAttribute('data-present', '1');
+      root.setAttribute('data-slide', '1');
+
+      // Сколько секунд отведено слайду.
+      //
+      // «· 30 секунд» — свой блок. «· часть из 40 секунд» — блок на
+      // несколько слайдов, и сорок секунд делятся между ними поровну.
+      // «продолжение» и «резерв» бюджета не тратят: первое — часть уже
+      // посчитанного блока, второе показывают на вопросах.
+      var budgets = sections.map(function (s) {
+        var mark = s.querySelector('.slide-num span');
+        var text = mark ? mark.textContent : '';
+        var shared = text.match(/часть из (\d+) секунд/);
+        var own = text.match(/(\d+) секунд/);
+
+        if (shared) return { seconds: Number(shared[1]), shared: shared[1] };
+        if (own && !/резерв/.test(text)) return { seconds: Number(own[1]), shared: null };
+        return { seconds: 0, shared: null };
+      });
+
+      // Блок, поделённый между слайдами, делим поровну — иначе сумма
+      // окажется вдвое больше регламента.
+      var groups = {};
+      budgets.forEach(function (b) {
+        if (b.shared) groups[b.shared] = (groups[b.shared] || 0) + 1;
+      });
+      budgets.forEach(function (b) {
+        if (b.shared) b.seconds = b.seconds / groups[b.shared];
+      });
+
+      var total = budgets.reduce(function (sum, b) { return sum + b.seconds; }, 0);
+
+      var stage = document.createElement('div');
+      stage.className = 'stage';
+      var bar = document.createElement('div');
+      bar.className = 'stage-bar';
+      document.body.appendChild(stage);
+      document.body.appendChild(bar);
+
+      var index = 0;
+      var startedAt = null;
+      var slideAt = null;
+
+      function fmt(sec) {
+        var s = Math.max(0, Math.round(sec));
+        return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+      }
+
+      function show(next) {
+        index = Math.max(0, Math.min(sections.length - 1, next));
+
+        sections.forEach(function (s) { s.removeAttribute('data-current'); });
+        var section = sections[index];
+        section.setAttribute('data-current', '1');
+        root.setAttribute('data-slide', String(index + 1));
+
+        // Подгон считаем на каждом переходе: слайды разной плотности, а
+        // масштаб живёт на элементе, а не в стилях.
+        fitSlide(section);
+        slideAt = performance.now();
+        draw();
+      }
+
+      function draw() {
+        var now = performance.now();
+        var budget = budgets[index].seconds;
+        var onSlide = slideAt ? (now - slideAt) / 1000 : 0;
+        var spent = startedAt ? (now - startedAt) / 1000 : 0;
+        var left = total - spent;
+
+        var block = budget
+          ? '<span class="' + (onSlide > budget ? 'over' : '') + '">блок ' + fmt(onSlide)
+            + ' из ' + fmt(budget) + '</span>'
+          : '<span class="hint">вне регламента</span>';
+
+        stage.innerHTML =
+          '<b>' + (index + 1) + ' / ' + sections.length + '</b>'
+          + block
+          + '<span class="grow"></span>'
+          + '<span class="' + (left < 0 ? 'over' : '') + '">осталось ' + fmt(Math.abs(left))
+          + (left < 0 ? ' сверх' : '') + '</span>'
+          + '<span class="hint">пробел — дальше, Esc — выход</span>';
+
+        bar.style.width = budget
+          ? Math.min(100, (onSlide / budget) * 100) + '%'
+          : '0%';
+      }
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+          e.preventDefault();
+          if (!startedAt) startedAt = performance.now();
+          show(index + 1);
+        } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+          e.preventDefault();
+          show(index - 1);
+        } else if (e.key === 'Escape') {
+          location.search = '';
+        } else if (e.key === 'r' || e.key === 'R' || e.key === 'к' || e.key === 'К') {
+          // Сброс времени: репетируют по многу раз, и перезагружать
+          // страницу ради нового прогона — лишнее движение.
+          startedAt = null;
+          slideAt = performance.now();
+          draw();
+        }
+      });
+
+      // Клик по слайду листает вперёд: на защите мышь под рукой чаще, чем
+      // клавиатура.
+      document.addEventListener('click', function (e) {
+        if (e.target.closest('a')) return;
+        if (!startedAt) startedAt = performance.now();
+        show(index + 1);
+      });
+
+      whenReady(function () {
+        show(0);
+        setInterval(draw, 250);
+      });
+
+      return;
     }
 
     // Раздатка: pitch.html?print=1 — каждая секция страницей 16:9.
