@@ -21,20 +21,15 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { missingSecretMessage, readEnvFile, readSecret } from './env.mjs';
+// Адрес учётной записи собирается по тому же правилу, что и в приложении.
+import { inviteEmail } from './phone.mjs';
 import { normalizePhone } from './phone.mjs';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/**
- * Телефон → внутренний адрес. Человек этого адреса не видит и не вводит:
- * на экране входа он набирает свой номер, а клиент собирает адрес по тому
- * же правилу. Правило обязано совпадать здесь и в src/lib/auth.tsx.
- */
-function inviteEmail(phone) {
-  return `${phone.replace(/\D/g, '')}@renthub.test`;
-}
+
 
 
 // Почта распознаётся по «@», а не по позиции: иначе порядок аргументов

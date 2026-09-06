@@ -19,13 +19,14 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Казахстанские номера: 8 705… и +7 705… — это один и тот же номер. */
-export function normalizePhone(input) {
-  const digits = String(input ?? '').replace(/\D/g, '');
-  if (digits.startsWith('8') && digits.length === 11) return `+7${digits.slice(1)}`;
-  if (digits.startsWith('7') && digits.length === 11) return `+${digits}`;
-  return `+${digits}`;
-}
+// Правило живёт в src/lib/phone.ts — там же, откуда его берёт
+// приложение. Здесь только реэкспорт: скрипты привыкли импортировать
+// «телефонное» отсюда, и менять полтора десятка импортов ради переезда
+// одной функции незачем.
+//
+// Копий в JavaScript-мире теперь ноль: раньше эта была четвёртой.
+export { inviteEmail, normalizePhone } from '../src/lib/phone.ts';
+
 
 const service = JSON.parse(readFileSync(join(ROOT, 'shared', 'service-accounts.json'), 'utf8'));
 

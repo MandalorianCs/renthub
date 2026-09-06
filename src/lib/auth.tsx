@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { fetchProfile } from './api';
+import { inviteEmail, normalizePhone } from './phone';
 import { Platform } from 'react-native';
 import { EMAIL_RETURN_URL, humanizeError, supabase } from './supabase';
 import type { User } from './types';
@@ -257,22 +258,7 @@ export function useAuth(): AuthState {
   return ctx;
 }
 
-/**
- * Телефон → внутренний адрес учётной записи.
- *
- * Правило продублировано в scripts/invite.mjs и обязано совпадать: скрипт
- * заводит аккаунт с этим адресом, клиент собирает его же из введённого
- * номера. Разойдутся — человек с верным паролем не сможет войти, и причину
- * будут искать в пароле.
- */
-export function inviteEmail(phone: string): string {
-  return `${phone.replace(/\D/g, '')}@renthub.test`;
-}
-
-/** Казахстанские номера: 8 705… и +7 705… — это один и тот же номер. */
-export function normalizePhone(input: string): string {
-  const digits = input.replace(/\D/g, '');
-  if (digits.startsWith('8') && digits.length === 11) return `+7${digits.slice(1)}`;
-  if (digits.startsWith('7') && digits.length === 11) return `+${digits}`;
-  return `+${digits}`;
-}
+// Реэкспорт для экранов: они знают auth как единственную дверь к входу, и
+// заставлять их помнить ещё и про phone.ts значило бы менять полтора
+// десятка импортов ради переезда двух функций.
+export { inviteEmail, normalizePhone };

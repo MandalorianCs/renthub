@@ -9,22 +9,26 @@ import { Platform } from 'react-native';
  * готовым UI-китом», — и запрет остаётся в силе.
  *
  * Меняется пластика: сколько воздуха между блоками, насколько круглые
- * карточки, есть ли под ними тень, насколько крупный текст. Это то, что
- * человек замечает раньше цвета и о чём говорит «выглядит дороже» или
- * «выглядит проще», не умея объяснить, что именно увидел.
+ * карточки, есть ли под ними тень. Это то, что человек замечает раньше
+ * цвета и о чём говорит «выглядит дороже» или «выглядит проще», не умея
+ * объяснить, что именно увидел.
  *
  *   warm  (по умолчанию)  то, что было: мягкие тени, средние скругления
  *   calm                  больше воздуха, крупнее скругления, тени почти
  *                         нет — граница вместо неё
  *   sharp                 плотнее и контрастнее: тонкие рамки, малые
- *                         скругления, крупные заголовки
+ *                         скругления
+ *
+ * Размеры шрифта варианты НЕ меняют, хотя раньше здесь лежала заготовка
+ * для этого. Она ни к чему не была подключена: экраны берут начертание из
+ * typeface и ставят кегль сами. Заготовка, о которой знает только
+ * комментарий, — это обещание, а не поведение; удалена вместе с ним.
  *
  * Собираются они в разные адреса — /app, /app2, /app3, — чтобы их можно
  * было открыть рядом и сравнить, а не помнить, как было вчера.
  */
 const VARIANT = (process.env.EXPO_PUBLIC_THEME ?? 'warm') as 'warm' | 'calm' | 'sharp';
 
-export const themeName = VARIANT;
 
 export const colors = {
   bg: '#FAF7F2',
@@ -182,37 +186,3 @@ export const typeface = {
   800: 'Manrope_800ExtraBold',
 } as const;
 
-/**
- * Размеры. Правило иерархии из DESIGN.md — «крупнее то, по чему
- * решают» — не меняется ни в одном варианте: меняется только разрыв
- * между уровнями.
- *
- * В sharp он больше: заголовок крупнее, подпись мельче, и экран читается
- * быстрее — взгляд цепляется за главное с большего расстояния. В calm
- * разрыв меньше, зато основной текст крупнее: его удобнее читать
- * подряд.
- */
-export const font =
-  VARIANT === 'calm'
-    ? ({
-        h1: { fontSize: 29, fontFamily: typeface[800] },
-        h2: { fontSize: 21, fontFamily: typeface[700] },
-        body: { fontSize: 16, fontFamily: typeface[400] },
-        small: { fontSize: 14, fontFamily: typeface[400] },
-        label: { fontSize: 12, fontFamily: typeface[600] },
-      } as const)
-    : VARIANT === 'sharp'
-      ? ({
-          h1: { fontSize: 32, fontFamily: typeface[800] },
-          h2: { fontSize: 21, fontFamily: typeface[800] },
-          body: { fontSize: 15, fontFamily: typeface[400] },
-          small: { fontSize: 12, fontFamily: typeface[400] },
-          label: { fontSize: 11, fontFamily: typeface[700] },
-        } as const)
-      : ({
-          h1: { fontSize: 28, fontFamily: typeface[800] },
-          h2: { fontSize: 20, fontFamily: typeface[700] },
-          body: { fontSize: 15, fontFamily: typeface[400] },
-          small: { fontSize: 13, fontFamily: typeface[400] },
-          label: { fontSize: 12, fontFamily: typeface[600] },
-        } as const);

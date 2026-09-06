@@ -206,13 +206,16 @@ def phone_answers_js(path, first_line, name):
         os.unlink(probe.name)
 
 
+# Языков теперь два, а не три.
+#
+# Правило про телефоны жило четырьмя копиями: bot.py, scripts/phone.mjs,
+# src/lib/auth.tsx и scripts/invite.mjs. Копии в JavaScript сведены в одну —
+# src/lib/phone.ts, — и остальные её читают. Сверять осталось то, что
+# свести нельзя: Python бота против TypeScript приложения.
 RULES = {
     "bot/bot.py": phone_answers_python(),
-    "scripts/phone.mjs": phone_answers_js(
-        ROOT / "scripts" / "phone.mjs", "export function normalizePhone", "normalizePhone"
-    ),
-    "src/lib/auth.tsx": phone_answers_js(
-        ROOT / "src" / "lib" / "auth.tsx", "export function normalizePhone", "normalizePhone"
+    "src/lib/phone.ts": phone_answers_js(
+        ROOT / "src" / "lib" / "phone.ts", "export function normalizePhone", "normalizePhone"
     ),
 }
 
@@ -235,7 +238,7 @@ else:
         print("  Человек с верным номером не найдёт свой аккаунт, и причину")
         print("  будут искать в Telegram, где её нет.")
     else:
-        print(f"✓ normalize_phone одинаков в трёх языках ({len(PHONE_CASES)} номеров)")
+        print(f"✓ normalize_phone одинаков в двух языках ({len(PHONE_CASES)} номеров)")
 
 
 # ── Имена, которых нет ───────────────────────────────────────
