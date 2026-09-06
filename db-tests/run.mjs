@@ -95,17 +95,35 @@ const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 
 //
 // Поэтому признак готовности другой: настоящий SELECT, выполненный до
 // конца. Обрыв на нём — не ошибка, а «ещё не готова»: пробуем снова.
+//
+// И этого оказалось мало. 07.09.2026 прогон упал снова, но иначе:
+// «connection to server on socket … failed: No such file or directory»,
+// 0,1 секунды. Разница существенная — в прошлый раз соединение рвалось на
+// запросе, теперь сокета не было вовсе. Наш SELECT прошёл на ВРЕМЕННОМ
+// сервере initdb, а следующий шаг пришёл в промежуток между «временный
+// погасили» и «настоящий подняли».
+//
+// Признаков теперь два, и оба обязательны: initdb сообщил о завершении, и
+// запрос отвечает.
 let ready = false;
 for (let i = 0; i < 60; i++) {
-  const probe = docker([
-    'exec', '-e', 'PGPASSWORD=postgres', CONTAINER,
-    'psql', '-U', 'postgres', '-d', 'postgres', '-tAc', 'select 1',
-  ]);
+  const logs = docker(['logs', CONTAINER]);
+  const initDone = `${logs.stdout ?? ''}${logs.stderr ?? ''}`.includes(
+    'PostgreSQL init process complete',
+  );
 
-  if (probe.status === 0 && (probe.stdout ?? '').trim() === '1') {
-    ready = true;
-    break;
+  if (initDone) {
+    const probe = docker([
+      'exec', '-e', 'PGPASSWORD=postgres', CONTAINER,
+      'psql', '-U', 'postgres', '-d', 'postgres', '-tAc', 'select 1',
+    ]);
+
+    if (probe.status === 0 && (probe.stdout ?? '').trim() === '1') {
+      ready = true;
+      break;
+    }
   }
+
   sleep(1000);
 }
 if (!ready) {
