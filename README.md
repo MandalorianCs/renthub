@@ -248,7 +248,7 @@ npm run queue                                  # кто оставил заяв�
 npm run check                                  # всё разом, перед пушем
 npm run check:bot                              # два имени в боте и списки статусов против базы
 npm run check:pitch                            # сходятся ли числа деки между собой и с кодом
-npm run pitch:pdf                              # дека файлом для судей
+npm run pitch:deck                             # дека файлами: PDF судьям, PPTX на проектор
 npm run health                                 # живо ли то, что обещано словами
 npm run auth                                   # адрес возврата и срок жизни кода входа
 npm run nudge                                  # кому написать про Telegram и каким текстом

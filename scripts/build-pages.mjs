@@ -106,11 +106,20 @@ cpSync(join(ROOT, 'landing', 'pitch.html'), join(DOCS, 'pitch', 'index.html'));
 // Если файла нет, сборка не падает: PDF производный, и его отсутствие
 // не повод не публиковать сайт. Молча пропустить тоже нельзя — скажем
 // об этом строкой, иначе судьи получат ссылку на 404.
-const pitchPdf = join(ROOT, 'landing', 'RentHUB-pitch.pdf');
-if (existsSync(pitchPdf)) {
-  cpSync(pitchPdf, join(DOCS, 'pitch', 'RentHUB-pitch.pdf'));
-} else {
-  console.log('  ! PDF деки не найден — соберите: npm run pitch:pdf');
+// Презентация выкладывается рядом с раздаткой по той же причине, по
+// которой вообще существует: организатор просит именно PPTX, и просит
+// обычно за час до защиты. Оба файла собираются одной командой из одних
+// снимков — npm run pitch:deck.
+for (const [file, command] of [
+  ['RentHUB-pitch.pdf', 'npm run pitch:pdf'],
+  ['RentHUB-pitch.pptx', 'npm run pitch:pptx'],
+]) {
+  const src = join(ROOT, 'landing', file);
+  if (existsSync(src)) {
+    cpSync(src, join(DOCS, 'pitch', file));
+  } else {
+    console.log(`  ! ${file} не найден — соберите: ${command}`);
+  }
 }
 
 // robots.txt и sitemap.xml.

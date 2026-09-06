@@ -119,8 +119,9 @@ npm run queue                       очередь заявок на участ�
 npm run check                       всё разом: typecheck, бот, питч, ошибки
 npm run check:bot                   имена, загрузка модуля, списки против базы
 npm run check:pitch                 сходятся ли числа деки между собой и с кодом
-npm run pitch:pdf                   дека раздаткой в PDF
-npm run pitch:pptx                  дека презентацией для проектора
+npm run pitch:deck                  оба файла деки: PDF и PPTX
+npm run pitch:pdf                   только раздатка в PDF
+npm run pitch:pptx                  только презентация для проектора
                                     (13 слайдов 16:9, слайды — картинки)
 npm run health                      планировщик, бот, витрина, участники, почта,
                                     публикация, зелёные ли проверки в CI
