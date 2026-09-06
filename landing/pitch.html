@@ -1890,7 +1890,21 @@ html[data-slide] .diagram-scroll { overflow: visible; }
   страница остаётся полностью читаемой, просто без анимаций.
 */
 (function () {
-  var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Анимации выключены, если человек просил покоя — или если страницу
+  // снимают.
+  //
+  // Второе условие добавлено 06.09.2026 и стоило неверных цифр в готовой
+  // раздатке. Числа в полосе экономики «набегают» за 900 мс, и в обычном
+  // браузере это незаметно. В headless кадры выдаёт композитор, которого
+  // при съёмке может не быть: анимация застревает на середине, и в PDF
+  // уезжает «436 ₸» вместо «2 100 ₸» — цифра, которой нет ни в разметке,
+  // ни в расчётах, и которую проверка деки не поймает, потому что она
+  // сверяет разметку.
+  //
+  // Снимку анимации не нужны в принципе: он показывает конечное
+  // состояние слайда.
+  var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    || /[?&](slide|print)=/.test(location.search);
 
   // ── Появление блоков при прокрутке ──────────────────────
   var targets = document.querySelectorAll(
@@ -2187,38 +2201,68 @@ html[data-slide] .diagram-scroll { overflow: visible; }
           var rects = range.getClientRects();
           if (!rects.length) continue;
 
-          // Одна строка текста = один прямоугольник. Если строк несколько,
-          // текст режется по ним пропорционально длине: точнее без
-          // посимвольного измерения не выйдет, а для поиска и выделения
-          // этого достаточно.
-          var whole = text.replace(/\s+/g, ' ').trim();
-          var total = 0;
+          var size = Math.round(parseFloat(style.fontSize) || 14);
+
+          // Одна строка = один прямоугольник. Где именно она обрывается,
+          // определяем по факту: идём по символам и смотрим, когда
+          // изменится вертикаль. Делить длину пропорционально ширине
+          // строк дешевле, но тогда выделение съезжает — последние слова
+          // первой строки оказываются во второй.
+          if (rects.length === 1) {
+            var one = rects[0];
+            if (one.width >= 2 && one.height >= 2) {
+              lines.push({
+                s: text.replace(/\s+/g, ' ').trim(),
+                x: Math.round(one.left), y: Math.round(one.top),
+                w: Math.round(one.width), t: Math.round(one.height),
+                f: size,
+              });
+            }
+            continue;
+          }
+
+          var probe = document.createRange();
+          var from = 0;
+          var lineTop = null;
           var i;
 
-          for (i = 0; i < rects.length; i++) total += rects[i].width;
-          if (!total) continue;
+          var flush = function (to) {
+            var part = text.slice(from, to).replace(/\s+/g, ' ').trim();
+            if (!part) { from = to; return; }
 
-          var used = 0;
-
-          for (i = 0; i < rects.length; i++) {
-            var r = rects[i];
-            if (r.width < 2 || r.height < 2) continue;
-
-            var take = i === rects.length - 1
-              ? whole.length - used
-              : Math.round(whole.length * (r.width / total));
-
-            var part = whole.substr(used, take).trim();
-            used += take;
-            if (!part) continue;
+            // Меряем ровно тот кусок, что уходит в слой: границы берём до
+            // сдвига from, иначе прямоугольник придёт от чужих символов.
+            probe.setStart(node, from);
+            probe.setEnd(node, to);
+            var box = probe.getBoundingClientRect();
+            from = to;
+            if (box.width < 2 || box.height < 2) return;
 
             lines.push({
               s: part,
-              x: Math.round(r.left), y: Math.round(r.top),
-              w: Math.round(r.width), t: Math.round(r.height),
-              f: Math.round(parseFloat(style.fontSize) || 14),
+              x: Math.round(box.left), y: Math.round(box.top),
+              w: Math.round(box.width), t: Math.round(box.height),
+              f: size,
             });
+          };
+
+          for (i = 0; i < text.length; i++) {
+            probe.setStart(node, i);
+            probe.setEnd(node, i + 1);
+            var box = probe.getBoundingClientRect();
+            if (!box.height) continue;
+
+            var top = Math.round(box.top);
+            if (lineTop === null) {
+              lineTop = top;
+            } else if (Math.abs(top - lineTop) > 2) {
+              // Символ уехал на другую вертикаль — строка кончилась.
+              flush(i);
+              lineTop = top;
+            }
           }
+
+          flush(text.length);
         }
 
         document.documentElement.setAttribute('data-text', JSON.stringify(lines));

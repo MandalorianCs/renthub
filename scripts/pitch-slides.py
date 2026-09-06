@@ -502,10 +502,58 @@ def build_pdf(shots):
     doc.save(str(OUT_PDF), deflate=True, garbage=3)
     doc.close()
 
+    if not numbers_survived():
+        return False
+
     # Отпечаток исходника рядом с файлом: по нему npm run check:pitch
     # понимает, не отстала ли раздатка от деки. Сравнение по времени
     # файлов не работает — git времени не хранит.
     Path(str(OUT_PDF) + ".sha").write_text(f"{deck_fingerprint()}\n", encoding="utf-8")
+    return True
+
+
+def numbers_survived():
+    """Главные цифры деки должны найтись в готовом файле.
+
+    Проверка появилась после дорогой ошибки. Числа в полосе экономики
+    «набегают» анимацией за 900 мс; в headless кадры выдаёт композитор,
+    которого при съёмке может не быть, и анимация застревает на середине.
+    В раздатку уехало «436 ₸» вместо «2 100 ₸» — цифра, которой нет ни в
+    разметке, ни в расчётах.
+
+    Ни одна прежняя проверка этого не ловила: npm run check:pitch сверяет
+    разметку, а разметка была верной. Врал снимок. Теперь сверяется то,
+    что реально попало в файл, — благо текстовый слой это позволяет.
+
+    Сверяются значения полосы (.stat-v): это выводы слайдов о деньгах, и
+    именно их трогает анимация.
+    """
+    try:
+        import fitz
+    except ImportError:
+        return True
+
+    html = DECK.read_text(encoding="utf-8")
+    wanted = re.findall(r'<div class="stat-v">([^<]+)</div>', html)
+    if not wanted:
+        return True
+
+    doc = fitz.open(str(OUT_PDF))
+    text = " ".join(doc[i].get_text() for i in range(doc.page_count))
+    doc.close()
+
+    # Пробел внутри числа бывает неразрывным, а знак тенге в слое может и
+    # не встретиться: сверяем сами цифры.
+    only_digits = lambda value: re.sub(r"[^0-9]", "", value)
+    haystack = only_digits(text)
+
+    missing = [v.strip() for v in wanted if only_digits(v) and only_digits(v) not in haystack]
+
+    if missing:
+        print("\n✗ В готовом PDF нет чисел деки: " + ", ".join(missing))
+        print("  Похоже, в кадр попала анимация чисел. Запустите сборку ещё раз.\n")
+        return False
+
     return True
 
 
