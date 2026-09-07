@@ -242,7 +242,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: 20, fontFamily: typeface[800], color: colors.accent },
+  avatarText: { fontSize: 20, fontFamily: typeface[800], color: colors.accentInk },
   name: { fontSize: 17, fontFamily: typeface[700], color: colors.text },
   since: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
 

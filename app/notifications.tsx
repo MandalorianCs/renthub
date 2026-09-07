@@ -41,7 +41,7 @@ const LOOKS: Record<string, Look> = {
   booking_requested: { icon: 'calendar-number-outline', color: colors.warn },
   booking_cancelled: { icon: 'close-circle-outline', color: colors.textMuted },
   booking_confirmed: { icon: 'calendar-outline', color: colors.green },
-  item_picked_up: { icon: 'arrow-forward-circle-outline', color: colors.accent },
+  item_picked_up: { icon: 'arrow-forward-circle-outline', color: colors.accentInk },
   item_returned: { icon: 'arrow-back-circle-outline', color: colors.green },
   return_due_today: { icon: 'time-outline', color: colors.warn },
   deposit_released: { icon: 'cash-outline', color: colors.green },
@@ -57,7 +57,7 @@ const LOOKS: Record<string, Look> = {
   item_restored: { icon: 'eye-outline', color: colors.green },
   // Первое, что человек видит в приложении: заявку одобрили.
   invite_ready: { icon: 'key-outline', color: colors.green },
-  moderator_message: { icon: 'chatbubble-ellipses-outline', color: colors.accent },
+  moderator_message: { icon: 'chatbubble-ellipses-outline', color: colors.accentInk },
   connection_test: { icon: 'wifi-outline', color: colors.textMuted },
 };
 

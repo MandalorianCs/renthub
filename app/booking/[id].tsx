@@ -187,7 +187,7 @@ export default function BookingScreen() {
           color={move.yours ? colors.accent : colors.textMuted}
         />
         <View style={{ flex: 1, gap: 3 }}>
-          <Text style={[s.moveTitle, move.yours && { color: colors.accent }]}>{move.title}</Text>
+          <Text style={[s.moveTitle, move.yours && { color: colors.accentInk }]}>{move.title}</Text>
           <Text style={s.moveBody}>{move.body}</Text>
         </View>
       </View>
@@ -523,7 +523,7 @@ function ReviewForm({ onSubmit }: { onSubmit: (rating: number, comment?: string)
       <View style={s.stars}>
         {[1, 2, 3, 4, 5].map((n) => (
           <Pressable key={n} onPress={() => setRating(n)}>
-            <Text style={[s.star, n <= rating && { color: colors.accent }]}>★</Text>
+            <Text style={[s.star, n <= rating && { color: colors.accentInk }]}>★</Text>
           </Pressable>
         ))}
       </View>

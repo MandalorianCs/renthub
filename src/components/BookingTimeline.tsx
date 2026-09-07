@@ -113,7 +113,7 @@ const s = StyleSheet.create({
   },
   label: { fontSize: 10, fontFamily: typeface[500], color: colors.textMuted, textAlign: 'center' },
   labelActive: { color: colors.text },
-  labelNow: { fontFamily: typeface[800], color: colors.accent },
+  labelNow: { fontFamily: typeface[800], color: colors.accentInk },
 
   offRoad: {
     flexDirection: 'row',

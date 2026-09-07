@@ -543,7 +543,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: 15, fontFamily: typeface[800], color: colors.accent },
+  avatarText: { fontSize: 15, fontFamily: typeface[800], color: colors.accentInk },
   ownerName: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
   ownerMeta: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted },
   sticky: {
@@ -569,7 +569,7 @@ const s = StyleSheet.create({
   share: { padding: 4 },
   sharedNote: { fontSize: 13, fontFamily: typeface[600], color: colors.green },
   title: { fontSize: 21, fontFamily: typeface[700], color: colors.text, letterSpacing: -0.4 },
-  price: { fontSize: 30, fontFamily: typeface[800], color: colors.accent, letterSpacing: -0.9 },
+  price: { fontSize: 30, fontFamily: typeface[800], color: colors.accentInk, letterSpacing: -0.9 },
   description: { fontSize: 15, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 22 },
   sectionTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
   note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },

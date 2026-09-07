@@ -225,7 +225,7 @@ const s = StyleSheet.create({
   day: { fontSize: 14, fontFamily: typeface[600], color: colors.text },
   dayDisabled: { color: colors.border },
   dayBusy: { color: colors.danger, textDecorationLine: 'line-through' },
-  dayInRange: { color: colors.accent },
+  dayInRange: { color: colors.accentInk },
   dayEdge: { color: colors.onFill, fontFamily: typeface[800] },
   legend: { flexDirection: 'row', gap: spacing.lg },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },

@@ -359,7 +359,7 @@ function EmailCard({
 
 const s = StyleSheet.create({
   changeLink: { paddingVertical: spacing.sm, alignSelf: 'flex-start' },
-  changeLinkText: { fontSize: 14, fontFamily: typeface[600], color: colors.accent },
+  changeLinkText: { fontSize: 14, fontFamily: typeface[600], color: colors.accentInk },
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
   avatar: {
@@ -367,7 +367,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.accentSoft,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 20, fontFamily: typeface[800], color: colors.accent },
+  avatarText: { fontSize: 20, fontFamily: typeface[800], color: colors.accentInk },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   linkTitle: { flex: 1, fontSize: 15, fontFamily: typeface[700], color: colors.text },

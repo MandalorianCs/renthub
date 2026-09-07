@@ -142,6 +142,6 @@ const s = StyleSheet.create({
     paddingVertical: 5,
     marginTop: 2,
   },
-  moveText: { fontSize: 12, fontFamily: typeface[700], color: colors.accent },
+  moveText: { fontSize: 12, fontFamily: typeface[700], color: colors.accentInk },
   depositNote: { fontSize: 12, fontFamily: typeface[600] },
 });

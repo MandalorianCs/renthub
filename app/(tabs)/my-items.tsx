@@ -407,7 +407,7 @@ const s = StyleSheet.create({
   container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   sectionTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  link: { fontSize: 14, fontFamily: typeface[700], color: colors.accent },
+  link: { fontSize: 14, fontFamily: typeface[700], color: colors.accentInk },
   iconBtn: { padding: spacing.xs },
   moneyHero: { alignItems: 'center', gap: 2, paddingVertical: spacing.sm },
   moneyLabel: {
