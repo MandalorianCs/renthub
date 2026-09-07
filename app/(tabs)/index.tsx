@@ -14,6 +14,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { InstallBanner } from '../../src/components/InstallBanner';
 import { CatalogSkeleton } from '../../src/components/Skeleton';
 import { Empty, ErrorState, ScreenHead, SignedInNote, tap } from '../../src/components/ui';
 import { categoryIcon } from '../../src/lib/category-icon';
@@ -451,6 +452,11 @@ export default function Catalog() {
           ListHeaderComponent={
             <>
               {linkedIn ? <SignedInNote onClose={dismissLinkedIn} /> : null}
+
+              {/* Предложение поставить приложение на телефон. Показывается
+                  только там, где браузер к этому готов, и только один раз —
+                  всё остальное внутри компонента. */}
+              <InstallBanner />
 
               {/* Полоса про демо — см. её же объяснение выше по файлу.
                   Условие строгое: ни одной живой вещи. */}
