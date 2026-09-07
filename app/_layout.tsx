@@ -42,7 +42,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const inCatalog = seg[0] === '(tabs)' && (!seg[1] || seg[1] === 'index');
     const inItemCard = seg[0] === 'item' && seg[1] === '[id]';
     const inOwnerCard = seg[0] === 'owner' && seg[1] === '[id]';
-    const isPublic = inCatalog || inItemCard || inOwnerCard;
+    // Разбор сделки открыт по той же причине, по которой открыт каталог, и
+    // ровно с тем же основанием: он ничего не читает из базы. Все данные на
+    // нём — пример и общие тексты этапов. Закрывать его входом значило бы
+    // прятать ответ на вопрос «а что вы вообще сделали» за тем самым
+    // барьером, из-за которого этот вопрос и возникает.
+    const inHow = seg[0] === 'how';
+    const isPublic = inCatalog || inItemCard || inOwnerCard || inHow;
 
     // Адрес запоминается до ухода на вход. Ссылку на сделку бот шлёт в
     // Telegram, и открывают её где угодно: без этого человек входил и
@@ -111,6 +117,7 @@ export default function RootLayout() {
             <Stack.Screen name="booking/[id]" options={{ title: 'Сделка' }} />
             <Stack.Screen name="notifications" options={{ title: 'Уведомления' }} />
             <Stack.Screen name="support" options={{ title: 'Поддержка' }} />
+            <Stack.Screen name="how" options={{ title: 'Как проходит сделка' }} />
           </Stack>
         </AuthGate>
       </AuthProvider>

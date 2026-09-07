@@ -31,7 +31,16 @@ export type Move = {
 
 type Table = Record<string, { owner: Move; renter: Move }>;
 
-export function nextMove(booking: Booking, isOwner: boolean): Move {
+/**
+ * Принимаем не всю бронь, а только её статус — ровно то, что читаем.
+ *
+ * Сузили 07.09.2026 ради разбора сделки на /how: там брони нет и быть не
+ * может (гость не вошёл), а собирать ради вызова фальшивый объект из
+ * двадцати четырёх полей значило бы завести вторую, ничем не проверяемую
+ * копию формы Booking. Настоящие вызовы передают целую бронь и подходят
+ * под Pick без единой правки.
+ */
+export function nextMove(booking: Pick<Booking, 'status'>, isOwner: boolean): Move {
   const row = (table as unknown as Table)[booking.status];
   return isOwner ? row.owner : row.renter;
 }

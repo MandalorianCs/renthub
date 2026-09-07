@@ -111,14 +111,31 @@ export default function SignIn() {
               сторож — открыл ссылку на сделку, пришёл по рекламе, — упирался
               в форму без выхода. Сказать про возможность и не дать её
               читается как отговорка. */}
-          <Pressable
-            onPress={() => router.replace('/')}
-            style={({ pressed }) => [s.exit, pressed && { opacity: 0.6 }]}
-            accessibilityRole="link"
-            accessibilityLabel="Смотреть каталог без входа"
-          >
-            <Text style={s.exitText}>Смотреть каталог без входа</Text>
-          </Pressable>
+          <View style={s.exits}>
+            <Pressable
+              onPress={() => router.replace('/')}
+              style={({ pressed }) => [s.exit, pressed && { opacity: 0.6 }]}
+              accessibilityRole="link"
+              accessibilityLabel="Смотреть каталог без входа"
+            >
+              <Text style={s.exitText}>Смотреть каталог без входа</Text>
+            </Pressable>
+
+            {/* Второй выход — для того, кому каталога мало.
+                Витрина отвечает на вопрос «есть ли тут вещи», но не на
+                вопрос «а как это работает», а именно с ним сюда приходят
+                те, кто ссылку получил, а приглашения не имеет: жюри,
+                знакомый, будущий владелец инструмента. Раньше им
+                оставалось закрыть вкладку. */}
+            <Pressable
+              onPress={() => router.push('/how')}
+              style={({ pressed }) => [s.exit, pressed && { opacity: 0.6 }]}
+              accessibilityRole="link"
+              accessibilityLabel="Посмотреть, как проходит сделка"
+            >
+              <Text style={s.exitText}>Как проходит сделка</Text>
+            </Pressable>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -489,6 +506,7 @@ const s = StyleSheet.create({
   stepBody: { fontSize: 13, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 19 },
   note: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
   noteText: { flex: 1, fontSize: 13, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 19 },
+  exits: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: spacing.lg },
   exit: { alignSelf: 'center', paddingVertical: 14, paddingHorizontal: 8 },
   exitText: {
     fontSize: 15,

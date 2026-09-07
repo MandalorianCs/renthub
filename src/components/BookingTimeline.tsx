@@ -111,9 +111,25 @@ const s = StyleSheet.create({
     borderRadius: 11,
     borderWidth: 3,
   },
-  label: { fontSize: 10, fontFamily: typeface[500], color: colors.textMuted, textAlign: 'center' },
+  // Отрицательный трекинг — не украшение, а помещаемость.
+  //
+  // Измерено 07.09.2026 на экране 420 точек: колонка этапа шириной 71, а
+  // слово «Подтверждена» набирает 72. Один пиксель — и подпись ломается
+  // посреди слова: «Подтвержден» / «а». Ошибка видна на всех телефонах и
+  // на экране настоящей сделки тоже, а не только в разборе.
+  label: {
+    fontSize: 10,
+    fontFamily: typeface[500],
+    color: colors.textMuted,
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
   labelActive: { color: colors.text },
-  labelNow: { fontFamily: typeface[800], color: colors.accentInk },
+  // Текущий этап выделен цветом, а не самым жирным начертанием.
+  // ExtraBold шире Bold процентов на восемь, и на переключении этапов
+  // подписи прыгали бы шириной — а «Подтверждена» на нём снова не
+  // помещалась. Цвет отличает не хуже и ничего не двигает.
+  labelNow: { fontFamily: typeface[700], color: colors.accentInk },
 
   offRoad: {
     flexDirection: 'row',

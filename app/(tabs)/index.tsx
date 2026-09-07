@@ -67,7 +67,7 @@ export default function Catalog() {
    * переписывать историю браузера на каждое нажатие фильтра — кнопка
    * «назад» перестала бы возвращать на предыдущую страницу.
    */
-  const params = useLocalSearchParams<{ category?: string; q?: string; item?: string }>();
+  const params = useLocalSearchParams<{ category?: string; q?: string; item?: string; how?: string }>();
 
   // Ссылка на объявление приходит сюда, а не на /item/<id>.
   //
@@ -87,6 +87,21 @@ export default function Catalog() {
   useEffect(() => {
     if (params.item) router.replace(`/item/${params.item}`);
   }, [params.item, router]);
+
+  // ?how=1 → разбор сделки. Тот же приём и по той же причине, что у ?item.
+  //
+  // Приложение собрано одной страницей (`web.output: "single"`), поэтому
+  // физически существует только app/index.html. Ссылка вида app/how живёт
+  // для человека — GitHub Pages отдаёт 404.html, внутри которого то же
+  // приложение, — но отвечает кодом 404. Ставить такую ссылку на лендинг
+  // нельзя: `npm run check:links` честно назовёт её битой, и будет прав.
+  //
+  // push, а не replace: сюда приходят с лендинга, и «назад» должно
+  // возвращать на лендинг, а не проваливаться сквозь разбор обратно в него
+  // же по кругу.
+  useEffect(() => {
+    if (params.how) router.push('/how');
+  }, [params.how, router]);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [active, setActive] = useState<string | null>(params.category ?? null);
@@ -457,6 +472,28 @@ export default function Catalog() {
                   только там, где браузер к этому готов, и только один раз —
                   всё остальное внутри компонента. */}
               <InstallBanner />
+
+              {/* Приглашение к разбору сделки — только гостю.
+                  Участник пилота свои сделки уже видит, и полоса была бы
+                  ему шумом. А гость видит витрину и не видит продукта:
+                  всё, что делает RentHUB платформой, а не доской
+                  объявлений, живёт за входом. Одна строка — и оно
+                  показывается без аккаунта. */}
+              {!session ? (
+                <Pressable
+                  onPress={() => router.push('/how')}
+                  style={({ pressed }) => [s.tour, pressed && { opacity: 0.7 }]}
+                  accessibilityRole="link"
+                  accessibilityLabel="Посмотреть, как проходит сделка"
+                >
+                  <Ionicons name="play-circle-outline" size={20} color={colors.accent} />
+                  <Text style={s.tourText}>
+                    Первый раз здесь? Посмотрите, <Text style={s.tourStrong}>как проходит сделка</Text> —
+                    депозит, сроки и чей ход. Без входа.
+                  </Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.accent} />
+                </Pressable>
+              ) : null}
 
               {/* Полоса про демо — см. её же объяснение выше по файлу.
                   Условие строгое: ни одной живой вещи. */}
@@ -862,6 +899,20 @@ const s = StyleSheet.create({
      любом снимке. Значение записано числом, а не токеном, по той же
      причине, что и там: своего токена под затемнение поверх фотографии
      в теме нет. */
+  tour: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  tourText: { flex: 1, fontSize: 13, lineHeight: 19, fontFamily: typeface[400], color: colors.text },
+  tourStrong: { fontFamily: typeface[700], color: colors.accentInk },
+
   demoTag: {
     position: 'absolute',
     left: spacing.sm,

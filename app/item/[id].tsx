@@ -291,6 +291,15 @@ export default function ItemScreen() {
             variant="secondary"
             onPress={() => router.push('/')}
           />
+          {/* Тупик демо-объявления — единственное место, где человек уже
+              захотел забронировать и уже получил «нельзя». Ответить ему
+              «вот как это выглядит» здесь дешевле всего: вопрос задан
+              минуту назад и ещё не забыт. */}
+          <Button
+            title="Как проходит сделка"
+            variant="ghost"
+            onPress={() => router.push('/how')}
+          />
         </Card>
       ) : isOwnItem ? (
         <Card>
