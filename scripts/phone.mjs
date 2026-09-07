@@ -25,7 +25,15 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // одной функции незачем.
 //
 // Копий в JavaScript-мире теперь ноль: раньше эта была четвёртой.
-export { inviteEmail, normalizePhone } from '../src/lib/phone.ts';
+// Импорт и реэкспорт по отдельности, а не `export … from`.
+//
+// Короткая форма создаёт только внешний экспорт: внутри файла имени не
+// появляется. isServiceAccount ниже зовёт normalizePhone — и падал с
+// «normalizePhone is not defined» при первом же запуске npm run health.
+// Ошибка тихая: файл разбирается, типы проходят, ломается только вызов.
+import { inviteEmail, normalizePhone } from '../src/lib/phone.ts';
+
+export { inviteEmail, normalizePhone };
 
 
 const service = JSON.parse(readFileSync(join(ROOT, 'shared', 'service-accounts.json'), 'utf8'));
