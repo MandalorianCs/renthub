@@ -126,6 +126,7 @@ npm run check:spell                 опечатки в тексте деки (�
 npm run check:html                  разметка лендинга и деки (html-validate)
 npm run check:contrast              читаются ли цвета приложения
 npm run check:links                 живые ли ссылки на сайте (linkinator, нужна сеть)
+npm run check:public                работает ли всё, что обещано судьям (без ключей)
 npm run check:size                  не растолстела ли сборка приложения
 landing/pitch.html?present=1        режим докладчика: таймер по регламенту, стрелки листают
 npm run pitch:deck                  оба файла деки: PDF и PPTX

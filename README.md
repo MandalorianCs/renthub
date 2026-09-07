@@ -280,6 +280,7 @@ npm run check:html                             # разметка лендинг
 npm run check:size                             # не растолстела ли сборка приложения
 npm run check:lint                             # анализатор схемы Supabase: только новое
 npm run check:links                            # живые ли ссылки на сайте (нужна сеть)
+npm run check:public                           # работает ли всё, что обещано судьям
 ```
 
 Почти все требуют секретного ключа (npm run pages — токена GitHub): он обходит RLS, и в `.env` ему нельзя —

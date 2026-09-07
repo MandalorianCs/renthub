@@ -58,6 +58,7 @@
     "check:html": "npx --yes html-validate landing/index.html landing/pitch.html",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check:links": "node scripts/check-links.mjs",
+    "check:public": "node scripts/check-public.mjs",
     "check:size": "node scripts/check-size.mjs",
     "check:lint": "node scripts/check-lint.mjs",
     "health": "node scripts/health.mjs",
