@@ -40,7 +40,16 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 22, а не 20, по двум причинам сразу.
+          #
+          # Первая: скрипты импортируют TypeScript напрямую
+          # (scripts/phone.mjs → src/lib/phone.ts), а Node 20 этого не
+          # умеет — «Unknown file extension .ts». Поймала проверка
+          # npm run check:scripts на первом же прогоне в CI.
+          #
+          # Вторая: @supabase/supabase-js требует >= 22, и npm ci при
+          # каждом прогоне предупреждал об этом жёлтым.
+          node-version: 22
           cache: npm
 
       - run: npm ci
