@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -830,7 +830,11 @@ h2 {
 
     <div class="hero-card-wrap">
     <div class="sticker" aria-hidden="true">+8 400 ₸ за 3 суток</div>
-    <div class="card" aria-label="Пример объявления">
+    <!-- role="group" вместе с aria-label: на голом div подпись не
+         работает — скринридер её просто не прочитает, потому что у
+         элемента нет роли, к которой подпись относится. Нашёл
+         html-validate (правило aria-label-misuse). -->
+    <div class="card" role="group" aria-label="Пример объявления">
       <div class="card-top">
         <div class="thumb" aria-hidden="true">
           <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#8A7C6A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">

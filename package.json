@@ -54,6 +54,7 @@
     "check:sql": "node scripts/check-sql.mjs",
     "check:scripts": "node scripts/check-scripts.mjs",
     "check:spell": "python scripts/check-spell.py",
+    "check:html": "npx --yes html-validate landing/index.html landing/pitch.html",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check:links": "node scripts/check-links.mjs",
     "check:size": "node scripts/check-size.mjs",
