@@ -48,7 +48,7 @@ const PURE = ['phone.mjs', 'deck.mjs', 'env.mjs'];
 // сеть, собирают сайт. Их не импортируем; они проверяются собственным
 // запуском.
 const RUNNERS = new Set([
-  'auth.mjs', 'build-pages.mjs', 'check-contrast.mjs', 'check-dates.mjs',
+  'auth.mjs', 'build-pages.mjs', 'check-contrast.mjs', 'check-dates.mjs', 'check-deps.mjs',
   'check-errors.mjs',
   'check-links.mjs', 'check-lint.mjs', 'check-pitch.mjs', 'check-price.mjs',
   'check-public.mjs', 'check-scripts.mjs', 'check-secrets.mjs', 'check-size.mjs', 'check-sql.mjs',

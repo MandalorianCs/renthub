@@ -274,6 +274,8 @@ npm run check:price                            # деньги и сроки пр
 npm run check:sql                              # опасные операции в новых миграциях (Squawk)
 npm run check:scripts                          # загружаются ли служебные скрипты
 npm run check:contrast                         # читаются ли цвета приложения
+npm run check:dates                            # не съезжают ли сутки в чужом часовом поясе
+npm run check:deps                             # уязвимости зависимостей: новая на фоне известных (нужна сеть)
 npm run check:secrets                          # ключи, случайно попавшие в репозиторий
 npm run check:spell                            # опечатки в тексте деки
 npm run check:html                             # разметка лендинга и деки

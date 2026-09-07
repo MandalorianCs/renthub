@@ -1,0 +1,58 @@
+{
+  "комментарий": [
+    "Известные уязвимости зависимостей — те, с которыми решено жить.",
+    "",
+    "Записывается командой npm run check:deps -- --set. Поля «где» и",
+    "«почему» пишет человек: пустое объяснение проверку не проходит.",
+    "",
+    "Смысл списка не в том, чтобы уязвимостей стало ноль, а в том,",
+    "чтобы НОВАЯ была видна на фоне известных."
+  ],
+  "известные": {
+    "1119441": {
+      "пакет": "uuid",
+      "уровень": "moderate",
+      "затронуто": "<11.1.1",
+      "что": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+      "ссылка": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+      "где": "сборка iOS: xcode → @expo/config-plugins, при prebuild",
+      "почему": "Приходит через xcode, который правит файлы Xcode-проекта при prebuild. Уязвим путь uuid v3/v5/v6 с переданным buf, и данные там наши собственные — чужого в prebuild не попадает. В бандл не уезжает. Чинится сменой мажорной версии Expo."
+    },
+    "1138808": {
+      "пакет": "image-size",
+      "уровень": "high",
+      "затронуто": "<=2.0.2",
+      "что": "image-size: ICNS parser allows denial of service through an infinite loop",
+      "ссылка": "https://github.com/advisories/GHSA-w3rx-r6r6-pgpr",
+      "где": "сборщик Metro, при сборке",
+      "почему": "Metro определяет размеры наших же картинок при сборке. Отказ в обслуживании здесь означает зависшую сборку у нас на глазах, а не у посетителя: image-size в бандл не уезжает. Пришло с react-native 0.86, чинится обновлением Metro в составе Expo."
+    },
+    "1138809": {
+      "пакет": "image-size",
+      "уровень": "high",
+      "затронуто": "<=2.0.2",
+      "что": "image-size: JXL and HEIF parsers allow denial of service through infinite loops",
+      "ссылка": "https://github.com/advisories/GHSA-5p2g-fcmc-qvqq",
+      "где": "сборщик Metro, при сборке",
+      "почему": "То же самое, что и соседний совет, но про парсеры JXL и HEIF. Условия те же: наши файлы, время сборки, не бандл."
+    },
+    "1147955": {
+      "пакет": "decode-uri-component",
+      "уровень": "moderate",
+      "затронуто": "<=0.4.2",
+      "что": "decode-uri-component: Denial of service via exponential decoding of malformed percent-encoded input",
+      "ссылка": "https://github.com/advisories/GHSA-vcc3-ghjq-m6fr",
+      "где": "БАНДЛ: expo-router разбирает адрес в браузере",
+      "почему": "Единственная строка списка, которая живёт рядом с человеком: query-string разбирает ?item= и ?how= в его вкладке. Отказ достигается специально составленным длинным адресом — то есть посетитель способен подвесить только собственную вкладку, чужую не может. Чужих данных в наши адреса тоже не попадает: их пишем мы и бот. Чинится обновлением expo-router."
+    },
+    "1158518": {
+      "пакет": "@xmldom/xmldom",
+      "уровень": "moderate",
+      "затронуто": ">=0.7.0 <=0.8.14",
+      "что": "xmldom: XML fragment injection via invalid EntityReference.nodeName during requireWellFormed serialization",
+      "ссылка": "https://github.com/advisories/GHSA-6gmq-8vp8-gcm6",
+      "где": "сборка нативных приложений: plist и манифесты",
+      "почему": "Приходит через @expo/plist и @expo/config-plugins — оба работают при сборке над нашими же plist и AndroidManifest. Инъекция фрагмента XML требует подсунуть чужой XML, а подсовывать его некому. В бандл не уезжает."
+    }
+  }
+}
