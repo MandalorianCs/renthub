@@ -245,17 +245,41 @@ npm run demo:clear                             # убрать её
 npm run icons                                  # пересобрать иконки и og:image
 npm run demo:photos                            # нарисовать заглушки для витрины
 npm run queue                                  # кто оставил заявку и ждёт приглашения
-npm run check                                  # всё разом, перед пушем
-npm run check:bot                              # два имени в боте и списки статусов против базы
-npm run check:pitch                            # сходятся ли числа деки между собой и с кодом
-npm run pitch:deck                             # дека файлами: PDF судьям, PPTX на проектор
 npm run health                                 # живо ли то, что обещано словами
 npm run auth                                   # адрес возврата и срок жизни кода входа
 npm run nudge                                  # кому написать про Telegram и каким текстом
+npm run pages                                  # кто публикует сайт
+```
+
+Дека и материалы к защите:
+
+```bash
+npm run pitch:deck                             # PDF судьям и PPTX на проектор из landing/pitch.html
+npm run qr                                     # перерисовать QR на визитке
+npm run fx                                     # обновить курс тенге к доллару в эквивалентах
+```
+
+Режим докладчика — не команда, а адрес: `landing/pitch.html?present=1`.
+Стрелки и пробел листают, внизу идёт время блока и остаток от трёх минут.
+Секунды берутся из самой разметки, где они и так стоят.
+
+Проверки. Каждая отвечает на один вопрос и падает, если ответ «нет»:
+
+```bash
+npm run check                                  # всё разом, перед пушем
+npm run check:bot                              # имена в боте и списки статусов против базы
+npm run check:pitch                            # сходятся ли числа деки между собой и с кодом
 npm run check:errors                           # ошибки базы объяснены по-русски?
 npm run check:price                            # деньги и сроки против настроек базы
+npm run check:sql                              # опасные операции в новых миграциях (Squawk)
+npm run check:scripts                          # загружаются ли служебные скрипты
+npm run check:contrast                         # читаются ли цвета приложения
+npm run check:secrets                          # ключи, случайно попавшие в репозиторий
+npm run check:spell                            # опечатки в тексте деки
+npm run check:html                             # разметка лендинга и деки
+npm run check:size                             # не растолстела ли сборка приложения
 npm run check:lint                             # анализатор схемы Supabase: только новое
-npm run pages                                  # кто публикует сайт
+npm run check:links                            # живые ли ссылки на сайте (нужна сеть)
 ```
 
 Почти все требуют секретного ключа (npm run pages — токена GitHub): он обходит RLS, и в `.env` ему нельзя —
@@ -290,6 +314,7 @@ $env:SUPABASE_SECRET_KEY="sb_secret_..."; npm run invite -- +7701... "Имя"
 ```bash
 python -m pip install -r bot/requirements.txt
 python bot/bot.py
+npm run bot        # то же самое: python bot/bot.py со своим окружением
 ```
 
 Работает и проверено на живом проекте: человек открывает бота, нажимает
