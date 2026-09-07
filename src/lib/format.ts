@@ -9,76 +9,23 @@ export function formatTenge(amount: number): string {
   return `${amount.toLocaleString('ru-RU')} ₸`;
 }
 
-export function formatDate(iso: string): string {
-  const d = new Date(iso);
-
-  // Год появляется, только когда он не текущий.
-  //
-  // Без этого «12 дек.» в истории сделок читается как декабрь этого года,
-  // хотя может быть прошлогодним, — и чем старше аккаунт, тем чаще. Даты
-  // будущих броней от добавки не страдают: они почти всегда в текущем году
-  // и года не получат.
-  //
-  // Бот делает то же самое в human_date(), но словом целиком: «12 декабря».
-  // Различие намеренное — в колонке экрана места меньше, чем в строке чата,
-  // — и записано здесь, чтобы следующий читатель не «починил» его до
-  // одинаковости.
-  const sameYear = d.getFullYear() === new Date().getFullYear();
-
-  return d
-    .toLocaleDateString('ru-RU', {
-      day: 'numeric',
-      month: 'short',
-      ...(sameYear ? {} : { year: 'numeric' }),
-    })
-    // «12 дек. 2025 г.» — два лишних знака в колонке, где место на счету.
-    // Год и так стоит числом, слово «г.» ничего к нему не добавляет.
-    .replace(' г.', '');
-}
-
-export function formatDateRange(startISO: string, endISO: string): string {
-  const from = new Date(startISO);
-  const to = new Date(endISO);
-
-  // Повторять то, что уже сказано, — значит заставлять перечитывать.
-  //
-  // «12 дек. 2025 — 15 дек. 2025» несёт ровно столько же, сколько
-  // «12 — 15 дек. 2025», но занимает вдвое больше места в карточке, где
-  // рядом стоят название, статус и сумма. Аренда почти всегда внутри
-  // одного месяца, так что сжатый вид — обычный случай, а не исключение.
-  //
-  // Три вида, по убыванию частоты:
-  //   один месяц      12 — 15 дек.
-  //   один год        28 нояб. — 3 дек.
-  //   разные годы     28 дек. 2025 — 3 янв. 2026
-  const sameYear = from.getFullYear() === to.getFullYear();
-  const sameMonth = sameYear && from.getMonth() === to.getMonth();
-
-  if (sameMonth) return `${from.getDate()} — ${formatDate(endISO)}`;
-  if (sameYear) return `${formatDay(startISO)} — ${formatDate(endISO)}`;
-
-  // Разные годы: год ставится у обеих дат, даже если правая в текущем.
-  // «28 дек. 2025 — 3 янв.» заставляет достраивать год самому, а «3 янв.
-  // 2026» не оставляет вопроса — за два лишних знака на редком случае.
-  return `${formatDayYear(startISO)} — ${formatDayYear(endISO)}`;
-}
-
-/** День, месяц и год — всегда. Для диапазонов через границу года. */
-function formatDayYear(iso: string): string {
-  return new Date(iso)
-    .toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })
-    .replace(' г.', '');
-}
-
 /**
- * День и месяц без года — левая половина диапазона внутри одного года.
+ * Даты сделки переехали в src/lib/dates.ts и оттуда же раздаются.
  *
- * Отдельно от formatDate, потому что тот про год решает сам: там это
- * правильно (дата стоит одна), здесь — нет (год скажет правая половина).
+ * Причина переезда — ошибка, а не порядок: `new Date('2026-09-10')`
+ * разбирается как полночь UTC, а читается местным поясом, и дата съезжала
+ * на сутки для всех западнее Гринвича. Чинить это по месту значило бы
+ * чинить в четырёх функциях и надеяться, что пятую не напишут.
+ *
+ * Теперь правило живёт одним модулем без единого импорта — а значит его
+ * можно запустить обычным `node` в чужом часовом поясе. Это и делает
+ * `npm run check:dates`, в шести поясах сразу.
+ *
+ * Здесь оставлен реэкспорт: экраны зовут `formatDate` из format.ts с
+ * самого начала, и переписывать двадцать импортов ради переезда одной
+ * функции — работа без пользы.
  */
-function formatDay(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-}
+export { formatDate, formatDateRange, formatDay, formatDayYear } from './dates';
 
 type StatusStyle = { label: string; fg: string; bg: string };
 

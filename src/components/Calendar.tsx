@@ -1,8 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { eachDay, todayISO, toISO } from '../lib/dates';
 import type { BusyRange } from '../lib/types';
 import { colors, radius, spacing, typeface } from '../theme';
+
+// toISO нужен и карточке вещи — она импортирует его отсюда с самого
+// начала. Отдаём дальше, а не переписываем чужой импорт: сама функция
+// теперь живёт в src/lib/dates.ts вместе с остальным разбором суток.
+export { toISO };
 
 /**
  * Выбор интервала аренды.
@@ -21,28 +27,18 @@ const MONTHS = [
   'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь',
 ];
 
-/** Дата без времени в ISO — единственный формат, которым оперирует календарь. */
-export function toISO(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
 /**
- * Разворачиваем интервалы в множество занятых дней. Границы включительно:
- * аренда «с 1 по 3» занимает и первое, и третье число — ровно так же, как
- * считает дни триггер в базе.
+ * Разворачиваем интервалы в множество занятых дней.
+ *
+ * Раньше цикл разбирал границы через `new Date(r.start_date)` — то есть
+ * как полночь UTC, — а сравнивал с местными сутками. Западнее Гринвича
+ * календарь гасил не тот день: свободный выглядел занятым, а занятый
+ * оставался нажимаемым до отказа базы. Разбор теперь в eachDay().
  */
 function busyDaySet(ranges: BusyRange[]): Set<string> {
   const set = new Set<string>();
   for (const r of ranges) {
-    const cursor = new Date(r.start_date);
-    const last = new Date(r.end_date);
-    while (cursor <= last) {
-      set.add(toISO(cursor));
-      cursor.setDate(cursor.getDate() + 1);
-    }
+    for (const day of eachDay(r.start_date, r.end_date)) set.add(day);
   }
   return set;
 }
@@ -58,7 +54,7 @@ export function Calendar({
   end: string | null;
   onChange: (start: string | null, end: string | null) => void;
 }) {
-  const today = useMemo(() => toISO(new Date()), []);
+  const today = useMemo(() => todayISO(), []);
   const [month, setMonth] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -85,13 +81,7 @@ export function Calendar({
    * ошибку после нажатия «Забронировать».
    */
   function rangeIsClear(from: string, to: string): boolean {
-    const cursor = new Date(from);
-    const last = new Date(to);
-    while (cursor <= last) {
-      if (busyDays.has(toISO(cursor))) return false;
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    return true;
+    return eachDay(from, to).every((day) => !busyDays.has(day));
   }
 
   function press(iso: string) {

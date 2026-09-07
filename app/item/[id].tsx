@@ -12,6 +12,12 @@ import {
   View,
 } from 'react-native';
 import { Calendar, toISO } from '../../src/components/Calendar';
+// Быстрый выбор «на N дней» считал сегодня как new Date().toISOString() —
+// то есть по Гринвичу. В Кокшетау (UTC+5) с полуночи до пяти утра это
+// ВЧЕРАШНЕЕ число: кнопка подставляла дату, которую календарь тут же
+// красил как прошедшую, а база отвергала с RENTHUB_PAST_DATE. Человек
+// ночью не делал ничего неправильного и получал отказ.
+import { addDays as addDaysISO, todayISO } from '../../src/lib/dates';
 import { PhotoViewer } from '../../src/components/PhotoViewer';
 import { DetailSkeleton } from '../../src/components/Skeleton';
 import { Badge, Button, Card, Empty, ErrorState, Row, tap } from '../../src/components/ui';
@@ -515,16 +521,6 @@ function initials(name?: string | null): string {
   if (!name) return '—';
   const parts = name.trim().split(' ').filter(Boolean);
   return parts.slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '—';
-}
-
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function addDaysISO(iso: string, days: number): string {
-  const d = new Date(iso);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
 }
 
 const s = StyleSheet.create({
