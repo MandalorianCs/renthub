@@ -1778,6 +1778,9 @@ html[data-slide] .diagram-scroll { overflow: visible; }
         <strong>Приложение на живой базе:</strong> каталог, бронирование, депозиты, споры,
         отзывы, рейтинг. Каталог открыт без регистрации —
         <a href="https://mandaloriancs.github.io/renthub/app/" target="_blank" rel="noopener">откройте прямо сейчас</a>.
+        Сделка тоже видна без входа:
+        <a href="https://mandaloriancs.github.io/renthub/app/?how=1" target="_blank" rel="noopener">разбор пути</a>
+        показывает статусы, депозит и «чей ход» теми же экранами, что видят участники.
       </p></div>
       <div class="point"><span class="point-dot"></span><p>
         <strong>Форма отвечает на вопрос владельца:</strong> он вводит цену и сразу
@@ -2019,14 +2022,37 @@ html[data-slide] .diagram-scroll { overflow: visible; }
     </p>
 
     <div class="grid g2" style="margin-top:32px">
+      <!-- Плитка была наполовину пуста: имя, город и бот — три строки на
+           весь столбец, а рядом второй столбец полон. Пустота на последнем
+           слайде читается не как воздух, а как «сказать больше нечего», и
+           смотрят на неё дольше всего: именно этот слайд стоит на экране,
+           пока задают вопросы.
+
+           Заполнено тем, что уместно на визитке и уже публично: репозиторий
+           с кодом и стендом. Это же и единственный ответ на «а покажите,
+           что не на слово» — который нельзя дать устно. -->
       <div class="tile">
         <h3>Глеб Савельев</h3>
         <p>Основатель · Кокшетау, Казахстан</p>
         <p><a href="https://t.me/renthub_kokshetau_bot" target="_blank" rel="noopener">@renthub_kokshetau_bot</a></p>
+        <p style="margin-top:18px"><strong>Проверить, а не поверить</strong></p>
+        <p>
+          Код, миграции и стенд —
+          <a href="https://github.com/MandalorianCs/renthub" target="_blank" rel="noopener">открытый репозиторий</a>.
+          376 проверок бизнес-правил поднимают чистый Postgres и проезжают
+          сделку целиком: от публикации до спора.
+        </p>
       </div>
       <div class="tile">
         <h3>Посмотреть продукт</h3>
         <p><a href="https://mandaloriancs.github.io/renthub/app/" target="_blank" rel="noopener">Приложение</a></p>
+        <!-- Третья ссылка отвечает на вопрос, который каталог оставляет
+             открытым. Витрина показывает вещи и цены, а продукт у нас в
+             сделке: статусы, депозит, сроки, чей ход. Всё это за входом, а
+             вход на пилоте выдаём мы — то есть судья до него не доберётся.
+             Разбор показывает ту же механику теми же компонентами и без
+             аккаунта. -->
+        <p><a href="https://mandaloriancs.github.io/renthub/app/?how=1" target="_blank" rel="noopener">Разбор сделки — без входа</a></p>
         <p><a href="https://mandaloriancs.github.io/renthub/" target="_blank" rel="noopener">Лендинг для владельцев</a></p>
 
         <!-- Код ведёт в приложение, а не на лендинг: лендинг рассказывает,
@@ -2036,8 +2062,9 @@ html[data-slide] .diagram-scroll { overflow: visible; }
           <div class="qr" data-qr="https://mandaloriancs.github.io/renthub/app/"><svg width="100%" height="100%" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41 41" shape-rendering="crispEdges"><path fill="#FAF7F2" d="M0 0h41v41H0z"/><path stroke="#1A1917" d="M4 4.5h7m4 0h1m1 0h1m2 0h4m3 0h1m2 0h7M4 5.5h1m5 0h1m2 0h1m2 0h4m1 0h1m2 0h1m1 0h1m3 0h1m5 0h1M4 6.5h1m1 0h3m1 0h1m1 0h1m3 0h2m2 0h4m4 0h1m1 0h1m1 0h3m1 0h1M4 7.5h1m1 0h3m1 0h1m1 0h4m2 0h1m1 0h1m3 0h3m1 0h1m1 0h1m1 0h3m1 0h1M4 8.5h1m1 0h3m1 0h1m1 0h1m4 0h1m1 0h1m1 0h2m5 0h1m1 0h1m1 0h3m1 0h1M4 9.5h1m5 0h1m1 0h1m1 0h2m3 0h3m2 0h3m3 0h1m5 0h1M4 10.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M12 11.5h1m1 0h3m1 0h2m2 0h1m2 0h1m1 0h1M4 12.5h1m1 0h5m3 0h2m1 0h3m1 0h1m2 0h1m1 0h3m1 0h5M5 13.5h1m2 0h1m5 0h2m6 0h4m1 0h1m2 0h2m1 0h2m1 0h1M5 14.5h2m3 0h2m1 0h2m4 0h1m2 0h1m1 0h2m2 0h1m3 0h1m1 0h2M4 15.5h2m2 0h2m1 0h5m2 0h1m4 0h1m1 0h2m3 0h1m1 0h3m1 0h1M4 16.5h2m1 0h1m1 0h6m4 0h1m2 0h1m2 0h1m2 0h1m2 0h3M4 17.5h1m1 0h1m2 0h1m1 0h2m2 0h6m3 0h1m1 0h3m1 0h1m2 0h4M5 18.5h4m1 0h1m3 0h1m3 0h1m2 0h1m1 0h1m2 0h1m1 0h3m2 0h3M4 19.5h2m1 0h1m10 0h1m1 0h1m2 0h4m1 0h3m2 0h2M6 20.5h1m1 0h5m1 0h1m1 0h2m3 0h1m1 0h1m2 0h1m1 0h2m1 0h2m3 0h1M4 21.5h6m1 0h1m2 0h1m1 0h1m1 0h1m1 0h5m1 0h2m2 0h2m1 0h4M10 22.5h1m2 0h2m1 0h1m2 0h3m4 0h1m1 0h5m1 0h2M7 23.5h1m1 0h1m1 0h1m1 0h1m1 0h1m3 0h6m2 0h1m1 0h8M4 24.5h1m1 0h1m1 0h1m1 0h1m4 0h1m1 0h4m2 0h5m1 0h1m2 0h2m1 0h2M4 25.5h1m2 0h3m1 0h1m4 0h2m1 0h1m1 0h2m2 0h1m1 0h1m2 0h1m2 0h1m2 0h1M4 26.5h1m1 0h3m1 0h1m2 0h3m2 0h3m1 0h1m1 0h1m3 0h4m3 0h1M4 27.5h1m2 0h3m2 0h1m1 0h1m1 0h2m1 0h1m5 0h1m2 0h2m1 0h4M4 28.5h1m2 0h4m1 0h4m2 0h4m4 0h1m1 0h6m1 0h2M12 29.5h3m1 0h3m1 0h1m2 0h3m2 0h1m3 0h1m1 0h1m1 0h1M4 30.5h7m3 0h1m1 0h1m1 0h2m2 0h1m1 0h2m1 0h2m1 0h1m1 0h1m1 0h1M4 31.5h1m5 0h1m1 0h1m1 0h1m2 0h3m5 0h4m3 0h5M4 32.5h1m1 0h3m1 0h1m1 0h2m1 0h1m6 0h1m2 0h1m2 0h6m1 0h2M4 33.5h1m1 0h3m1 0h1m1 0h3m2 0h4m3 0h1m1 0h4m2 0h3m1 0h1M4 34.5h1m1 0h3m1 0h1m1 0h1m10 0h1m1 0h1m2 0h1m1 0h2m2 0h1M4 35.5h1m5 0h1m2 0h1m2 0h3m1 0h1m1 0h6m4 0h3M4 36.5h7m1 0h2m2 0h1m1 0h1m2 0h1m1 0h1m2 0h4m1 0h1m3 0h1"/></svg></div>
           <div class="qr-label">
             <b>Наведите камеру</b>
-            Откроется каталог — без регистрации,
-            с живыми объявлениями Кокшетау.
+            Откроется каталог — без регистрации.
+            Первая же строка ведёт в разбор сделки:
+            депозит, сроки и чей ход.
           </div>
         </div>
 
