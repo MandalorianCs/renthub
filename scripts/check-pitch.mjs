@@ -22,7 +22,7 @@
 // сама с собой, — падение придёт здесь, а не на защите.
 
 import { createClient } from '@supabase/supabase-js';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 // Отпечаток считает тот же код, что его записывает: две реализации
 // «одинаковости» разошлись бы первыми.
 import { deckFingerprint } from './deck.mjs';
@@ -531,6 +531,62 @@ if (secret) {
 }
 
 const claimed = find(pitch, /<div class="stat-v">(\d+)<\/div>/, 'число проверок стенда');
+
+// ── Имена из кода на витрине ─────────────────────────────────
+//
+// Раздел «Trust Score» на лендинге называет каждое правило именем функции
+// в базе: assert_verified(), settle_booking(), decide_dispute_payout().
+// Это сильнейший ход страницы — обещание, которое можно проверить, — и он
+// же самый хрупкий: имя живёт в HTML, функция в миграции, связи между ними
+// нет никакой.
+//
+// 07.09.2026 нашлось расхождение: страница называла reviews_validate,
+// а функции с таким именем в проекте нет и не было — отзыв проверяет
+// reviews_before_insert(). Судья, которого мы сами зовём открыть
+// репозиторий, искал бы её и не нашёл, а вывод сделал бы про все семь.
+{
+  console.log('\n── Имена функций на витрине ──');
+
+  const migrationsDir = join(ROOT, 'supabase', 'migrations');
+  const migrations = readdirSync(migrationsDir)
+    .filter((n) => n.endsWith('.sql'))
+    .map((n) => readFileSync(join(migrationsDir, n), 'utf8'))
+    .join('\n');
+
+  const snippets = [...landing.matchAll(/<code>([^<]+)<\/code>/g)].map(([, s]) => s.trim());
+
+  for (const snippet of snippets) {
+    // Пути к файлам и команды сюда не относятся: за них отвечают
+    // check:links и check:scripts.
+    if (snippet.includes('/') || snippet.startsWith('npm ')) continue;
+
+    // Имя со скобками — функция. Всё остальное («deposit_status = held»)
+    // сверяем по словам: и колонка, и значение обязаны встречаться.
+    const asFunction = /^([a-z_][a-z0-9_]*)\(\)$/.exec(snippet);
+
+    if (asFunction) {
+      const name = asFunction[1];
+      if (migrations.includes('function ' + name + '(')) {
+        console.log(`  ok  ${snippet.padEnd(30)} есть в миграциях`);
+      } else {
+        console.log(`  ??  ${snippet.padEnd(30)} такой функции в миграциях нет`);
+        failed++;
+      }
+      continue;
+    }
+
+    const words = [...snippet.matchAll(/[a-z_][a-z0-9_]{2,}/g)].map(([w]) => w);
+    const missing = words.filter((w) => !migrations.includes(w));
+
+    if (missing.length === 0) {
+      console.log(`  ok  ${snippet.padEnd(30)} встречается в миграциях`);
+    } else {
+      console.log(`  ??  ${snippet.padEnd(30)} нет в миграциях: ${missing.join(', ')}`);
+      failed++;
+    }
+  }
+}
+
 
 console.log('\n── Стенд ──');
 
