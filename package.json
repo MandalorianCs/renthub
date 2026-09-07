@@ -53,6 +53,7 @@
     "check:price": "node scripts/check-price.mjs",
     "check:sql": "node scripts/check-sql.mjs",
     "check:scripts": "node scripts/check-scripts.mjs",
+    "check:spell": "python scripts/check-spell.py",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check:links": "node scripts/check-links.mjs",
     "check:size": "node scripts/check-size.mjs",
