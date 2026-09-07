@@ -26,7 +26,7 @@ import { isDemoOwner } from '../../src/lib/demo';
 import { humanizeError } from '../../src/lib/supabase';
 import type { Category, ItemWithOwner } from '../../src/lib/types';
 import { useRefresh } from '../../src/lib/useRefresh';
-import { colors, elevation, radius, spacing, typeface } from '../../src/theme';
+import { colors, elevation, radius, spacing, TAP, typeface } from '../../src/theme';
 
 /**
  * Экран 2: каталог.
@@ -692,11 +692,13 @@ function ItemCard({
             onFavorite();
           }}
         >
-          <Ionicons
-            name={favorite ? 'heart' : 'heart-outline'}
-            size={17}
-            color={favorite ? colors.accent : colors.text}
-          />
+          <View style={s.heartDot}>
+            <Ionicons
+              name={favorite ? 'heart' : 'heart-outline'}
+              size={17}
+              color={favorite ? colors.accent : colors.text}
+            />
+          </View>
         </Pressable>
       </View>
 
@@ -781,9 +783,13 @@ const s = StyleSheet.create({
   // фиксируем явно, а alignItems не даёт кнопкам тянуться вертикально.
   chipsRow: { flexGrow: 0, flexShrink: 0, marginTop: spacing.lg },
   chips: { paddingHorizontal: spacing.lg, gap: spacing.sm, alignItems: 'center' },
+  // Категории — главная навигация витрины, и они были 38 точек в высоту
+  // при норме 44. Высота задана коробкой, а не отступами: отступы зависят
+  // от размера шрифта, а обещание «не меньше 44» не должно.
   chip: {
     paddingHorizontal: 15,
-    paddingVertical: 9,
+    minHeight: TAP,
+    justifyContent: 'center',
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
@@ -803,7 +809,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    paddingVertical: 6,
+    minHeight: TAP,
     paddingHorizontal: spacing.md,
     borderRadius: radius.pill,
     borderWidth: 1,
@@ -932,6 +938,16 @@ const s = StyleSheet.create({
     position: 'absolute',
     top: spacing.sm,
     right: spacing.sm,
+    // 30 точек хватало глазу и не хватало пальцу. Кружок остался прежнего
+    // размера — выросла только зона нажатия: внешняя коробка 44×44
+    // прозрачна и ничего не закрывает на фото, белый кружок рисует
+    // вложенный слой.
+    width: TAP,
+    height: TAP,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heartDot: {
     width: 30,
     height: 30,
     borderRadius: 15,

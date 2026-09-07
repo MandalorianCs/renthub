@@ -37,7 +37,7 @@ import { shareItem } from '../../src/lib/share';
 import { DEMO_NOTICE, isDemoOwner } from '../../src/lib/demo';
 import { humanizeError } from '../../src/lib/supabase';
 import type { BusyRange, Item, ItemWithOwner } from '../../src/lib/types';
-import { colors, elevation, radius, spacing, typeface } from '../../src/theme';
+import { colors, elevation, radius, spacing, TAP, typeface } from '../../src/theme';
 
 /** Экран 3: карточка объявления + бронирование. */
 export default function ItemScreen() {
@@ -571,7 +571,9 @@ const s = StyleSheet.create({
   stickyMeta: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted },
   photo: { width: 240, height: 180, borderRadius: radius.lg, marginRight: spacing.md, backgroundColor: colors.border },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
-  share: { padding: 4 },
+  // Ссылка — способ распространения пилота, а кнопка была 28×31: меньше
+  // всего остального на экране при самой большой роли.
+  share: { width: TAP, height: TAP, alignItems: 'center', justifyContent: 'center' },
   sharedNote: { fontSize: 13, fontFamily: typeface[600], color: colors.green },
   title: { fontSize: 21, fontFamily: typeface[700], color: colors.text, letterSpacing: -0.4 },
   price: { fontSize: 30, fontFamily: typeface[800], color: colors.accentInk, letterSpacing: -0.9 },
@@ -579,9 +581,12 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontFamily: typeface[700], color: colors.text },
   note: { fontSize: 12, fontFamily: typeface[400], color: colors.textMuted, lineHeight: 18 },
   presets: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
+  // «1 дн.» … «30 дн.» были 32 точки. Это первое, чего человек касается,
+  // выбирая срок, и промах здесь означает не тот срок аренды.
   preset: {
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    minHeight: TAP,
+    justifyContent: 'center',
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,

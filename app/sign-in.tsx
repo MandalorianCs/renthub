@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Field } from '../src/components/ui';
 import { useAuth } from '../src/lib/auth';
 import { humanizeError, TELEGRAM_BOT, TELEGRAM_BOT_URL } from '../src/lib/supabase';
-import { colors, radius, spacing, typeface } from '../src/theme';
+import { colors, radius, spacing, TAP, typeface } from '../src/theme';
 
 /**
  * Экран входа.
@@ -477,7 +477,17 @@ const s = StyleSheet.create({
     borderRadius: radius.pill,
     padding: 5,
   },
-  tab: { flex: 1, paddingVertical: 11, paddingHorizontal: 4, borderRadius: radius.pill, alignItems: 'center' },
+  // Переключатель способа входа: три кнопки по 41 точке. Первое, чего
+  // человек касается на этом экране, и промах отправляет его вводить не
+  // тот вид данных.
+  tab: {
+    flex: 1,
+    minHeight: TAP,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+  },
   tabActive: { backgroundColor: colors.accent },
   tabText: { fontSize: 14, fontFamily: typeface[700], color: colors.textMuted },
   tabTextActive: { color: colors.onFill },

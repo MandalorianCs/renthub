@@ -9,7 +9,7 @@ import { BOOKING_STATUS, DEPOSIT_STATUS, formatTenge } from '../src/lib/format';
 import { nextMove } from '../src/lib/nextMove';
 import { COMMISSION_PCT, calcPrice } from '../src/lib/pricing';
 import type { BookingStatus, DepositStatus } from '../src/lib/types';
-import { colors, radius, spacing, typeface } from '../src/theme';
+import { colors, radius, spacing, TAP, typeface } from '../src/theme';
 
 /**
  * Как проходит сделка — разбор пути без входа.
@@ -320,7 +320,8 @@ const s = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   chip: {
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    minHeight: TAP,
+    justifyContent: 'center',
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,

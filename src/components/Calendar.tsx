@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { eachDay, todayISO, toISO } from '../lib/dates';
 import type { BusyRange } from '../lib/types';
-import { colors, radius, spacing, typeface } from '../theme';
+import { colors, radius, spacing, TAP, typeface } from '../theme';
 
 // toISO нужен и карточке вещи — она импортирует его отсюда с самого
 // начала. Отдаём дальше, а не переписываем чужой импорт: сама функция
@@ -153,11 +153,23 @@ export function Calendar({
           const inRange = Boolean(start && end && iso > start && iso < end);
           const edge = isStart || isEnd;
 
+          // Роль и подпись, а не только цвет.
+          //
+          // Ячейки были обычными нажимаемыми View с числом внутри: незрячий
+          // слышал «1 2 3 4» — без «кнопка», без «занято», без «выбрано».
+          // Занятость и выбор передавались одним лишь цветом, то есть не
+          // передавались вовсе тому, кто цвета не различает.
           return (
             <Pressable
               key={iso}
               disabled={disabled}
               onPress={() => press(iso)}
+              accessibilityRole="button"
+              accessibilityState={{ disabled, selected: edge || inRange }}
+              accessibilityLabel={
+                `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]}` +
+                (isBusy ? ', занято' : disabled ? ', прошедший день' : '')
+              }
               style={[s.cell, inRange && s.inRange, edge && s.edge]}
             >
               <Text
@@ -193,7 +205,14 @@ export function Calendar({
 const s = StyleSheet.create({
   wrap: { gap: spacing.md },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  nav: { padding: spacing.xs },
+  // Стрелки месяцев держались на hitSlop, который в вебе не работает:
+  // коробка была 28×31 и ею всё и ограничивалось.
+  nav: {
+    width: TAP,
+    height: TAP,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   month: { fontSize: 15, fontFamily: typeface[800], color: colors.text, textTransform: 'capitalize' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   weekday: {
