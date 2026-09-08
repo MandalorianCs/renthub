@@ -81,3 +81,6 @@ supabase/.temp/
 # (см. HANDOFF, «Как запускать бота»). Производное, не исходник.
 bot/bot.log
 bot/bot.err.log
+
+# Кеш импортов Python: scripts/*.py запускаются напрямую, .pyc — производное.
+__pycache__/

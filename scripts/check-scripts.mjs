@@ -52,6 +52,7 @@ const RUNNERS = new Set([
   'check-errors.mjs',
   'check-links.mjs', 'check-lint.mjs', 'check-pitch.mjs', 'check-price.mjs',
   'check-public.mjs', 'check-scripts.mjs', 'check-secrets.mjs', 'check-size.mjs', 'check-sql.mjs',
+  'check-tap.mjs',
   'demo-listings.mjs', 'email.mjs', 'exit.mjs', 'fx.mjs', 'health.mjs',
   'invite.mjs', 'make-demo-photos.mjs', 'make-icons.mjs', 'moderator.mjs',
   'notify-clear.mjs', 'notify-test.mjs', 'nudge.mjs', 'pages.mjs', 'qr.mjs',

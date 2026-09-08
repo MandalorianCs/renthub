@@ -7,14 +7,15 @@ import Manrope_600SemiBold from '@expo-google-fonts/manrope/600SemiBold/Manrope_
 import Manrope_700Bold from '@expo-google-fonts/manrope/700Bold/Manrope_700Bold.ttf';
 import Manrope_800ExtraBold from '@expo-google-fonts/manrope/800ExtraBold/Manrope_800ExtraBold.ttf';
 import { useFonts } from 'expo-font';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../src/lib/auth';
 import { rememberRoute, takeRoute } from '../src/lib/returnTo';
-import { colors, typeface } from '../src/theme';
+import { colors, TAP, typeface } from '../src/theme';
 
 /**
  * Гейт авторизации. Держим его здесь, а не в каждом экране: если
@@ -100,13 +101,43 @@ export default function RootLayout() {
         <StatusBar style="dark" />
         <AuthGate>
           <Stack
-            screenOptions={{
+            screenOptions={({ navigation }) => ({
               headerStyle: { backgroundColor: colors.bg },
               headerTintColor: colors.text,
               headerTitleStyle: { fontFamily: typeface[700] },
               headerShadowVisible: false,
               contentStyle: { backgroundColor: colors.bg },
-            }}
+
+              // Своя кнопка «назад» вместо навигаторской.
+              //
+              // Готовая рисуется 30×30 — меньше нормы 44 и меньше всего
+              // остального в приложении, при том что нажимают её чаще
+              // прочего: ею выходят из карточки вещи, из сделки, из
+              // поддержки. Померено npm run check:tap на живом сайте.
+              //
+              // Размер здесь и есть весь смысл замены: вид тот же —
+              // шеврон в цвет текста.
+              headerLeft: ({ canGoBack }) =>
+                canGoBack ? (
+                  <Pressable
+                    onPress={() => navigation.goBack()}
+                    accessibilityRole="button"
+                    accessibilityLabel="Назад"
+                    style={({ pressed }) => ({
+                      width: TAP,
+                      height: TAP,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      // Отрицательный отступ слева возвращает шеврон на то
+                      // место, где он стоял: выросла зона, а не поле.
+                      marginLeft: -10,
+                      opacity: pressed ? 0.6 : 1,
+                    })}
+                  >
+                    <Ionicons name="chevron-back" size={24} color={colors.text} />
+                  </Pressable>
+                ) : undefined,
+            })}
           >
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="sign-in" options={{ headerShown: false }} />

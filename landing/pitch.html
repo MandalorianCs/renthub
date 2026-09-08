@@ -751,6 +751,44 @@ html[data-draft] .todo {
 }
 html[data-draft] .todo b { display: block; margin-bottom: 4px; }
 
+/* ── Показ против раздатки ─────────────────────────────────────
+
+   Шаблон ИНК требует прямо: «На слайде не более 6 строк текста, даже
+   если это финмодель», и отдельно — «слайд должен подкреплять вашу
+   речь, а не дублировать её».
+
+   Наша дека при этом делает две работы. Её показывают с проектора три
+   минуты — и её же читают потом как раздатку, где плотность как раз
+   достоинство: таблица юнит-экономики отвечает на вопрос, который на
+   сцене задать не успеют.
+
+   Разводим по режимам, а не по файлам. Две версии одной деки разошлись
+   бы через неделю — это уже записано выше про черновой режим, и здесь
+   верно вдвойне: числа в раздатке и на слайде обязаны совпадать.
+
+     ?lean=1        режим показа: остаётся заголовок и опора для речи
+     без флага      раздатка: всё, как было
+
+   Что прячется в показе:
+     [data-handout]   блок целиком (таблицы, длинные списки, хронометраж);
+     .tile p          текст плиток — на слайде остаются их заголовки,
+                      а сам текст произносится вслух.
+   Что появляется:
+     [data-lean-only] короткая опора вместо спрятанного блока. */
+html[data-lean] [data-handout] { display: none !important; }
+html[data-lean] .tile p { display: none; }
+/* Кроме визитки: её содержание — это и есть контакты и адреса. Их не
+   произносят со сцены, их переписывают с экрана. */
+html[data-lean] .tile p[data-keep] { display: block; }
+/* Пояснение под крупной цифрой, подпись под схемой и оговорка внизу —
+   всё это абзацы, которые произносят, а не читают с экрана. Цифра,
+   схема и заголовок остаются. */
+html[data-lean] .fact .l,
+html[data-lean] .diagram figcaption,
+html[data-lean] .disclaimer { display: none; }
+[data-lean-only] { display: none; }
+html[data-lean] [data-lean-only] { display: block; }
+
 .timing { margin-top: 44px; }
 .timing table { min-width: 420px; }
 .timing td:last-child, .timing th:last-child { text-align: right; }
@@ -1288,7 +1326,7 @@ html[data-slide] .diagram-scroll { overflow: visible; }
          до вопроса. -->
     <text x="8" y="216" font-size="13" font-weight="700" fill="#6E675E">Что здесь чем является</text>
     <text x="8" y="240" font-size="13" fill="#6E675E">Факт: население и число домохозяйств Кокшетау. Чек 10 500 ₸ — реальная цена трёх суток аренды перфоратора.</text>
-    <text x="8" y="262" font-size="13" fill="#6E675E">Допущение: 3% домохозяйств и две аренды в год на человека. Проверяется пилотом — ради этого он и идёт.</text>
+    <text x="8" y="262" font-size="13" fill="#6E675E">Допущение: 3% домохозяйств и две аренды в год на человека. Проверяется пилотом — ради этого он и запускается.</text>
     <text x="8" y="284" font-size="13" fill="#6E675E">Комиссия 20% — параметр платформы, записан в базе как настройка, а не обещание в презентации.</text>
   </g>
 </svg>
@@ -1484,7 +1522,7 @@ html[data-slide] .diagram-scroll { overflow: visible; }
       </div>
     </div>
 
-    <div class="table-wrap" style="margin-top:32px">
+    <div data-handout class="table-wrap" style="margin-top:32px">
       <table>
         <thead>
           <tr><th>Показатель</th><th>Значение</th><th>Откуда взялось</th></tr>
@@ -1623,7 +1661,7 @@ html[data-slide] .diagram-scroll { overflow: visible; }
       «ждёт замера» — их пока ноль.
     </p>
 
-    <div class="table-wrap" style="margin-top:28px">
+    <div data-handout class="table-wrap" style="margin-top:28px">
       <table>
         <thead>
           <tr><th>Метрика</th><th>Что это у нас</th><th>Значение</th><th>Откуда</th></tr>
@@ -1694,7 +1732,7 @@ html[data-slide] .diagram-scroll { overflow: visible; }
     <div class="slide-num"><b>8</b> Конкуренты <span>· 20 секунд</span></div>
     <h2>Сегодня это решают OLX<br>и просьбой в домовом чате</h2>
 
-    <div class="table-wrap">
+    <div data-handout class="table-wrap">
       <table>
         <thead>
           <tr><th>Как решают сейчас</th><th>Депозит</th><th>Разбор спора</th><th>Рейтинг</th><th>Рядом с домом</th></tr>
@@ -1775,31 +1813,31 @@ html[data-slide] .diagram-scroll { overflow: visible; }
 
     <div class="points" style="margin-top:36px">
       <div class="point"><span class="point-dot"></span><p>
-        <strong>Приложение на живой базе:</strong> каталог, бронирование, депозиты, споры,
+        <strong>Приложение на живой базе</strong><span data-handout>: каталог, бронирование, депозиты, споры,
         отзывы, рейтинг. Каталог открыт без регистрации —
         <a href="https://mandaloriancs.github.io/renthub/app/" target="_blank" rel="noopener">откройте прямо сейчас</a>.
         Сделка тоже видна без входа:
         <a href="https://mandaloriancs.github.io/renthub/app/?how=1" target="_blank" rel="noopener">разбор пути</a>
-        показывает статусы, депозит и «чей ход» теми же экранами, что видят участники.
+        показывает статусы, депозит и «чей ход» теми же экранами, что видят участники.</span>
       </p></div>
       <div class="point"><span class="point-dot"></span><p>
-        <strong>Форма отвечает на вопрос владельца:</strong> он вводит цену и сразу
+        <strong>Форма отвечает на вопрос владельца</strong><span data-handout>: он вводит цену и сразу
         видит, что вещь принесёт за год при разной частоте сдачи. Спрос при этом не
         угадывается — считается только его цена и наша комиссия. Двусторонний рынок
-        начинается с предложения, а предложение — с ответа «стоит ли возиться».
+        начинается с предложения, а предложение — с ответа «стоит ли возиться».</span>
       </p></div>
       <div class="point"><span class="point-dot"></span><p>
-        <strong>Ставится на телефон по ссылке:</strong> без магазина, без аккаунта
+        <strong>Ставится на телефон по ссылке</strong><span data-handout>: без магазина, без аккаунта
         Google и без ожидания модерации — два касания из чата. Для пилота это и есть
-        способ раздачи: владельцу в Кокшетау отправляют ссылку, а не инструкцию.
+        способ раздачи: владельцу в Кокшетау отправляют ссылку, а не инструкцию.</span>
       </p></div>
       <div class="point"><span class="point-dot"></span><p>
-        <strong>Телеграм-бот:</strong> подтверждение номера, коды входа и уведомления
-        о сделках. Работает на том же бэкенде, обойти правила базы не может.
+        <strong>Телеграм-бот</strong><span data-handout>: подтверждение номера, коды входа и уведомления
+        о сделках. Работает на том же бэкенде, обойти правила базы не может.</span>
       </p></div>
       <div class="point"><span class="point-dot"></span><p>
-        <strong>Схема разворачивается пушем</strong> в репозиторий, каждая миграция
-        проверяется на настоящем Postgres до деплоя.
+        <strong>Схема разворачивается пушем</strong><span data-handout> в репозиторий, каждая миграция
+        проверяется на настоящем Postgres до деплоя.</span>
       </p></div>
       <!-- «345 проверок» — цифра, которую жюри не может подтвердить со
            слайда, а непроверяемая цифра стоит ровно столько же, сколько
@@ -1807,14 +1845,14 @@ html[data-slide] .diagram-scroll { overflow: visible; }
            отдельной папкой и запускается одной командой — значит цифру
            можно не обещать, а показать. -->
       <div class="point"><span class="point-dot"></span><p>
-        <strong>Проверить можно самим:</strong> код открыт, стенд лежит в
+        <strong>Проверить можно самим</strong><span data-handout>: код открыт, стенд лежит в
         <a href="https://github.com/MandalorianCs/renthub/tree/main/db-tests" target="_blank" rel="noopener">db-tests</a>
         и поднимает чистый Postgres одной командой. Он проезжает сделку целиком —
-        от публикации до спора — с теми же правами, что у приложения.
+        от публикации до спора — с теми же правами, что у приложения.</span>
       </p></div>
       <div class="point"><span class="point-dot"></span><p>
-        <strong>Ближайшие шаги до конца года:</strong> витрина с реальными объявлениями,
-        первые 30 владельцев в одном микрорайоне, подключение Kaspi Pay.
+        <strong>Ближайшие шаги до конца года</strong><span data-handout>: витрина с реальными объявлениями,
+        первые 30 владельцев в одном микрорайоне, подключение Kaspi Pay.</span>
       </p></div>
     </div>
 
@@ -2006,8 +2044,9 @@ html[data-slide] .diagram-scroll { overflow: visible; }
 
     <p class="lead" data-draft-hide style="margin-top:24px">
       Разбивка запроса готовится вместе с финансовой моделью пилота: суммы
-      привязаны к числу владельцев и сделок, а не названы заранее. Пилот идёт
-      сейчас — на этой же странице выше видно, что именно уже работает.
+      привязаны к числу владельцев и сделок, а не названы заранее. Продукт
+      развёрнут и открыт, пилот запускается — выше видно, что именно уже
+      работает, и что сделок пока не было.
     </p>
   </div>
 </section>
@@ -2033,10 +2072,10 @@ html[data-slide] .diagram-scroll { overflow: visible; }
            что не на слово» — который нельзя дать устно. -->
       <div class="tile">
         <h3>Глеб Савельев</h3>
-        <p>Основатель · Кокшетау, Казахстан</p>
-        <p><a href="https://t.me/renthub_kokshetau_bot" target="_blank" rel="noopener">@renthub_kokshetau_bot</a></p>
+        <p data-keep>Основатель · Кокшетау, Казахстан</p>
+        <p data-keep><a href="https://t.me/renthub_kokshetau_bot" target="_blank" rel="noopener">@renthub_kokshetau_bot</a></p>
         <p style="margin-top:18px"><strong>Проверить, а не поверить</strong></p>
-        <p>
+        <p data-keep>
           Код, миграции и стенд —
           <a href="https://github.com/MandalorianCs/renthub" target="_blank" rel="noopener">открытый репозиторий</a>.
           376 проверок бизнес-правил поднимают чистый Postgres и проезжают
@@ -2045,15 +2084,15 @@ html[data-slide] .diagram-scroll { overflow: visible; }
       </div>
       <div class="tile">
         <h3>Посмотреть продукт</h3>
-        <p><a href="https://mandaloriancs.github.io/renthub/app/" target="_blank" rel="noopener">Приложение</a></p>
+        <p data-keep><a href="https://mandaloriancs.github.io/renthub/app/" target="_blank" rel="noopener">Приложение</a></p>
         <!-- Третья ссылка отвечает на вопрос, который каталог оставляет
              открытым. Витрина показывает вещи и цены, а продукт у нас в
              сделке: статусы, депозит, сроки, чей ход. Всё это за входом, а
              вход на пилоте выдаём мы — то есть судья до него не доберётся.
              Разбор показывает ту же механику теми же компонентами и без
              аккаунта. -->
-        <p><a href="https://mandaloriancs.github.io/renthub/app/?how=1" target="_blank" rel="noopener">Разбор сделки — без входа</a></p>
-        <p><a href="https://mandaloriancs.github.io/renthub/" target="_blank" rel="noopener">Лендинг для владельцев</a></p>
+        <p data-keep><a href="https://mandaloriancs.github.io/renthub/app/?how=1" target="_blank" rel="noopener">Разбор сделки — без входа</a></p>
+        <p data-keep><a href="https://mandaloriancs.github.io/renthub/" target="_blank" rel="noopener">Лендинг для владельцев</a></p>
 
         <!-- Код ведёт в приложение, а не на лендинг: лендинг рассказывает,
              приложение показывает. Судья, который достал телефон, хочет
@@ -2074,14 +2113,14 @@ html[data-slide] .diagram-scroll { overflow: visible; }
   </div>
 </section>
 
-<section id="card-timing" data-cont>
+<section id="card-timing" data-cont data-handout>
   <div class="wrap">
     <div class="slide-num"><b>15</b> Хронометраж <span>· продолжение</span></div>
     <h2>Три минуты по секундам</h2>
 
     <div class="timing">
       <h3 style="margin-bottom:16px">Хронометраж — 180 секунд</h3>
-      <div class="table-wrap">
+      <div data-handout class="table-wrap">
         <table>
           <thead><tr><th>Блок</th><th>Секунды</th></tr></thead>
           <tbody>
@@ -2662,6 +2701,12 @@ html[data-slide] .diagram-scroll { overflow: visible; }
   // кому они не предназначены.
   if (location.search.indexOf('draft') !== -1) {
     document.documentElement.setAttribute('data-draft', '1');
+  }
+
+  // Режим показа. Ставится здесь же, до отрисовки: иначе плотные блоки
+  // успели бы мигнуть на проекторе.
+  if (/[?&]lean=1/.test(location.search)) {
+    document.documentElement.setAttribute('data-lean', '1');
   }
 </script>
 </body>

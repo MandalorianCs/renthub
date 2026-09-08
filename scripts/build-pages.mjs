@@ -144,6 +144,10 @@ cpSync(join(ROOT, 'landing', 'pitch.html'), join(DOCS, 'pitch', 'index.html'));
 for (const [file, command] of [
   ['RentHUB-pitch.pdf', 'npm run pitch:pdf'],
   ['RentHUB-pitch.pptx', 'npm run pitch:pptx'],
+  // Третий файл — версия для проектора. Шаблон ИНК требует не более
+  // шести строк текста на слайде; раздатка это правило нарушает
+  // намеренно (её читают, а не смотрят), а показ ему следует.
+  ['RentHUB-slides.pptx', 'npm run pitch:slides'],
 ]) {
   const src = join(ROOT, 'landing', file);
   if (existsSync(src)) {

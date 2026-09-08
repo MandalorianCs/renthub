@@ -255,6 +255,7 @@ npm run pages                                  # кто публикует са�
 
 ```bash
 npm run pitch:deck                             # PDF судьям и PPTX на проектор из landing/pitch.html
+npm run pitch:slides                           # версия для проектора: ≤6 строк на слайде (шаблон ИНК)
 npm run qr                                     # перерисовать QR на визитке
 npm run fx                                     # обновить курс тенге к доллару в эквивалентах
 ```
@@ -276,6 +277,7 @@ npm run check:scripts                          # загружаются ли с�
 npm run check:contrast                         # читаются ли цвета приложения
 npm run check:dates                            # не съезжают ли сутки в чужом часовом поясе
 npm run check:deps                             # уязвимости зависимостей: новая на фоне известных (нужна сеть)
+npm run check:tap                              # зоны нажатия: не меньше 44 точек (нужен браузер и сеть)
 npm run check:secrets                          # ключи, случайно попавшие в репозиторий
 npm run check:spell                            # опечатки в тексте деки
 npm run check:html                             # разметка лендинга и деки

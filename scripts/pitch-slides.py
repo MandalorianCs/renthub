@@ -51,6 +51,18 @@ LANDING = ROOT / "landing"
 DECK = LANDING / "pitch.html"
 OUT_PDF = LANDING / "RentHUB-pitch.pdf"
 OUT_PPTX = LANDING / "RentHUB-pitch.pptx"
+
+# Показ отдельным файлом.
+#
+# Шаблон ИНК требует «не более 6 строк текста на слайде, даже если это
+# финмодель» и «слайд подкрепляет речь, а не дублирует её». Наша дека при
+# этом ещё и раздатка, где плотность как раз достоинство: таблица
+# юнит-экономики отвечает на вопрос, который на сцене задать не успеют.
+#
+# Разводим не по файлам, а по режиму одной страницы (?lean=1) — иначе две
+# версии деки разошлись бы числами через неделю. Здесь просто второй
+# выход того же исходника.
+OUT_SLIDES = LANDING / "RentHUB-slides.pptx"
 PORT = 8901
 
 # Кадр 16:9. Снимаем вдвое крупнее слайда (1920×1080 против 960×540
@@ -108,6 +120,30 @@ def deck_fingerprint():
     """
     text = DECK.read_text(encoding="utf-8").replace("\r\n", "\n")
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+# Режим показа держится глобальным флагом, а не тянется параметром через
+# пять функций: снимок делает одна из них, а решают о режиме в main().
+LEAN = False
+
+
+def lean_flag():
+    return "&lean=1" if LEAN else ""
+
+
+def handout_only_sections():
+    """Номера секций, которых в показе нет вовсе.
+
+    Хронометраж — шпаргалка выступающему: судьям он не нужен, а шести
+    строк в нём нет и близко. Прятать его содержимое бессмысленно —
+    остался бы пустой слайд с заголовком, — поэтому он выпадает целиком.
+    """
+    html = DECK.read_text(encoding="utf-8")
+    out = set()
+    for i, match in enumerate(re.finditer(r"<section(?=[ >])([^>]*)>", html)):
+        if "data-handout" in match.group(1):
+            out.add(i + 1)
+    return out
 
 
 def slide_titles():
@@ -207,7 +243,7 @@ def shoot(browser, tmp, n):
             #
             # Адрес со свежим отпечатком кеш не находит и идёт на сервер. Не
             # менялась дека — не меняется адрес, и кеш работает как раньше.
-            f"http://127.0.0.1:{PORT}/pitch.html?slide={n}&v={deck_fingerprint()[:12]}",
+            f"http://127.0.0.1:{PORT}/pitch.html?slide={n}{lean_flag()}&v={deck_fingerprint()[:12]}",
         ],
         capture_output=True,
         timeout=90,
@@ -645,17 +681,26 @@ def build_pptx(shots):
             str(path), 0, 0, width=deck.slide_width, height=deck.slide_height
         )
 
-    deck.save(str(OUT_PPTX))
+    out = OUT_SLIDES if LEAN else OUT_PPTX
+    deck.save(str(out))
 
     # Отпечаток рядом с файлом — тот же приём, что у PDF: иначе
     # презентация устаревает молча, а замечают это на защите.
-    Path(str(OUT_PPTX) + ".sha").write_text(f"{deck_fingerprint()}\n", encoding="utf-8")
+    Path(str(out) + ".sha").write_text(f"{deck_fingerprint()}\n", encoding="utf-8")
     return True
 
 
 def main(argv):
-    want_pdf = "--pdf" in argv or not ("--pdf" in argv or "--pptx" in argv)
-    want_pptx = "--pptx" in argv or not ("--pdf" in argv or "--pptx" in argv)
+    global LEAN
+    LEAN = "--lean" in argv
+
+    # В показе собирается только презентация: раздатка — это как раз
+    # плотная версия, и «тощий PDF» не нужен никому.
+    if LEAN:
+        want_pdf, want_pptx = False, True
+    else:
+        want_pdf = "--pdf" in argv or not ("--pdf" in argv or "--pptx" in argv)
+        want_pptx = "--pptx" in argv or not ("--pdf" in argv or "--pptx" in argv)
 
     browser = find_browser()
     if not browser:
@@ -669,11 +714,15 @@ def main(argv):
         print(f"\n✗ В деке найдено {total} секций — образец сломан.\n")
         return 1
 
+    shown = 0
     server = serve()
     try:
         with tempfile.TemporaryDirectory() as tmp:
             shots = []
+            skip = handout_only_sections() if LEAN else set()
             for n in range(1, total + 1):
+                if n in skip:
+                    continue
                 shot, links, lines, viewport = shoot(browser, tmp, n)
                 if not shot:
                     print(f"\n✗ Слайд {n} не снялся.\n")
@@ -687,6 +736,8 @@ def main(argv):
                 note = f", ссылок {len(links)}" if links else ""
                 print(f"  снят слайд {n:2d} — {round(shot.stat().st_size / 1024)} КБ{note}")
 
+            shown = len(shots)
+
             if want_pdf and not build_pdf(shots):
                 return 1
             if want_pptx and not build_pptx(shots):
@@ -699,8 +750,10 @@ def main(argv):
         print(f"✓ Раздатка: landing/{OUT_PDF.name} — {total} страниц, "
               f"{round(OUT_PDF.stat().st_size / 1024)} КБ")
     if want_pptx:
-        print(f"✓ Презентация: landing/{OUT_PPTX.name} — {total} слайдов, "
-              f"{round(OUT_PPTX.stat().st_size / 1024)} КБ")
+        out = OUT_SLIDES if LEAN else OUT_PPTX
+        what = "Показ" if LEAN else "Презентация"
+        print(f"✓ {what}: landing/{out.name} — {shown} слайдов, "
+              f"{round(out.stat().st_size / 1024)} КБ")
 
     print("\n  Оба файла — снимки landing/pitch.html: текст в них не правится.")
     print("  Числа сверяет npm run check:pitch по разметке той же страницы.\n")
